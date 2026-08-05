@@ -42,6 +42,11 @@ class GoetiaNotification {
 
 window.addEventListener('DOMContentLoaded', () => {
   if (!recipe) return;
+  if (recipe.css) {
+    const style = document.createElement('style');
+    style.textContent = recipe.css;
+    (document.head ?? document.documentElement).appendChild(style);
+  }
   startRecipe(
     recipe,
     document,

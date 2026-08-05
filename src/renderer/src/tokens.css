@@ -58,6 +58,12 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+.glyph {
+  display: block;
+  background-color: currentColor;
+  -webkit-mask: var(--glyph) center / contain no-repeat;
+  mask: var(--glyph) center / contain no-repeat;
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */

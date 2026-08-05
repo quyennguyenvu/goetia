@@ -1,16 +1,46 @@
+import type { Counts } from '../../shared/types';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
-const FB_BLUE = /rgb\(\s*8,\s*102,\s*255/;
+/** Unread markers on facebook.com/messages, calibrated against the live DOM
+ *  (2026-08-05, Vietnamese locale): the unread conversation row has
+ *  font-weight 600 text (read rows max at 500), a small blue dot
+ *  rgb(0,100,209) with border-radius 999px sitting in the row (not the link),
+ *  and a literal "Unread" screen-reader string. Green rgb(36,131,44) dots are
+ *  "Active now" presence and must not count. Counts conversations. */
+function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
+  if (row.textContent?.includes('Unread')) return true;
+  for (const span of row.querySelectorAll('span')) {
+    if (Number.parseInt(win.getComputedStyle(span).fontWeight, 10) >= 600) return true;
+  }
+  for (const el of row.querySelectorAll('div, span, i')) {
+    const style = win.getComputedStyle(el);
+    const radius = style.borderRadius;
+    if (!radius || (!radius.includes('%') && Number.parseInt(radius, 10) < 8)) continue;
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(style.backgroundColor);
+    if (!m) continue;
+    const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (!(b >= 160 && b > g && g >= r)) continue; // blue-dominant, excludes presence-green
+    const rect = el.getBoundingClientRect();
+    // size known (real browser): must be a small dot; unknown (tests): trust color+radius
+    if (rect.width > 0 && (rect.width < 6 || rect.width > 20)) continue;
+    if (rect.height > 0 && (rect.height < 6 || rect.height > 20)) continue;
+    return true;
+  }
+  return false;
+}
 
-/** facebook.com/messages has no title count and no unread aria-labels
- *  (verified against the live DOM 2026-08-05): unread conversations are
- *  marked visually — bold (700) row text and/or a Facebook-blue dot.
- *  Counts unread conversations, not messages. */
 const messenger: Recipe = {
   id: 'messenger',
   intervalMs: 2000,
-  count(doc) {
+  // chat only: hide facebook's global top nav. Layout offsets and heights are
+  // driven by --header-height (56px), redefined at element level in places —
+  // force it to 0 everywhere or the reclaimed space reappears as a footer gap.
+  css: `
+    [role="banner"] { display: none !important; }
+    * { --header-height: 0px !important; }
+  `,
+  count(doc): Counts {
     const win = doc.defaultView;
     const links = [...doc.querySelectorAll("a[href*='/t/']")];
     if (links.length === 0 || !win) {
@@ -18,24 +48,8 @@ const messenger: Recipe = {
     }
     let direct = 0;
     for (const link of links) {
-      let unread = false;
-      for (const span of link.querySelectorAll('span')) {
-        const weight = Number.parseInt(win.getComputedStyle(span).fontWeight, 10);
-        if (weight >= 700) {
-          unread = true;
-          break;
-        }
-      }
-      if (!unread) {
-        for (const el of link.querySelectorAll('div, span')) {
-          const style = win.getComputedStyle(el);
-          if (style.borderRadius.includes('50%') && FB_BLUE.test(style.backgroundColor)) {
-            unread = true;
-            break;
-          }
-        }
-      }
-      if (unread) direct++;
+      const row = link.closest("[role='row']") ?? link;
+      if (isUnreadRow(row, win)) direct++;
     }
     return { direct, indirect: 0 };
   },

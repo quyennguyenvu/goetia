@@ -12,7 +12,6 @@ interface Props {
   runtime: ServiceRuntime;
   muted: boolean;
   active: boolean;
-  orientation: 'vertical' | 'horizontal';
   onActivate(): void;
   onContextMenu(e: React.MouseEvent): void;
   onReorder(fromId: string, toId: string): void;
@@ -27,18 +26,20 @@ export default function ServiceTile({
   runtime,
   muted,
   active,
-  orientation,
   onActivate,
   onContextMenu,
   onReorder,
 }: Props) {
   const logo = logos[`../assets/logos/${service.id}.svg`];
   const showBadge = runtime.unread.direct > 0;
+  // "Molten Squircle": ember-toned tiles; the active one floods with the warm
+  // gradient so it stays unmistakable on dark graphite.
   const stateClasses = active
-    ? 'opacity-100 shadow-[0_2px_10px_rgba(0,0,0,0.35)]'
+    ? `scale-105 bg-linear-to-br from-[#FFB43D] via-[#FF8A2A] to-[#F04E3E] text-[#15181F]
+       shadow-[0_0_10px_rgba(255,158,44,0.45),0_2px_14px_rgba(240,78,62,0.5),inset_0_1px_0_rgba(255,255,255,0.25)]`
     : runtime.hibernated
-      ? 'opacity-35 saturate-50 hover:opacity-70'
-      : 'opacity-55 saturate-[.8] hover:opacity-95 hover:saturate-100';
+      ? 'bg-bg-2 text-accent opacity-40 hover:opacity-75'
+      : 'bg-bg-2 text-accent opacity-70 hover:opacity-100 hover:shadow-[0_0_0_1px_rgba(255,158,44,0.35)]';
   return (
     <button
       type="button"
@@ -54,40 +55,49 @@ export default function ServiceTile({
       onContextMenu={onContextMenu}
       title={`${service.name}${showBadge ? ` — ${runtime.unread.direct} unread` : ''}`}
       aria-label={service.name}
-      className={`relative flex h-11 w-11 items-center justify-center rounded-tile transition-all duration-120 outline-none
+      className={`relative flex h-8 w-8 items-center justify-center rounded-[11px] transition-all duration-150 ease-out outline-none
         focus-visible:ring-2 focus-visible:ring-accent ${stateClasses}`}
-      style={{ backgroundColor: service.color }}
     >
-      {active &&
-        (orientation === 'vertical' ? (
-          <span className="absolute -left-3 h-7 w-[3px] rounded-full bg-accent" />
-        ) : (
-          <span className="absolute -bottom-1.5 left-1/2 h-[3px] w-7 -translate-x-1/2 rounded-full bg-accent" />
-        ))}
-      <img src={logo} alt="" className="h-7 w-7" draggable={false} />
+      <span
+        className="glyph h-4.5 w-4.5"
+        style={{ '--glyph': `url("${logo}")` } as React.CSSProperties}
+      />
       {showBadge && (
-        <span className="tabular absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-bg-1 bg-badge px-1 text-[10px] font-bold text-white">
+        <span className="tabular absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-bg-1 bg-badge px-0.5 text-[9px] font-bold text-white">
           {badgeText(runtime.unread.direct)}
         </span>
       )}
       {!showBadge && runtime.unread.indirect > 0 && (
-        <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-bg-1 bg-text-2" />
+        <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full border border-bg-1 bg-text-2" />
       )}
       {runtime.crashed && (
-        <span className="absolute -right-1 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-bg-1 bg-warn" />
+        <span className="absolute -right-1 bottom-0 h-2 w-2 rounded-full border border-bg-1 bg-warn" />
       )}
       {runtime.stale && !runtime.crashed && (
         <span
-          className="absolute -right-1 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-bg-1 bg-text-2"
+          className="absolute -right-1 bottom-0 h-2 w-2 rounded-full border border-bg-1 bg-text-2"
           title="count may be stale"
         />
       )}
       {muted && (
         <span
-          className="absolute -left-1 bottom-0 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-bg-2 text-[9px]"
+          className="absolute -left-1 -bottom-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-border bg-bg-2"
           title="muted"
         >
-          🔕
+          <svg
+            width="8"
+            height="8"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            aria-hidden="true"
+            className="text-text-2"
+          >
+            <path d="M18 13.5V11a6 6 0 1 0-12 0v2.5c0 1.2-.7 2.2-1.6 3-.4.4-.1 1 .4 1h14.4c.5 0 .8-.6.4-1-.9-.8-1.6-1.8-1.6-3Z" />
+            <line x1="4" y1="3.5" x2="20" y2="20.5" />
+          </svg>
         </span>
       )}
     </button>

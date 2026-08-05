@@ -17,7 +17,7 @@ function load(name: string): Document {
 const cases: [ServiceId, string, number, number][] = [
   // [service, fixture, expected direct, expected indirect]
   ['whatsapp', 'whatsapp', 3, 0], // no page IndexedDB in tests -> title fallback
-  ['messenger', 'messenger', 2, 0],
+  ['messenger', 'messenger', 3, 0], // bold row + blue-dot row + "Unread" text row; green presence dot excluded
   ['telegram', 'telegram', 4, 2], // positive peers direct, negative indirect, muted skipped
   ['discord', 'discord', 3, 1], // lowerBadge_/numberBadge_ sum; "• Discord" title -> indirect
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge

@@ -1,7 +1,13 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
 
 test('launch, rail, badge propagation', async () => {
-  const app = await electron.launch({ args: ['out/main/index.js', '--goetia-e2e'] });
+  const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-'));
+  const app = await electron.launch({
+    args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${profile}`],
+  });
 
   // Every webContents (including service views) counts as a "window" —
   // the shell renderer is the one loaded from disk.
@@ -11,6 +17,14 @@ test('launch, rail, badge propagation', async () => {
 
   await expect(win.locator('[data-testid="rail"]')).toBeVisible();
   await expect(win.locator('[data-testid="rail"] button[aria-label]')).toHaveCount(5);
+
+  // glyph masks must resolve in the built bundle — Vite inlines the logo SVGs
+  // as data URIs with single quotes, which break unquoted CSS url() tokens
+  const maskImage = await win
+    .locator('.glyph')
+    .first()
+    .evaluate((el) => getComputedStyle(el).maskImage);
+  expect(maskImage).not.toBe('none');
 
   // fake unread fired by --goetia-e2e reaches the rail badge…
   await expect(win.locator('[data-testid="rail"]').getByText('3', { exact: true })).toBeVisible({

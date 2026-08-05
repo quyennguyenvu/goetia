@@ -1,7 +1,7 @@
 import type { RailPosition } from '../../shared/types';
 
-export const RAIL_WIDTH = 68; // left/right rail
-export const RAIL_HEIGHT = 56; // top bar
+export const RAIL_WIDTH = 56; // left/right rail
+export const RAIL_HEIGHT = 44; // top bar
 
 export function viewBounds(contentWidth: number, contentHeight: number, position: RailPosition) {
   if (position === 'top') {

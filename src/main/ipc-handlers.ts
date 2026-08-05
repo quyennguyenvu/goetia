@@ -1,5 +1,6 @@
 import { app, type BrowserWindow, ipcMain } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
+import { activateService } from './activate';
 import { applyOverlay } from './badges';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
@@ -25,12 +26,7 @@ function on<C extends keyof RendererToMain>(
 }
 
 export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter): void {
-  on('service:activate', ({ serviceId }) => {
-    ctx.state.activeId = serviceId;
-    ctx.state.setRuntime(serviceId, { hibernated: false });
-    ctx.noteActivated(serviceId);
-    ctx.views.activate(serviceId);
-  });
+  on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
   on('service:setMuted', ({ serviceId, muted }) => {
     const s = ctx.settings.get();

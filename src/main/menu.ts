@@ -1,12 +1,44 @@
-import { Menu } from 'electron';
+import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
+import { activateService } from './activate';
 import type { AppContext } from './ipc-handlers';
+
+function openSettings(ctx: AppContext): void {
+  ctx.state.settingsOpen = true;
+  ctx.views.hideActive();
+  ctx.state.touch();
+  ctx.win.webContents.focus(); // so Escape closes the modal immediately
+}
 
 export function buildAppMenu(ctx: AppContext): void {
   const s = ctx.settings.get();
   const order = s.order.filter((id) => !s.disabled[id]);
+  const settingsItem: Electron.MenuItemConstructorOptions = {
+    label: 'Settings…',
+    accelerator: 'CmdOrCtrl+,',
+    click: () => openSettings(ctx),
+  };
   const template: Electron.MenuItemConstructorOptions[] = [
-    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+    ...(process.platform === 'darwin'
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' as const },
+              { type: 'separator' as const },
+              settingsItem,
+              { type: 'separator' as const },
+              { role: 'services' as const },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const },
+            ],
+          },
+        ]
+      : []),
     { role: 'editMenu' },
     {
       label: 'Go',
@@ -16,10 +48,7 @@ export function buildAppMenu(ctx: AppContext): void {
           accelerator: `CmdOrCtrl+${i + 1}`,
           click: () => {
             ctx.win.show();
-            ctx.state.activeId = id;
-            ctx.state.setRuntime(id, { hibernated: false });
-            ctx.noteActivated(id);
-            ctx.views.activate(id);
+            activateService(ctx, id);
           },
         })),
         { type: 'separator' as const },
@@ -40,6 +69,7 @@ export function buildAppMenu(ctx: AppContext): void {
             ctx.win.webContents.focus();
           },
         },
+        ...(process.platform !== 'darwin' ? [{ type: 'separator' as const }, settingsItem] : []),
       ],
     },
     { role: 'windowMenu' },

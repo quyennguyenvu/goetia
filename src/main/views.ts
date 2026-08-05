@@ -49,8 +49,10 @@ export class ServiceViewManager {
         sandbox: false,
         nodeIntegration: false,
         spellcheck: true,
-        // hidden views must keep polling recipes and receiving pushes
-        backgroundThrottling: false,
+        // NOTE: backgroundThrottling must stay ON — disabling it also disables
+        // the Page Visibility API, so hidden services think they're visible and
+        // stop firing notifications. Their websockets exempt them from Chromium's
+        // intensive timer throttling, so recipe polling stays fast enough.
         additionalArguments: [`--goetia-service=${id}`],
       },
     });

@@ -14,6 +14,11 @@ import { createTray } from './tray';
 import { ServiceViewManager } from './views';
 
 app.setName('Goetia');
+// e2e runs in an isolated throwaway profile, never the user's real sessions
+const userDataArg = process.argv.find((a) => a.startsWith('--goetia-user-data='));
+if (userDataArg) app.setPath('userData', userDataArg.slice('--goetia-user-data='.length));
+// Windows toasts are dropped without an explicit AppUserModelID matching the installer's appId
+if (process.platform === 'win32') app.setAppUserModelId('com.quyennguyenvu.goetia');
 app.userAgentFallback = chromeUserAgent(app.userAgentFallback);
 
 function createWindow(): BrowserWindow {
