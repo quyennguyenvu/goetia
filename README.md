@@ -5,6 +5,18 @@ in one window, with native notifications and unread badges. macOS + Windows.
 
 Built with Electron + TypeScript + React. Local-only: no server, no accounts, no telemetry.
 
+## Download
+
+Prebuilt installers are on the [Releases page](https://github.com/quyennguyenvu/goetia/releases):
+
+- **macOS**: `Goetia-<version>-arm64.dmg` (Apple Silicon) or `Goetia-<version>-x64.dmg`
+  (Intel). The app is unsigned — on first launch, right-click the app → **Open**.
+- **Windows**: `Goetia Setup <version>.exe`. SmartScreen warns on unsigned installers —
+  click **More info → Run anyway**.
+
+Releases are cut by pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`);
+the tag must match `package.json`'s `version`.
+
 ## Run
 
 pnpm may not be on PATH (Node via Homebrew); run it through corepack — the

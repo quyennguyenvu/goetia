@@ -16,12 +16,12 @@ marketplace). Local-only, single user, no telemetry.
 
 ## 2. Decisions & alternatives considered
 
-| Decision | Chosen | Rejected alternatives |
-|---|---|---|
-| Service integration | **Webview wrapper** — embed each service's official web app | Native protocol clients (only Telegram has an official personal API; WhatsApp/Messenger/Discord reverse-engineered libs violate ToS and risk account bans; Zalo has nothing). Hybrid TDLib+webviews (complexity for marginal gain). |
-| Desktop shell | **Electron** (latest stable) | Tauri v2 (two webview engines to test — WKWebView/WebView2; weaker multi-webview session isolation; some chat web apps degrade on non-Chrome engines). CEF (too much plumbing). |
-| Codebase | **Fresh build**, port recipe scripts from ferdium-recipes (Apache-2.0) | Fork-and-strip Ferdium (large legacy codebase: MobX, account server, 100+ services). Configure Ferdium as-is (no custom design, nothing to build). |
-| Visual direction | **Graphite minimal** — dark-first neutral surfaces, one accent, slim icon rail | Native platform materials (vibrancy/Mica — finicky in Electron, two styling targets). Expressive/colorful (clashes with embedded services' own UIs). |
+| Decision            | Chosen                                                                         | Rejected alternatives                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service integration | **Webview wrapper** — embed each service's official web app                    | Native protocol clients (only Telegram has an official personal API; WhatsApp/Messenger/Discord reverse-engineered libs violate ToS and risk account bans; Zalo has nothing). Hybrid TDLib+webviews (complexity for marginal gain). |
+| Desktop shell       | **Electron** (latest stable)                                                   | Tauri v2 (two webview engines to test — WKWebView/WebView2; weaker multi-webview session isolation; some chat web apps degrade on non-Chrome engines). CEF (too much plumbing).                                                     |
+| Codebase            | **Fresh build**, port recipe scripts from ferdium-recipes (Apache-2.0)         | Fork-and-strip Ferdium (large legacy codebase: MobX, account server, 100+ services). Configure Ferdium as-is (no custom design, nothing to build).                                                                                  |
+| Visual direction    | **Graphite minimal** — dark-first neutral surfaces, one accent, slim icon rail | Native platform materials (vibrancy/Mica — finicky in Electron, two styling targets). Expressive/colorful (clashes with embedded services' own UIs).                                                                                |
 
 ### Service feasibility (verified 2026-08-04)
 
@@ -89,7 +89,7 @@ from main over typed IPC.
 
 ### 3.4 Data flow
 
-```
+```text
 recipe/preload ──IPC unread:update──▶ main aggregator ──▶ rail badge (renderer)
                                             ├──▶ macOS app.setBadgeCount(total)
                                             ├──▶ Windows setOverlayIcon(canvas count)
@@ -112,17 +112,17 @@ page Notification ──preload wrap──IPC──▶ main ──▶ native Not
 
 ## 4. Tech stack
 
-| Layer | Choice | Notes |
-|---|---|---|
-| Shell | Electron (latest stable), TypeScript `strict` | bundled Chromium = identical rendering on mac/win |
-| Build | electron-vite | HMR for shell UI; separate main/preload bundles |
-| Shell UI | React 19 + Tailwind CSS v4 | tokens as Tailwind theme values |
-| State | zustand | shell-side only |
-| IPC | typed channel wrapper | compile-time-checked event names/payloads |
-| Persistence | electron-store + session partitions | settings JSON + per-service login state |
-| Packaging | electron-builder | dmg (mac universal), nsis (win x64), via GitHub Releases |
-| Testing | Vitest + Playwright-Electron | see §7 |
-| Lint/format | Biome | single fast tool |
+| Layer       | Choice                                        | Notes                                                    |
+| ----------- | --------------------------------------------- | -------------------------------------------------------- |
+| Shell       | Electron (latest stable), TypeScript `strict` | bundled Chromium = identical rendering on mac/win        |
+| Build       | electron-vite                                 | HMR for shell UI; separate main/preload bundles          |
+| Shell UI    | React 19 + Tailwind CSS v4                    | tokens as Tailwind theme values                          |
+| State       | zustand                                       | shell-side only                                          |
+| IPC         | typed channel wrapper                         | compile-time-checked event names/payloads                |
+| Persistence | electron-store + session partitions           | settings JSON + per-service login state                  |
+| Packaging   | electron-builder                              | dmg (mac universal), nsis (win x64), via GitHub Releases |
+| Testing     | Vitest + Playwright-Electron                  | see §7                                                   |
+| Lint/format | Biome                                         | single fast tool                                         |
 
 ## 5. Design system — "Graphite minimal"
 
@@ -144,18 +144,18 @@ The shell stays neutral and quiet; embedded services keep their own look.
 
 ### 5.2 Color tokens
 
-| Token | Dark | Light | Use |
-|---|---|---|---|
-| `bg-0` | `#0F1115` | `#F7F8FA` | app chrome background |
-| `bg-1` | `#161A20` | `#FFFFFF` | rail, panels |
-| `bg-2` | `#1E232B` | `#F0F2F5` | hover, modals, palette |
-| `border` | `#2A303A` | `#E4E7EC` | hairlines |
-| `text-1` | `#E7EAEF` | `#1A1E26` | primary text |
-| `text-2` | `#9AA3AF` | `#5A6472` | secondary text |
-| `accent` | `#4C8DFF` | `#2F6FE4` | active state, focus, links |
-| `badge` | `#FF4D5E` | `#FF4D5E` | unread pills (white tabular text) |
-| `warn` | `#F5A623` | `#F5A623` | crashed-service dot |
-| `ok` | `#34C77B` | `#34C77B` | connected indicator |
+| Token    | Dark      | Light     | Use                               |
+| -------- | --------- | --------- | --------------------------------- |
+| `bg-0`   | `#0F1115` | `#F7F8FA` | app chrome background             |
+| `bg-1`   | `#161A20` | `#FFFFFF` | rail, panels                      |
+| `bg-2`   | `#1E232B` | `#F0F2F5` | hover, modals, palette            |
+| `border` | `#2A303A` | `#E4E7EC` | hairlines                         |
+| `text-1` | `#E7EAEF` | `#1A1E26` | primary text                      |
+| `text-2` | `#9AA3AF` | `#5A6472` | secondary text                    |
+| `accent` | `#4C8DFF` | `#2F6FE4` | active state, focus, links        |
+| `badge`  | `#FF4D5E` | `#FF4D5E` | unread pills (white tabular text) |
+| `warn`   | `#F5A623` | `#F5A623` | crashed-service dot               |
+| `ok`     | `#34C77B` | `#34C77B` | connected indicator               |
 
 All text-on-surface pairs meet WCAG AA (≥4.5:1).
 
@@ -182,6 +182,7 @@ All text-on-surface pairs meet WCAG AA (≥4.5:1).
 ## 6. v1 scope
 
 **In:**
+
 1. Five services: WhatsApp, Messenger, Telegram, Discord, Zalo (fixed set,
    reorderable).
 2. Native desktop notifications with per-service mute + global mute.
@@ -193,6 +194,7 @@ All text-on-surface pairs meet WCAG AA (≥4.5:1).
 7. Light/dark theme following the OS.
 
 **Out (explicit non-goals):**
+
 - Viber — no web client exists.
 - Multi-account per service.
 - Any server component, account system, sync, or telemetry.
@@ -214,9 +216,9 @@ All text-on-surface pairs meet WCAG AA (≥4.5:1).
 
 ## 8. Risks
 
-| Risk | Mitigation |
-|---|---|
-| Service redesigns break recipes | Fixture-backed parser tests; title-parse fallback; "stale count" dot instead of wrong numbers |
-| Service blocks embedded browsers | Chrome UA per session (known-working approach in Ferdium for all five services) |
-| RAM growth with 5 web apps | Hibernation; per-service opt-out for the ones that must stay live |
-| Electron major-version churn | Pin per release; upgrade deliberately, not automatically |
+| Risk                             | Mitigation                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------- |
+| Service redesigns break recipes  | Fixture-backed parser tests; title-parse fallback; "stale count" dot instead of wrong numbers |
+| Service blocks embedded browsers | Chrome UA per session (known-working approach in Ferdium for all five services)               |
+| RAM growth with 5 web apps       | Hibernation; per-service opt-out for the ones that must stay live                             |
+| Electron major-version churn     | Pin per release; upgrade deliberately, not automatically                                      |

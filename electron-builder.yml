@@ -9,8 +9,9 @@ files:
   - package.json
 icon: resources/icon.png
 mac:
-  target: [dmg, zip]
+  target: dmg
   category: public.app-category.social-networking
+  artifactName: ${productName}-${version}-${arch}.${ext}
 win:
   target: nsis
 nsis:
