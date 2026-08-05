@@ -1,0 +1,64 @@
+export type ServiceId = 'whatsapp' | 'messenger' | 'telegram' | 'discord' | 'zalo';
+
+export interface Counts {
+  direct: number;
+  indirect: number;
+}
+
+export interface ServiceMeta {
+  id: ServiceId;
+  name: string;
+  url: string;
+  color: string; // brand color, rail tile bg tint
+}
+
+export type ThemePref = 'system' | 'light' | 'dark';
+
+export type RailPosition = 'top' | 'left' | 'right';
+
+export interface Settings {
+  order: ServiceId[];
+  muted: Record<ServiceId, boolean>;
+  disabled: Record<ServiceId, boolean>; // no tile, no view, no network
+  globalMuted: boolean;
+  neverHibernate: Record<ServiceId, boolean>;
+  hibernationMinutes: number;
+  closeToTray: boolean;
+  launchAtLogin: boolean;
+  theme: ThemePref;
+  railPosition: RailPosition;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  order: ['whatsapp', 'messenger', 'telegram', 'discord', 'zalo'],
+  muted: { whatsapp: false, messenger: false, telegram: false, discord: false, zalo: false },
+  disabled: { whatsapp: false, messenger: false, telegram: false, discord: false, zalo: false },
+  globalMuted: false,
+  neverHibernate: { whatsapp: true, messenger: false, telegram: false, discord: false, zalo: true },
+  hibernationMinutes: 30,
+  closeToTray: true,
+  launchAtLogin: false,
+  theme: 'system',
+  railPosition: 'top',
+};
+
+export interface ServiceRuntime {
+  unread: Counts;
+  hibernated: boolean;
+  crashed: boolean;
+  stale: boolean; // recipe failed; counts may be outdated
+  loading: boolean;
+}
+
+export interface ShellState {
+  services: ServiceMeta[]; // in user order
+  activeId: ServiceId;
+  runtime: Record<ServiceId, ServiceRuntime>;
+  muted: Record<ServiceId, boolean>;
+  globalMuted: boolean;
+  switcherOpen: boolean;
+  settingsOpen: boolean;
+  theme: 'light' | 'dark'; // effective theme (system already resolved)
+  settings: Settings; // raw preferences, for the settings form
+  version: string;
+}

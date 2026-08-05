@@ -1,0 +1,19 @@
+appId: com.quyennguyenvu.goetia
+productName: Goetia
+directories:
+  output: dist
+  buildResources: resources
+files:
+  - out/**
+  - resources/**
+  - package.json
+icon: resources/icon.png
+mac:
+  target: [dmg, zip]
+  category: public.app-category.social-networking
+win:
+  target: nsis
+nsis:
+  oneClick: true
+  deleteAppDataOnUninstall: false
+publish: null

@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --bg-0: #f7f8fa;
+  --bg-1: #ffffff;
+  --bg-2: #f0f2f5;
+  --border: #e4e7ec;
+  --text-1: #1a1e26;
+  --text-2: #5a6472;
+  --accent: #e8590c;
+  --accent-2: #c92a2a;
+  --on-accent: #ffffff;
+  --badge: #ff4d5e;
+  --warn: #f5a623;
+  --ok: #34c77b;
+}
+:root[data-theme="dark"] {
+  --bg-0: #0f1115;
+  --bg-1: #161a20;
+  --bg-2: #1e232b;
+  --border: #2a303a;
+  --text-1: #e7eaef;
+  --text-2: #9aa3af;
+  --accent: #ff9e2c;
+  --accent-2: #f04e3e;
+  --on-accent: #15181f;
+}
+
+@theme inline {
+  --color-bg-0: var(--bg-0);
+  --color-bg-1: var(--bg-1);
+  --color-bg-2: var(--bg-2);
+  --color-border: var(--border);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-on-accent: var(--on-accent);
+  --color-badge: var(--badge);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+  --radius-ctl: 6px;
+  --radius-tile: 10px;
+  --radius-modal: 14px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  margin: 0;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */
+    transition-duration: 0s !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */
+    animation: none !important;
+  }
+}
