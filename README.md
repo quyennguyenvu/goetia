@@ -1,9 +1,10 @@
 # Goetia
 
-Personal multi-service chat client — WhatsApp, Messenger, Telegram, Discord, Zalo
-in one window, with native notifications and unread badges. macOS + Windows.
+Personal multi-service chat client — WhatsApp, Messenger, Telegram, Discord, Zalo,
+Shopee in one window, with native notifications and unread badges. macOS + Windows.
 
-Built with Electron + TypeScript + React. Local-only: no server, no accounts, no telemetry.
+Built with Electron + TypeScript + React. Local-only: no server, no accounts,
+no telemetry.
 
 ## Download
 
@@ -11,8 +12,8 @@ Prebuilt installers are on the [Releases page](https://github.com/quyennguyenvu/
 
 - **macOS**: `Goetia-<version>-arm64.dmg` (Apple Silicon) or `Goetia-<version>-x64.dmg`
   (Intel). The app is unsigned — on first launch, right-click the app → **Open**.
-- **Windows**: `Goetia Setup <version>.exe`. SmartScreen warns on unsigned installers —
-  click **More info → Run anyway**.
+- **Windows**: `Goetia Setup <version>.exe`. SmartScreen warns on unsigned
+  installers — click **More info → Run anyway**.
 
 Releases are cut by pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`);
 the tag must match `package.json`'s `version`.
@@ -55,7 +56,7 @@ Gatekeeper.
 - **Menu position**: the service icons live in a top bar by default (the
   embedded chat apps have their own left column, so a left rail doubles up);
   switch to Left or Right in Settings → General.
-- Shortcuts: ⌘/Ctrl+1…5 jump to a service, ⌘/Ctrl+K quick switcher,
+- Shortcuts: ⌘/Ctrl+1…6 jump to a service, ⌘/Ctrl+K quick switcher,
   ⌘/Ctrl+R or F5 reload the current service, right-click a tile to mute it,
   drag tiles to reorder.
 - After first login, watch the rail badges: if a service shows unread in its

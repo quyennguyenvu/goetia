@@ -21,6 +21,7 @@ const cases: [ServiceId, string, number, number][] = [
   ['telegram', 'telegram', 4, 2], // positive peers direct, negative indirect, muted skipped
   ['discord', 'discord', 3, 1], // lowerBadge_/numberBadge_ sum; "• Discord" title -> indirect
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge
+  ['shopee', 'shopee', 31, 0], // mini-chat header badge
 ];
 
 describe.each(cases)('%s recipe', (id, fixture, direct, indirect) => {
@@ -35,6 +36,15 @@ describe.each(cases)('%s recipe', (id, fixture, direct, indirect) => {
 describe('zalo 5+ tab badge', () => {
   it('sums per-conversation badges, skipping muted', async () => {
     expect(await recipes.zalo.count(load('zalo-5plus'))).toEqual({ direct: 7, indirect: 0 });
+  });
+});
+
+describe('shopee collapsed pill', () => {
+  it('counts from the pill badge while collapsed', async () => {
+    expect(await recipes.shopee.count(load('shopee-collapsed'))).toEqual({
+      direct: 5,
+      indirect: 0,
+    });
   });
 });
 

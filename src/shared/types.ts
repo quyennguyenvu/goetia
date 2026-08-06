@@ -1,4 +1,4 @@
-export type ServiceId = 'whatsapp' | 'messenger' | 'telegram' | 'discord' | 'zalo';
+export type ServiceId = 'whatsapp' | 'messenger' | 'telegram' | 'discord' | 'zalo' | 'shopee';
 
 export interface Counts {
   direct: number;
@@ -33,11 +33,32 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  order: ['messenger', 'telegram', 'zalo', 'whatsapp', 'discord'],
-  muted: { whatsapp: false, messenger: false, telegram: false, discord: false, zalo: false },
-  disabled: { whatsapp: true, messenger: false, telegram: true, discord: true, zalo: false },
+  order: ['messenger', 'telegram', 'zalo', 'whatsapp', 'discord', 'shopee'],
+  muted: {
+    whatsapp: false,
+    messenger: false,
+    telegram: false,
+    discord: false,
+    zalo: false,
+    shopee: false,
+  },
+  disabled: {
+    whatsapp: true,
+    messenger: false,
+    telegram: true,
+    discord: true,
+    zalo: false,
+    shopee: true,
+  },
   globalMuted: false,
-  neverHibernate: { whatsapp: true, messenger: true, telegram: true, discord: true, zalo: true },
+  neverHibernate: {
+    whatsapp: true,
+    messenger: true,
+    telegram: true,
+    discord: true,
+    zalo: true,
+    shopee: true,
+  },
   hibernationMinutes: 30,
   closeToTray: true,
   launchAtLogin: false,

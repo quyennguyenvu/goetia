@@ -211,7 +211,7 @@ export default function SettingsView() {
 
           <Section title="Shortcuts">
             <div className="py-2 text-text-2">
-              <p className="py-1">⌘/Ctrl + 1…5 — jump to service</p>
+              <p className="py-1">⌘/Ctrl + 1…6 — jump to service</p>
               <p className="py-1">⌘/Ctrl + K — quick switcher</p>
               <p className="py-1">⌘/Ctrl + , — settings</p>
               <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
