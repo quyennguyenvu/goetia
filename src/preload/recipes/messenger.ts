@@ -53,5 +53,28 @@ const messenger: Recipe = {
     }
     return { direct, indirect: 0 };
   },
+  // facebook.com never notifies in-page — it delegates to browser push, which
+  // Electron doesn't support (no FCM). Synthesize from the chat-list row:
+  // spans read [sender, preview, ·, time].
+  synthNotification(doc) {
+    const win = doc.defaultView;
+    if (!win) return null;
+    for (const link of doc.querySelectorAll("a[href*='/t/']")) {
+      const row = link.closest("[role='row']") ?? link;
+      if (!isUnreadRow(row, win)) continue;
+      // real text carries dir="auto"; presence labels ("Active now") don't
+      let spans = [...row.querySelectorAll('span[dir="auto"]')];
+      if (spans.length === 0) spans = [...row.querySelectorAll('span')];
+      const texts = spans
+        .map((s) => s.textContent?.trim() ?? '')
+        .filter((t, i, all) => t && t !== '·' && t !== all[i - 1]);
+      if (texts.length === 0) return null;
+      return {
+        title: texts[0],
+        body: (texts[1] ?? '').replace(/\s*·\s*\S{1,4}$/u, ''),
+      };
+    }
+    return null;
+  },
 };
 export default messenger;

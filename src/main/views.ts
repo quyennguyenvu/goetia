@@ -49,14 +49,17 @@ export class ServiceViewManager {
         sandbox: false,
         nodeIntegration: false,
         spellcheck: true,
-        // NOTE: backgroundThrottling must stay ON — disabling it also disables
-        // the Page Visibility API, so hidden services think they're visible and
-        // stop firing notifications. Their websockets exempt them from Chromium's
-        // intensive timer throttling, so recipe polling stays fast enough.
+        // NOTE: backgroundThrottling stays ON by default — disabling it also
+        // disables the Page Visibility API, so hidden services think they're
+        // visible and stop firing notifications. Their websockets exempt them
+        // from Chromium's intensive timer throttling, so recipe polling stays
+        // fast enough (measured: 2s cadence while hidden). keepRendered
+        // services opt out — they suspend their whole UI when "hidden".
         additionalArguments: [`--goetia-service=${id}`],
       },
     });
     const wc = view.webContents;
+    if (svc.keepRendered) wc.setBackgroundThrottling(false);
     wc.setWindowOpenHandler(({ url }) => {
       // external links open in the OS browser, never inside Goetia
       shell.openExternal(url);
@@ -74,7 +77,31 @@ export class ServiceViewManager {
     });
     wc.loadURL(svc.url);
     this.views.set(id, view);
+    // real bounds even while hidden: pages get desktop-class layout and
+    // keep-alive click coordinates from getBoundingClientRect stay valid
+    const [w, h] = this.win.getContentSize();
+    view.setBounds(viewBounds(w, h, this.railPosition()));
     return view;
+  }
+
+  /** Trusted synthetic click; page-JS clicks are untrusted and e.g. Zalo's
+   *  session-activation button ignores them. Input only reaches visible
+   *  widgets, so a hidden view is flashed visible underneath the active one
+   *  (attached at the bottom of the z-order) for the click. */
+  trustedClick(id: ServiceId, x: number, y: number): void {
+    const view = this.views.get(id);
+    if (!view) return;
+    const hidden = id !== this.activeId;
+    if (hidden) {
+      if (!this.win.contentView.children.includes(view)) {
+        this.win.contentView.addChildView(view, 0);
+      }
+      view.setVisible(true);
+    }
+    const wc = view.webContents;
+    wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+    wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+    if (hidden) setTimeout(() => view.setVisible(false), 300);
   }
 
   /** Create the view (starts loading, recipes, notifications) without showing it. */
@@ -87,7 +114,9 @@ export class ServiceViewManager {
     for (const [otherId, v] of this.views) {
       if (otherId !== id) v.setVisible(false);
     }
-    if (!this.win.contentView.children.includes(view)) this.win.contentView.addChildView(view);
+    // always re-add: moves the active view to the top of the z-order, so a
+    // flashed keep-alive view (attached at index 0) stays covered
+    this.win.contentView.addChildView(view);
     view.setVisible(true);
     this.activeId = id;
     this.layout();
@@ -134,8 +163,8 @@ export class ServiceViewManager {
   }
 
   layout(): void {
-    if (!this.activeId) return;
     const [w, h] = this.win.getContentSize();
-    this.views.get(this.activeId)?.setBounds(viewBounds(w, h, this.railPosition()));
+    const bounds = viewBounds(w, h, this.railPosition());
+    for (const view of this.views.values()) view.setBounds(bounds);
   }
 }

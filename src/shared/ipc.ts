@@ -14,6 +14,7 @@ export interface RendererToMain {
   'unread:update': { serviceId: ServiceId } & Counts;
   'unread:stale': { serviceId: ServiceId };
   'notification:fired': { serviceId: ServiceId; title: string; body: string };
+  'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
 }
 
 /** main -> shell renderer, via webContents.send */
@@ -34,4 +35,5 @@ export const R2M_CHANNELS = [
   'unread:update',
   'unread:stale',
   'notification:fired',
+  'service:keepalive-click',
 ] as const satisfies readonly (keyof RendererToMain)[];

@@ -9,6 +9,7 @@
       "**",
       "!out",
       "!dist",
+      "!graphify-out",
       "!test-results",
       "!node_modules",
       "!pnpm-lock.yaml",

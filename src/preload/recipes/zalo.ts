@@ -31,5 +31,18 @@ const zalo: Recipe = {
     }
     return { direct: Math.max(direct, 6), indirect: 0 };
   },
+  // Zalo web deactivates after idling (or when opened in another tab): it
+  // unmounts the whole UI behind a "Kích hoạt" modal, freezing counts and
+  // notifications until the button gets a *trusted* click.
+  keepAlive(doc) {
+    const btn = [...doc.querySelectorAll('[id^="zl-modal"] .zl-modal__footer .z--btn--v2')].find(
+      (e) => /kích hoạt|activate/i.test(e.textContent ?? ''),
+    );
+    if (!btn) return null;
+    const r = btn.getBoundingClientRect();
+    // degenerate rect = view not laid out; a click there could hit anything
+    if (r.width > 0 && r.width < 20) return null;
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  },
 };
 export default zalo;

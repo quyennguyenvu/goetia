@@ -101,4 +101,5 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('unread:stale', ({ serviceId }) => ctx.state.setRuntime(serviceId, { stale: true }));
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', ({ serviceId, title, body }) => router.handle(serviceId, title, body));
+  on('service:keepalive-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
 }

@@ -1,5 +1,8 @@
 import { ipcRenderer } from 'electron';
+import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
+import { installNotificationShim } from './lib/notification-shim';
+import { installVisibilitySpoof } from './lib/visibility-spoof';
 import { recipes } from './recipes';
 import { startRecipe } from './recipes/runner';
 
@@ -7,36 +10,15 @@ const arg = process.argv.find((a) => a.startsWith('--goetia-service='));
 const serviceId = (arg?.split('=')[1] ?? '') as ServiceId;
 const recipe = recipes[serviceId];
 
+if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
+
 // --- Notification interception -------------------------------------------
 // Runs before page scripts (unisolated preload), so the page only ever sees
-// this wrapper. Notifications surface as native OS notifications via main.
+// the shim. Notifications surface as native OS notifications via main.
 
-function forwardNotification(title: string, body: string): void {
-  ipcRenderer.send('notification:fired', { serviceId, title, body });
-}
-
-class GoetiaNotification {
-  static permission: NotificationPermission = 'granted';
-  static requestPermission(): Promise<NotificationPermission> {
-    return Promise.resolve('granted');
-  }
-  onclick: unknown = null;
-  onshow: unknown = null;
-  onerror: unknown = null;
-  onclose: unknown = null;
-  constructor(title: string, options?: NotificationOptions) {
-    forwardNotification(title, typeof options?.body === 'string' ? options.body : '');
-  }
-  close(): void {}
-  addEventListener(): void {}
-  removeEventListener(): void {}
-  dispatchEvent(): boolean {
-    return false;
-  }
-}
-
-// biome-ignore lint/suspicious/noExplicitAny: intentionally replacing a page global
-(window as any).Notification = GoetiaNotification;
+installNotificationShim(window, (title, body) =>
+  ipcRenderer.send('notification:fired', { serviceId, title, body }),
+);
 
 // --- Unread-count recipe ---------------------------------------------------
 
@@ -52,5 +34,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document,
     (c) => ipcRenderer.send('unread:update', { serviceId, ...c }),
     () => ipcRenderer.send('unread:stale', { serviceId }),
+    (pt) => ipcRenderer.send('service:keepalive-click', { serviceId, ...pt }),
+    ({ title, body }) => ipcRenderer.send('notification:fired', { serviceId, title, body }),
   );
 });

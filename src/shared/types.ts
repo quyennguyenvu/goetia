@@ -10,6 +10,9 @@ export interface ServiceMeta {
   name: string;
   url: string;
   color: string; // brand color, rail tile bg tint
+  /** Disable background throttling so the page never sees itself as hidden.
+   *  For sites that suspend/unmount their UI when backgrounded (Zalo). */
+  keepRendered?: boolean;
 }
 
 export type ThemePref = 'system' | 'light' | 'dark';

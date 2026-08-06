@@ -1,0 +1,24 @@
+// @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import messenger from '../../src/preload/recipes/messenger';
+
+function load(name: string): Document {
+  const html = readFileSync(join(__dirname, '../fixtures', `${name}.html`), 'utf8');
+  document.documentElement.innerHTML = html;
+  return document;
+}
+
+describe('messenger synthesized notification', () => {
+  it('extracts sender and preview from the first unread row', () => {
+    expect(messenger.synthNotification?.(load('messenger'))).toEqual({
+      title: 'Alice',
+      body: 'sent a photo',
+    });
+  });
+
+  it('returns null when nothing is unread', () => {
+    expect(messenger.synthNotification?.(load('blank'))).toBeNull();
+  });
+});
