@@ -6,7 +6,13 @@ directories:
 files:
   - out/**
   - resources/**
+  # notification icons ship unpacked below: the OS opens these paths itself,
+  # so they must be real files rather than asar entries
+  - '!resources/notification-icons/**'
   - package.json
+extraResources:
+  - from: resources/notification-icons
+    to: notification-icons
 icon: resources/icon.png
 mac:
   target: dmg

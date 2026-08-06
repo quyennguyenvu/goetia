@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldNotify } from '../../src/main/lib/notification-rules';
+import { notificationTitle, shouldNotify } from '../../src/main/lib/notification-rules';
 
 describe('shouldNotify', () => {
   it.each([
@@ -9,5 +9,15 @@ describe('shouldNotify', () => {
     [{ serviceMuted: true, globalMuted: true }, false],
   ])('%o -> %s', (opts, expected) => {
     expect(shouldNotify(opts)).toBe(expected);
+  });
+});
+
+describe('notificationTitle', () => {
+  it('passes a real title through, trimmed', () => {
+    expect(notificationTitle('  Anh Quyền  ', 'Zalo')).toBe('Anh Quyền');
+  });
+
+  it.each(['', '   ', '\n\t'])('falls back to the service name for %j', (raw) => {
+    expect(notificationTitle(raw, 'Zalo')).toBe('Zalo');
   });
 });
