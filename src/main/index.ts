@@ -131,9 +131,10 @@ app
     }
 
     if (process.argv.includes('--goetia-e2e')) {
-      // fake unread on a service with no live view, so its recipe can't overwrite it
+      // must be an enabled service to reach the rail; its recipe reports {0,0}
+      // once on the logged-out page and then never changes, so this survives
       setTimeout(() => {
-        state.setRuntime('discord', { unread: { direct: 3, indirect: 0 } });
+        state.setRuntime('zalo', { unread: { direct: 3, indirect: 0 } });
       }, 1500);
     }
   })

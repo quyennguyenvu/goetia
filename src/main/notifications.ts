@@ -11,7 +11,12 @@ export class NotificationRouter {
   handle(serviceId: ServiceId, title: string, body: string): void {
     const s = this.ctx.settings.get();
     if (!shouldNotify({ serviceMuted: s.muted[serviceId], globalMuted: s.globalMuted })) return;
-    const n = new Notification({ title: `${title} — ${serviceById(serviceId).name}`, body });
+    const n = new Notification({
+      title: `${title} — ${serviceById(serviceId).name}`,
+      body,
+      sound: 'default', // macOS plays no sound unless one is requested
+    });
+    n.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
     n.on('click', () => {
       this.ctx.win.show();
       activateService(this.ctx, serviceId);

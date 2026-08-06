@@ -12,6 +12,9 @@ mac:
   target: dmg
   category: public.app-category.social-networking
   artifactName: ${productName}-${version}-${arch}.${ext}
+  # ad-hoc sign: macOS refuses Notification Center registration for unsigned
+  # bundles (notifications fail with UNErrorDomain 1, no permission prompt)
+  identity: '-'
 win:
   target: nsis
 nsis:

@@ -5,11 +5,11 @@ import { DEFAULT_SETTINGS } from '../../src/shared/types';
 describe('service catalog', () => {
   it('has exactly the five spec services, unique, https', () => {
     expect(SERVICES.map((s) => s.id)).toEqual([
-      'whatsapp',
       'messenger',
       'telegram',
-      'discord',
       'zalo',
+      'whatsapp',
+      'discord',
     ]);
     expect(new Set(SERVICES.map((s) => s.id)).size).toBe(5);
     for (const s of SERVICES) expect(s.url).toMatch(/^https:\/\//);
@@ -23,13 +23,15 @@ describe('service catalog', () => {
     expect(serviceById('messenger').url).toBe('https://www.facebook.com/messages/');
   });
 
-  it('defaults: whatsapp and zalo never hibernate, 30min timeout', () => {
-    expect(DEFAULT_SETTINGS.neverHibernate.whatsapp).toBe(true);
-    expect(DEFAULT_SETTINGS.neverHibernate.zalo).toBe(true);
-    expect(DEFAULT_SETTINGS.neverHibernate.discord).toBe(false);
+  it('defaults: nothing hibernates, 30min timeout', () => {
+    expect(Object.values(DEFAULT_SETTINGS.neverHibernate).every((v) => v === true)).toBe(true);
     expect(DEFAULT_SETTINGS.hibernationMinutes).toBe(30);
     expect(DEFAULT_SETTINGS.order).toEqual(SERVICES.map((s) => s.id));
     expect(DEFAULT_SETTINGS.railPosition).toBe('top');
-    expect(Object.values(DEFAULT_SETTINGS.disabled).every((v) => v === false)).toBe(true);
+  });
+
+  it('defaults: only messenger and zalo enabled', () => {
+    const enabled = SERVICES.map((s) => s.id).filter((id) => !DEFAULT_SETTINGS.disabled[id]);
+    expect(enabled).toEqual(['messenger', 'zalo']);
   });
 });

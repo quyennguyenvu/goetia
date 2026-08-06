@@ -1,7 +1,6 @@
 import type { ServiceId, ServiceMeta } from './types';
 
 export const SERVICES: ServiceMeta[] = [
-  { id: 'whatsapp', name: 'WhatsApp', url: 'https://web.whatsapp.com/', color: '#25D366' },
   // messenger.com redirects logged-in users into facebook.com — target Messages directly
   {
     id: 'messenger',
@@ -10,8 +9,9 @@ export const SERVICES: ServiceMeta[] = [
     color: '#0084FF',
   },
   { id: 'telegram', name: 'Telegram', url: 'https://web.telegram.org/k/', color: '#26A5E4' },
-  { id: 'discord', name: 'Discord', url: 'https://discord.com/channels/@me', color: '#5865F2' },
   { id: 'zalo', name: 'Zalo', url: 'https://chat.zalo.me/', color: '#0068FF' },
+  { id: 'whatsapp', name: 'WhatsApp', url: 'https://web.whatsapp.com/', color: '#25D366' },
+  { id: 'discord', name: 'Discord', url: 'https://discord.com/channels/@me', color: '#5865F2' },
 ];
 
 export function serviceById(id: ServiceId): ServiceMeta {

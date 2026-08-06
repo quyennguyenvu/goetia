@@ -12,7 +12,7 @@ describe('SettingsStore', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     const store = new SettingsStore(dir);
     expect(store.get().hibernationMinutes).toBe(30);
-    expect(store.get().order[0]).toBe('whatsapp');
+    expect(store.get().order[0]).toBe('messenger');
   });
 
   it('persists partial updates across instances', () => {

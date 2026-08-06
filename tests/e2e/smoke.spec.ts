@@ -16,7 +16,8 @@ test('launch, rail, badge propagation', async () => {
     app.windows().find(isShell) ?? (await app.waitForEvent('window', { predicate: isShell }));
 
   await expect(win.locator('[data-testid="rail"]')).toBeVisible();
-  await expect(win.locator('[data-testid="rail"] button[aria-label]')).toHaveCount(5);
+  // only messenger and zalo are enabled by default
+  await expect(win.locator('[data-testid="rail"] button[aria-label]')).toHaveCount(2);
 
   // glyph masks must resolve in the built bundle — Vite inlines the logo SVGs
   // as data URIs with single quotes, which break unquoted CSS url() tokens

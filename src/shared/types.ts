@@ -30,11 +30,11 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  order: ['whatsapp', 'messenger', 'telegram', 'discord', 'zalo'],
+  order: ['messenger', 'telegram', 'zalo', 'whatsapp', 'discord'],
   muted: { whatsapp: false, messenger: false, telegram: false, discord: false, zalo: false },
-  disabled: { whatsapp: false, messenger: false, telegram: false, discord: false, zalo: false },
+  disabled: { whatsapp: true, messenger: false, telegram: true, discord: true, zalo: false },
   globalMuted: false,
-  neverHibernate: { whatsapp: true, messenger: false, telegram: false, discord: false, zalo: true },
+  neverHibernate: { whatsapp: true, messenger: true, telegram: true, discord: true, zalo: true },
   hibernationMinutes: 30,
   closeToTray: true,
   launchAtLogin: false,
