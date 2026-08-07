@@ -1,4 +1,5 @@
 import type { Counts } from '../../shared/types';
+import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -40,6 +41,11 @@ const messenger: Recipe = {
     [role="banner"] { display: none !important; }
     * { --header-height: 0px !important; }
   `,
+  // chat rows must be VISIBLE, not just present — facebook server-renders
+  // them behind its boot splash, and revealing there flashes the big logo
+  ready(doc) {
+    return visiblyPresent(doc, doc.querySelector("a[href*='/t/']"));
+  },
   count(doc): Counts {
     const win = doc.defaultView;
     const links = [...doc.querySelectorAll("a[href*='/t/']")];

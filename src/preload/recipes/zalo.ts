@@ -1,3 +1,4 @@
+import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -12,6 +13,10 @@ export function faDigit(className: string): number | 'plus' | null {
 const zalo: Recipe = {
   id: 'zalo',
   intervalMs: 2000,
+  // the message tab exists once zalo's UI is mounted (badge or not)
+  ready(doc) {
+    return visiblyPresent(doc, doc.querySelector('[data-translate-title="STR_TAB_MESSAGE"]'));
+  },
   count(doc) {
     const tabBadge = doc.querySelector(
       '[data-translate-title="STR_TAB_MESSAGE"] [class*="leftbar-unread-badge"] .z-noti-badge__content',

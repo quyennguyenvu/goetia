@@ -1,4 +1,5 @@
 import type { Counts } from '../../shared/types';
+import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -62,6 +63,11 @@ function readChats(database: IDBDatabase): Promise<WhatsAppChat[]> {
 const whatsapp: Recipe = {
   id: 'whatsapp',
   intervalMs: 2000,
+  // #pane-side (chat-list pane) mounts only after the logo+progress boot
+  // screen finishes
+  ready(doc) {
+    return visiblyPresent(doc, doc.querySelector('#pane-side'));
+  },
   async count(doc) {
     const database = await openDb();
     if (!database) return { direct: unreadFromTitle(doc.title), indirect: 0 };

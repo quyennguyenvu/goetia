@@ -7,12 +7,14 @@ import type { NotificationRouter } from './notifications';
 import type { SettingsStore } from './settings';
 import type { MainState } from './state';
 import type { ServiceViewManager } from './views';
+import type { WakingTracker } from './waking';
 
 export interface AppContext {
   win: BrowserWindow;
   views: ServiceViewManager;
   state: MainState;
   settings: SettingsStore;
+  waking: WakingTracker;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -28,6 +30,7 @@ function on<C extends keyof RendererToMain>(
 export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter): void {
   on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
+  on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));
   on('service:setMuted', ({ serviceId, muted }) => {
     const s = ctx.settings.get();
     ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
@@ -65,12 +68,14 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       for (const id of after.order) {
         if (after.disabled[id] && ctx.views.has(id)) {
           ctx.views.destroy(id);
+          ctx.waking.end(id, 'destroyed');
           ctx.state.setRuntime(id, {
             unread: { direct: 0, indirect: 0 },
             crashed: false,
             stale: false,
             hibernated: false,
             loading: false,
+            waking: false,
           });
         }
         if (!after.disabled[id] && before.disabled[id] && after.neverHibernate[id]) {

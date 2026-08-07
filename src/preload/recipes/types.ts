@@ -7,6 +7,10 @@ export interface Recipe {
   css?: string;
   /** Extract unread counts from the live page. Throwing marks counts stale. */
   count(doc: Document): Counts | Promise<Counts>;
+  /** Chat UI is rendered and usable — ends the shell's waking cover
+   *  early. Absent: did-finish-load is the ready signal instead
+   *  (ServiceMeta.waitForReady mirrors this). */
+  ready?(doc: Document): boolean;
   /** Report viewport coordinates needing a trusted click to keep the session
    *  alive (e.g. Zalo's idle-deactivation modal), or null when healthy.
    *  In-page synthetic clicks are untrusted and ignored — main must click. */

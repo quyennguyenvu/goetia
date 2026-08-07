@@ -64,6 +64,18 @@ body {
   -webkit-mask: var(--glyph) center / contain no-repeat;
   mask: var(--glyph) center / contain no-repeat;
 }
+.tile-breathe {
+  animation: tile-breathe 1.6s ease-in-out infinite;
+}
+@keyframes tile-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   * {
     /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */

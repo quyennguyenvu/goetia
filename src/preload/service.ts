@@ -4,6 +4,7 @@ import type { ServiceId } from '../shared/types';
 import { installNotificationShim } from './lib/notification-shim';
 import { installVisibilitySpoof } from './lib/visibility-spoof';
 import { recipes } from './recipes';
+import { startReadyPoll } from './recipes/ready';
 import { startRecipe } from './recipes/runner';
 
 const arg = process.argv.find((a) => a.startsWith('--goetia-service='));
@@ -37,4 +38,5 @@ window.addEventListener('DOMContentLoaded', () => {
     (pt) => ipcRenderer.send('service:keepalive-click', { serviceId, ...pt }),
     ({ title, body }) => ipcRenderer.send('notification:fired', { serviceId, title, body }),
   );
+  startReadyPoll(recipe, document, () => ipcRenderer.send('service:ready', { serviceId }));
 });

@@ -13,6 +13,9 @@ export interface ServiceMeta {
   /** Disable background throttling so the page never sees itself as hidden.
    *  For sites that suspend/unmount their UI when backgrounded (Zalo). */
   keepRendered?: boolean;
+  /** The recipe defines ready(); did-finish-load must not clear the
+   *  waking cover — only ready, crash, destroy, or the timeout do. */
+  waitForReady?: boolean;
 }
 
 export type ThemePref = 'system' | 'light' | 'dark';
@@ -72,6 +75,7 @@ export interface ServiceRuntime {
   crashed: boolean;
   stale: boolean; // recipe failed; counts may be outdated
   loading: boolean;
+  waking: boolean; // loading screen covers this service
 }
 
 export interface ShellState {

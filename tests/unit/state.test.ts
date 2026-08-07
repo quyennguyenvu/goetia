@@ -17,6 +17,11 @@ describe('MainState', () => {
     expect(snap.theme).toBe('dark');
   });
 
+  it('new runtimes start not waking', () => {
+    const s = new MainState();
+    expect(s.runtime('messenger').waking).toBe(false);
+  });
+
   it('notifies subscribers on mutation', () => {
     const s = new MainState();
     const cb = vi.fn();

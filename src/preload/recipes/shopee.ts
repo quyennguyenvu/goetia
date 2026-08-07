@@ -43,6 +43,11 @@ const shopee: Recipe = {
       height: 100% !important; max-height: none !important;
     }
   `,
+  // expanded mini-chat (header + body) — the keep-alive click landed
+  ready(doc) {
+    const wrapper = doc.querySelector('#shopee-mini-chat-embedded')?.firstElementChild;
+    return (wrapper?.children.length ?? 0) >= 2;
+  },
   count(doc): Counts {
     const header = chatHeader(doc);
     if (!header) {

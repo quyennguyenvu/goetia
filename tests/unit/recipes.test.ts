@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { recipes } from '../../src/preload/recipes';
 import { countWhatsAppChats } from '../../src/preload/recipes/whatsapp';
+import { SERVICES } from '../../src/shared/services';
 import type { ServiceId } from '../../src/shared/types';
 
 function load(name: string): Document {
@@ -45,6 +46,47 @@ describe('shopee collapsed pill', () => {
       direct: 5,
       indirect: 0,
     });
+  });
+});
+
+describe('ready()', () => {
+  it('messenger is ready once chat rows are rendered', () => {
+    expect(recipes.messenger.ready?.(load('messenger'))).toBe(true);
+    expect(recipes.messenger.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('shopee is ready only when the mini-chat is expanded', () => {
+    expect(recipes.shopee.ready?.(load('shopee'))).toBe(true);
+    expect(recipes.shopee.ready?.(load('shopee-collapsed'))).toBe(false);
+    expect(recipes.shopee.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('telegram is ready once dialog rows are rendered', () => {
+    expect(recipes.telegram.ready?.(load('telegram'))).toBe(true);
+    expect(recipes.telegram.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('whatsapp is ready once the chat-list pane mounts', () => {
+    expect(recipes.whatsapp.ready?.(load('whatsapp'))).toBe(true);
+    expect(recipes.whatsapp.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('discord is ready once the guild nav mounts', () => {
+    expect(recipes.discord.ready?.(load('discord'))).toBe(true);
+    expect(recipes.discord.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('zalo is ready once the message tab mounts', () => {
+    expect(recipes.zalo.ready?.(load('zalo'))).toBe(true);
+    expect(recipes.zalo.ready?.(load('blank'))).toBe(false);
+  });
+});
+
+describe('waitForReady flag', () => {
+  it('matches exactly the recipes that define ready()', () => {
+    for (const svc of SERVICES) {
+      expect(Boolean(svc.waitForReady)).toBe(recipes[svc.id]?.ready !== undefined);
+    }
   });
 });
 

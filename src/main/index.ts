@@ -1,10 +1,12 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron';
 import { aggregateBadges } from '../shared/badges';
+import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
 import { registerIpcHandlers } from './ipc-handlers';
 import { chromeUserAgent } from './lib/ua';
+import { LoadingOverlay } from './loading-overlay';
 import { buildAppMenu } from './menu';
 import { NotificationRouter } from './notifications';
 import { ResilienceManager } from './resilience';
@@ -12,6 +14,7 @@ import { SettingsStore } from './settings';
 import { MainState } from './state';
 import { createTray } from './tray';
 import { ServiceViewManager } from './views';
+import { WakingTracker } from './waking';
 
 app.setName('Goetia');
 // e2e runs in an isolated throwaway profile, never the user's real sessions
@@ -56,24 +59,51 @@ app
     const state = new MainState();
     const win = createWindow();
 
+    const effectiveTheme = (): 'light' | 'dark' => {
+      const pref = settings.get().theme;
+      if (pref === 'system') return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+      return pref;
+    };
+
+    const overlay = new LoadingOverlay(win, effectiveTheme());
+    const waking = new WakingTracker(state);
     let resilience: ResilienceManager | null = null;
     const views = new ServiceViewManager(
       win,
       {
         onLoading: (id, loading) => {
           state.setRuntime(id, { loading });
-          if (!loading) resilience?.noteRecovered(id);
+          if (!loading) {
+            waking.end(id, 'load-finished');
+            resilience?.noteRecovered(id);
+          }
         },
-        onCrashed: (id) => resilience?.onCrashed(id),
-        onLoadFailed: (id) => resilience?.onLoadFailed(id),
+        onNavigate: (id) => waking.begin(id),
+        onCrashed: (id) => {
+          waking.end(id, 'crashed');
+          resilience?.onCrashed(id);
+        },
+        onLoadFailed: (id) => {
+          waking.end(id, 'load-failed');
+          resilience?.onLoadFailed(id);
+        },
       },
       () => settings.get().railPosition,
+      overlay,
     );
 
-    const effectiveTheme = (): 'light' | 'dark' => {
-      const pref = settings.get().theme;
-      if (pref === 'system') return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
-      return pref;
+    const syncOverlay = () => {
+      const rt = state.runtime(state.activeId);
+      const show = rt.waking && !rt.crashed && !state.switcherOpen && !state.settingsOpen;
+      if (!show) {
+        overlay.hide();
+        return;
+      }
+      overlay.update({
+        theme: effectiveTheme(),
+        serviceName: serviceById(state.activeId).name,
+      });
+      overlay.show();
     };
 
     let tray: { updateTooltip(total: number): void } | null = null;
@@ -86,6 +116,7 @@ app
       );
       applyBadges(win, summary);
       tray?.updateTooltip(summary.total);
+      syncOverlay();
     };
 
     state.onChange(broadcast);
@@ -109,6 +140,7 @@ app
       views,
       state,
       settings,
+      waking,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),

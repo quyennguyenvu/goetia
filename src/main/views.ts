@@ -6,6 +6,11 @@ import { viewBounds } from './lib/layout';
 
 export interface ViewHooks {
   onLoading(id: ServiceId, loading: boolean): void;
+  /** Main-frame, cross-document navigation started (initial load, reload,
+   *  redirect) — never same-document SPA routing or subframe loads, which
+   *  also spin the tab spinner (did-start-loading) but must not re-cover
+   *  the service with the waking overlay. */
+  onNavigate(id: ServiceId): void;
   onCrashed(id: ServiceId): void;
   onLoadFailed(id: ServiceId): void;
 }
@@ -18,6 +23,10 @@ export class ServiceViewManager {
     private win: BrowserWindow,
     private hooks: ViewHooks,
     private railPosition: () => RailPosition,
+    private overlay?: {
+      setBounds(b: { x: number; y: number; width: number; height: number }): void;
+      raise(): void;
+    },
   ) {
     win.on('resize', () => this.layout());
   }
@@ -71,6 +80,9 @@ export class ServiceViewManager {
     });
     wc.on('did-start-loading', () => this.hooks.onLoading(id, true));
     wc.on('did-finish-load', () => this.hooks.onLoading(id, false));
+    wc.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
+      if (isMainFrame && !isSameDocument) this.hooks.onNavigate(id);
+    });
     wc.on('render-process-gone', () => this.hooks.onCrashed(id));
     wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.hooks.onLoadFailed(id);
@@ -118,6 +130,8 @@ export class ServiceViewManager {
     // flashed keep-alive view (attached at index 0) stays covered
     this.win.contentView.addChildView(view);
     view.setVisible(true);
+    // a covering loading overlay must outrank the view we just re-added
+    this.overlay?.raise();
     this.activeId = id;
     this.layout();
     // keyboard (incl. Tab) goes into the service, not the shell rail
@@ -166,5 +180,6 @@ export class ServiceViewManager {
     const [w, h] = this.win.getContentSize();
     const bounds = viewBounds(w, h, this.railPosition());
     for (const view of this.views.values()) view.setBounds(bounds);
+    this.overlay?.setBounds(bounds);
   }
 }

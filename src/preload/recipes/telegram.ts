@@ -1,3 +1,4 @@
+import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -6,6 +7,10 @@ import type { Recipe } from './types';
 const telegram: Recipe = {
   id: 'telegram',
   intervalMs: 2000,
+  // dialog rows render only after webK finishes its own boot screen
+  ready(doc) {
+    return visiblyPresent(doc, doc.querySelector('.rp'));
+  },
   count(doc) {
     const rows = [...doc.querySelectorAll<HTMLElement>('.rp:not(.is-muted)')];
     if (rows.length === 0) return { direct: unreadFromTitle(doc.title), indirect: 0 };

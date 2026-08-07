@@ -11,6 +11,7 @@ export default defineConfig({
         input: {
           shell: resolve(__dirname, 'src/preload/shell.ts'),
           service: resolve(__dirname, 'src/preload/service.ts'),
+          loading: resolve(__dirname, 'src/preload/loading.ts'),
         },
         // no shared chunks: the sandboxed shell preload cannot require() them
         external: ['electron'],
@@ -21,5 +22,13 @@ export default defineConfig({
   renderer: {
     plugins: [react(), tailwindcss()],
     optimizeDeps: { include: ['zustand'] },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          loading: resolve(__dirname, 'src/renderer/loading.html'),
+        },
+      },
+    },
   },
 });

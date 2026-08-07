@@ -9,9 +9,11 @@ test('launch, rail, badge propagation', async () => {
     args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${profile}`],
   });
 
-  // Every webContents (including service views) counts as a "window" —
-  // the shell renderer is the one loaded from disk.
-  const isShell = (p: { url(): string }) => p.url().startsWith('file://');
+  // Every webContents (including service views and the loading overlay)
+  // counts as a "window" — the shell renderer is the file:// page that
+  // isn't the overlay.
+  const isShell = (p: { url(): string }) =>
+    p.url().startsWith('file://') && !p.url().includes('loading.html');
   const win =
     app.windows().find(isShell) ?? (await app.waitForEvent('window', { predicate: isShell }));
 

@@ -32,6 +32,7 @@ export class HibernationController {
       };
       if (shouldHibernate(candidate, now, s.hibernationMinutes) && this.ctx.views.has(id)) {
         this.ctx.views.destroy(id);
+        this.ctx.waking.end(id, 'destroyed');
         this.ctx.state.setRuntime(id, { hibernated: true });
       }
     }

@@ -32,6 +32,7 @@ export default function ServiceTile({
 }: Props) {
   const logo = logos[`../assets/logos/${service.id}.svg`];
   const showBadge = runtime.unread.direct > 0;
+  const waking = runtime.waking && !runtime.crashed;
   // "Molten Squircle": ember-toned tiles; the active one floods with the warm
   // gradient so it stays unmistakable on dark graphite.
   const stateClasses = active
@@ -56,7 +57,8 @@ export default function ServiceTile({
       title={`${service.name}${showBadge ? ` — ${runtime.unread.direct} unread` : ''}`}
       aria-label={service.name}
       className={`relative flex h-8 w-8 items-center justify-center rounded-[11px] transition-all duration-150 ease-out outline-none
-        focus-visible:ring-2 focus-visible:ring-accent ${stateClasses}`}
+        focus-visible:ring-2 focus-visible:ring-accent ${stateClasses}
+        ${waking ? 'tile-breathe' : ''}`}
     >
       <span
         className="glyph h-4.5 w-4.5"

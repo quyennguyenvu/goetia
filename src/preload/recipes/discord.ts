@@ -1,9 +1,14 @@
+import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
 const discord: Recipe = {
   id: 'discord',
   intervalMs: 2000,
+  // the guild nav (stable data-list-id) mounts only after discord's splash
+  ready(doc) {
+    return visiblyPresent(doc, doc.querySelector('[data-list-id="guildsnav"]'));
+  },
   count(doc) {
     const badges = [...doc.querySelectorAll('[class*="lowerBadge_"] [class*="numberBadge_"]')]
       .map((el) => Number.parseInt(el.textContent ?? '', 10))

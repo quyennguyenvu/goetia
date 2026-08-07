@@ -15,11 +15,14 @@ export interface RendererToMain {
   'unread:stale': { serviceId: ServiceId };
   'notification:fired': { serviceId: ServiceId; title: string; body: string };
   'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
+  'service:ready': { serviceId: ServiceId };
 }
 
 /** main -> shell renderer, via webContents.send */
 export interface MainToRenderer {
   'shell:state': ShellState;
+  /** main -> loading overlay page */
+  'loading:state': { theme: 'light' | 'dark'; serviceName: string };
 }
 
 export const R2M_CHANNELS = [
@@ -36,4 +39,5 @@ export const R2M_CHANNELS = [
   'unread:stale',
   'notification:fired',
   'service:keepalive-click',
+  'service:ready',
 ] as const satisfies readonly (keyof RendererToMain)[];

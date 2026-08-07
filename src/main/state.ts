@@ -7,6 +7,7 @@ const defaultRuntime = (): ServiceRuntime => ({
   crashed: false,
   stale: false,
   loading: false,
+  waking: false,
 });
 
 export class MainState {
