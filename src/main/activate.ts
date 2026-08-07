@@ -11,4 +11,8 @@ export function activateService(ctx: AppContext, id: ServiceId): void {
   ctx.state.setRuntime(id, { hibernated: false });
   ctx.noteActivated(id);
   ctx.views.activate(id);
+  // Broadcast the new activeId. setRuntime above only notifies when it changes
+  // a field, so for an already-non-hibernated service it is a no-op and the
+  // rail/content would not update until the next state change (e.g. a reload).
+  ctx.state.touch();
 }

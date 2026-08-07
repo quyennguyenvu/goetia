@@ -9,20 +9,17 @@ import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../shared/types
 function normalize(raw: Settings): Settings {
   const ids = SERVICES.map((s) => s.id);
   const known = new Set<ServiceId>(ids);
-  const fill = (
-    rec: Partial<Record<ServiceId, boolean>>,
-    defaults: Record<ServiceId, boolean>,
-  ): Record<ServiceId, boolean> =>
-    Object.fromEntries(ids.map((id) => [id, rec[id] ?? defaults[id]])) as Record<
+  const fill = (rec: unknown, defaults: Record<ServiceId, boolean>): Record<ServiceId, boolean> => {
+    const r = (rec && typeof rec === 'object' ? rec : {}) as Partial<Record<ServiceId, boolean>>;
+    return Object.fromEntries(ids.map((id) => [id, r[id] ?? defaults[id]])) as Record<
       ServiceId,
       boolean
     >;
+  };
+  const order = Array.isArray(raw.order) ? raw.order : DEFAULT_SETTINGS.order;
   return {
     ...raw,
-    order: [
-      ...raw.order.filter((id) => known.has(id)),
-      ...ids.filter((id) => !raw.order.includes(id)),
-    ],
+    order: [...order.filter((id) => known.has(id)), ...ids.filter((id) => !order.includes(id))],
     muted: fill(raw.muted, DEFAULT_SETTINGS.muted),
     disabled: fill(raw.disabled, DEFAULT_SETTINGS.disabled),
     neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),

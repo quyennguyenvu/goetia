@@ -40,5 +40,18 @@ test('launch, rail, badge propagation', async () => {
     expect(badge).toBe(3);
   }
 
+  // clicking a service updates the active highlight (regression guard:
+  // activation must broadcast even when the target was not hibernated, or the
+  // rail only updates on the next state change such as a reload)
+  const rail = win.locator('[data-testid="rail"]');
+  await expect(rail.locator('button[aria-current="page"]')).toHaveAttribute(
+    'aria-label',
+    'Messenger',
+  );
+  await rail.getByRole('button', { name: 'Zalo' }).click();
+  await expect(rail.locator('button[aria-current="page"]')).toHaveAttribute('aria-label', 'Zalo', {
+    timeout: 5_000,
+  });
+
   await app.close();
 });

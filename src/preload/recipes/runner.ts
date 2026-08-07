@@ -5,6 +5,10 @@ import type { Recipe } from './types';
  *  click storm (or fight another tab for the session every 2s). */
 export const KEEPALIVE_MIN_INTERVAL_MS = 30_000;
 
+/** A single count() must settle within this, or the tick is abandoned (busy
+ *  released, staleness reported) so a hung IndexedDB read can't wedge polling. */
+export const COUNT_TIMEOUT_MS = 8_000;
+
 export function startRecipe(
   recipe: Recipe,
   doc: Document,
@@ -14,8 +18,10 @@ export function startRecipe(
   reportNotification?: (n: { title: string; body: string }) => void,
   setIntervalFn: typeof setInterval = setInterval,
   nowFn: () => number = Date.now,
+  countTimeoutMs: number = COUNT_TIMEOUT_MS,
 ): void {
   let last: Counts | null = null;
+  let stale = false;
   let busy = false;
   let lastKeepAlive = Number.NEGATIVE_INFINITY;
   setIntervalFn(async () => {
@@ -33,18 +39,27 @@ export function startRecipe(
       }
     }
     try {
-      const counts = await recipe.count(doc);
+      const counts = await Promise.race([
+        recipe.count(doc),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('count timeout')), countTimeoutMs),
+        ),
+      ]);
       const rose = last !== null && counts.direct > last.direct;
       if (!last || counts.direct !== last.direct || counts.indirect !== last.indirect) {
         last = counts;
         report(counts);
       }
+      stale = false;
       if (rose && reportNotification && recipe.synthNotification && !doc.hasFocus()) {
         const n = recipe.synthNotification(doc);
         if (n) reportNotification(n);
       }
     } catch {
-      reportStale();
+      if (!stale) {
+        stale = true;
+        reportStale();
+      }
     } finally {
       busy = false;
     }

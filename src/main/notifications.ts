@@ -7,6 +7,7 @@ import { activateService } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { resolveIcons } from './lib/notification-icons';
 import { notificationTitle, shouldNotify } from './lib/notification-rules';
+import { NotificationThrottle } from './lib/notification-throttle';
 
 // Packaged, extraResources drops these beside the asar rather than inside it,
 // so the path is one the OS itself can open. Dev mirrors tray.ts.
@@ -22,12 +23,14 @@ export class NotificationRouter {
     process.platform,
     existsSync,
   );
+  private throttle = new NotificationThrottle();
 
   constructor(private ctx: AppContext) {}
 
   handle(serviceId: ServiceId, title: string, body: string): void {
     const s = this.ctx.settings.get();
     if (!shouldNotify({ serviceMuted: s.muted[serviceId], globalMuted: s.globalMuted })) return;
+    if (!this.throttle.allow(serviceId, Date.now())) return;
     const icon = this.icons.get(serviceId);
     const n = new Notification({
       title: notificationTitle(title, serviceById(serviceId).name),

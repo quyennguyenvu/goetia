@@ -31,4 +31,15 @@ describe('MainState', () => {
     s.touch(); // …explicit touch() does
     expect(cb).toHaveBeenCalledTimes(2);
   });
+
+  it('does not notify when a patch changes nothing', () => {
+    const s = new MainState();
+    const cb = vi.fn();
+    s.setRuntime('zalo', { stale: true }); // first change notifies
+    s.onChange(cb);
+    s.setRuntime('zalo', { stale: true }); // identical -> no notify
+    expect(cb).not.toHaveBeenCalled();
+    s.setRuntime('zalo', { stale: false }); // real change -> notify
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
 });

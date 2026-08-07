@@ -27,8 +27,25 @@ export class MainState {
   }
 
   setRuntime(id: ServiceId, patch: Partial<ServiceRuntime>): void {
-    Object.assign(this.runtime(id), patch);
+    const current = this.runtime(id);
+    if (this.isNoOp(current, patch)) return;
+    Object.assign(current, patch);
     this.touch();
+  }
+
+  private isNoOp(current: ServiceRuntime, patch: Partial<ServiceRuntime>): boolean {
+    const entries = Object.entries(patch) as [keyof ServiceRuntime, unknown][];
+    for (const [k, v] of entries) {
+      if (k === 'unread') {
+        const u = v as ServiceRuntime['unread'];
+        if (u.direct !== current.unread.direct || u.indirect !== current.unread.indirect) {
+          return false;
+        }
+      } else if (current[k] !== v) {
+        return false;
+      }
+    }
+    return true;
   }
 
   onChange(cb: () => void): void {

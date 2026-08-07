@@ -1,7 +1,9 @@
 import { app, type BrowserWindow, ipcMain } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
+import type { ServiceId } from '../shared/types';
 import { activateService } from './activate';
 import { applyOverlay } from './badges';
+import { ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
 import type { SettingsStore } from './settings';
@@ -20,14 +22,32 @@ export interface AppContext {
   noteActivated(id: import('../shared/types').ServiceId): void;
 }
 
-function on<C extends keyof RendererToMain>(
-  channel: C,
-  fn: (payload: RendererToMain[C]) => void,
-): void {
-  ipcMain.on(channel, (_e, payload) => fn(payload as RendererToMain[C]));
+function register(ctx: AppContext) {
+  return <C extends keyof RendererToMain>(
+    channel: C,
+    fn: (payload: RendererToMain[C]) => void,
+  ): void => {
+    ipcMain.on(channel, (e, payload) => {
+      const fromShell = e.sender.id === ctx.win.webContents.id;
+      const senderServiceId = ctx.views.serviceIdForWebContentsId(e.sender.id);
+      const p = payload as { serviceId?: ServiceId };
+      if (
+        !ipcSenderAllowed({
+          channel,
+          fromShell,
+          senderServiceId,
+          payloadServiceId: p?.serviceId,
+        })
+      ) {
+        return; // drop spoofed / cross-service messages
+      }
+      fn(payload as RendererToMain[C]);
+    });
+  };
 }
 
 export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter): void {
+  const on = register(ctx);
   on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
   on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));

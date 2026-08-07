@@ -41,3 +41,17 @@ export const R2M_CHANNELS = [
   'service:keepalive-click',
   'service:ready',
 ] as const satisfies readonly (keyof RendererToMain)[];
+
+/** Channels only the trusted shell renderer may send. Everything else is a
+ *  service-preload channel carrying its own serviceId. */
+export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain>([
+  'service:activate',
+  'service:setMuted',
+  'service:reorder',
+  'service:reload',
+  'global:setMuted',
+  'switcher:setOpen',
+  'settings:setOpen',
+  'settings:update',
+  'badge:overlay',
+]);

@@ -11,11 +11,13 @@ import type { Recipe } from './types';
  *  "Active now" presence and must not count. Counts conversations. */
 function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
   if (row.textContent?.includes('Unread')) return true;
-  for (const span of row.querySelectorAll('span')) {
-    if (Number.parseInt(win.getComputedStyle(span).fontWeight, 10) >= 600) return true;
-  }
-  for (const el of row.querySelectorAll('div, span, i')) {
+  // one computed-style read per element (bold text OR blue unread dot),
+  // instead of two overlapping querySelectorAll sweeps
+  for (const el of row.querySelectorAll('span, div, i')) {
     const style = win.getComputedStyle(el);
+    if (el.tagName === 'SPAN' && Number.parseInt(style.fontWeight, 10) >= 600) {
+      return true;
+    }
     const radius = style.borderRadius;
     if (!radius || (!radius.includes('%') && Number.parseInt(radius, 10) < 8)) continue;
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(style.backgroundColor);

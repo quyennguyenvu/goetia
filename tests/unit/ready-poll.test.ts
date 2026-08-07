@@ -58,6 +58,16 @@ describe('startReadyPoll', () => {
     startReadyPoll(base, doc, vi.fn(), t.setIntervalFn, t.clearIntervalFn);
     expect(t.ticks).toHaveLength(0);
   });
+
+  it('stops polling after the attempt cap when never ready', () => {
+    const recipe: Recipe = { ...base, ready: () => false };
+    const t = fakeTimers();
+    const report = vi.fn();
+    startReadyPoll(recipe, doc, report, t.setIntervalFn, t.clearIntervalFn);
+    for (let i = 0; i < 60; i++) t.ticks[0]();
+    expect(report).not.toHaveBeenCalled();
+    expect(t.cleared).toHaveLength(1); // gave up and cleared the interval
+  });
 });
 
 describe('visiblyPresent', () => {

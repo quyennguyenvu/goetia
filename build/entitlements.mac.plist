@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Chromium/V8 need executable JIT memory under the hardened runtime -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Ad-hoc signing has no Team ID, so library validation would refuse to
+         load the (differently-signed) Electron frameworks and kill the app on
+         a clean machine. Disabling it lets the ad-hoc bundle launch. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- Deliberately NOT granting allow-dyld-environment-variables (in
+         electron-builder's default): it permits DYLD_INSERT_LIBRARIES
+         injection, undoing the runAsNode/NODE_OPTIONS fuse hardening. -->
+  </dict>
+</plist>

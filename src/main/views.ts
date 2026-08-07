@@ -2,7 +2,9 @@ import { join } from 'node:path';
 import { type BrowserWindow, session, shell, WebContentsView } from 'electron';
 import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
+import { isSafeExternalUrl } from './lib/external-url';
 import { viewBounds } from './lib/layout';
+import { permissionAllowed } from './lib/permission-policy';
 
 export interface ViewHooks {
   onLoading(id: ServiceId, loading: boolean): void;
@@ -18,6 +20,8 @@ export interface ViewHooks {
 export class ServiceViewManager {
   activeId: ServiceId | null = null;
   private views = new Map<ServiceId, WebContentsView>();
+  private layoutScheduled = false;
+  private clickHideTimers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
 
   constructor(
     private win: BrowserWindow,
@@ -28,21 +32,49 @@ export class ServiceViewManager {
       raise(): void;
     },
   ) {
-    win.on('resize', () => this.layout());
+    win.on('resize', () => this.scheduleLayout());
+  }
+
+  /** Coalesce a burst of resize events into a single layout pass. */
+  private scheduleLayout(): void {
+    if (this.layoutScheduled) return;
+    this.layoutScheduled = true;
+    setTimeout(() => {
+      this.layoutScheduled = false;
+      this.layout();
+    }, 16);
   }
 
   has(id: ServiceId): boolean {
     return this.views.has(id);
   }
 
+  /** The service whose view owns this webContents id, or null. */
+  serviceIdForWebContentsId(wcId: number): ServiceId | null {
+    for (const [id, view] of this.views) {
+      if (view.webContents.id === wcId) return id;
+    }
+    return null;
+  }
+
   private configureSession(id: ServiceId) {
     const ses = session.fromPartition(`persist:${id}`);
+    const serviceUrl = serviceById(id).url;
     const wanted = ['en-US', 'vi'];
     ses.setSpellCheckerLanguages(
       wanted.filter((l) => ses.availableSpellCheckerLanguages.includes(l)),
     );
-    ses.setPermissionRequestHandler((_wc, permission, cb) =>
-      cb(permission === 'notifications' || permission === 'media'),
+    ses.setPermissionRequestHandler((_wc, permission, cb, details) =>
+      cb(
+        permissionAllowed({
+          permission,
+          requestingUrl: details.requestingUrl ?? '',
+          serviceUrl,
+        }),
+      ),
+    );
+    ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
+      permissionAllowed({ permission, requestingUrl: requestingOrigin, serviceUrl }),
     );
     return ses;
   }
@@ -70,8 +102,9 @@ export class ServiceViewManager {
     const wc = view.webContents;
     if (svc.keepRendered) wc.setBackgroundThrottling(false);
     wc.setWindowOpenHandler(({ url }) => {
-      // external links open in the OS browser, never inside Goetia
-      shell.openExternal(url);
+      // external links open in the OS browser, never inside Goetia; only
+      // web schemes — a hostile page must not reach file:/smb:/custom
+      if (isSafeExternalUrl(url)) shell.openExternal(url);
       return { action: 'deny' };
     });
     wc.on('before-input-event', (_e, input) => {
@@ -113,7 +146,17 @@ export class ServiceViewManager {
     const wc = view.webContents;
     wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
     wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
-    if (hidden) setTimeout(() => view.setVisible(false), 300);
+    if (hidden) {
+      const prev = this.clickHideTimers.get(id);
+      if (prev !== undefined) clearTimeout(prev);
+      this.clickHideTimers.set(
+        id,
+        setTimeout(() => {
+          this.clickHideTimers.delete(id);
+          if (!view.webContents.isDestroyed()) view.setVisible(false);
+        }, 300),
+      );
+    }
   }
 
   /** Create the view (starts loading, recipes, notifications) without showing it. */
@@ -159,6 +202,11 @@ export class ServiceViewManager {
   destroy(id: ServiceId): void {
     const view = this.views.get(id);
     if (!view) return;
+    const t = this.clickHideTimers.get(id);
+    if (t !== undefined) {
+      clearTimeout(t);
+      this.clickHideTimers.delete(id);
+    }
     this.win.contentView.removeChildView(view);
     view.webContents.close();
     this.views.delete(id);

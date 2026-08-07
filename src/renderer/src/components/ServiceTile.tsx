@@ -1,4 +1,5 @@
 import type React from 'react';
+import { badgeLabel } from '../../../shared/badges';
 import type { ServiceMeta, ServiceRuntime } from '../../../shared/types';
 
 const logos = import.meta.glob<string>('../assets/logos/*.svg', {
@@ -15,10 +16,6 @@ interface Props {
   onActivate(): void;
   onContextMenu(e: React.MouseEvent): void;
   onReorder(fromId: string, toId: string): void;
-}
-
-export function badgeText(direct: number): string {
-  return direct > 99 ? '99+' : String(direct);
 }
 
 export default function ServiceTile({
@@ -56,6 +53,7 @@ export default function ServiceTile({
       onContextMenu={onContextMenu}
       title={`${service.name}${showBadge ? ` — ${runtime.unread.direct} unread` : ''}`}
       aria-label={service.name}
+      aria-current={active ? 'page' : undefined}
       className={`relative flex h-8 w-8 items-center justify-center rounded-[11px] transition-all duration-150 ease-out outline-none
         focus-visible:ring-2 focus-visible:ring-accent ${stateClasses}
         ${waking ? 'tile-breathe' : ''}`}
@@ -66,7 +64,7 @@ export default function ServiceTile({
       />
       {showBadge && (
         <span className="tabular absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-bg-1 bg-badge px-0.5 text-[9px] font-bold text-white">
-          {badgeText(runtime.unread.direct)}
+          {badgeLabel(runtime.unread.direct)}
         </span>
       )}
       {!showBadge && runtime.unread.indirect > 0 && (

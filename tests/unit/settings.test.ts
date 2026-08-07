@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SettingsStore } from '../../src/main/settings';
+import { DEFAULT_SETTINGS } from '../../src/shared/types';
 
 let dir: string;
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -67,5 +68,19 @@ describe('SettingsStore', () => {
     );
     const s = new SettingsStore(dir).get();
     expect(s.order).toEqual(['messenger', 'zalo', 'telegram', 'whatsapp', 'discord', 'shopee']);
+  });
+
+  it('coerces a corrupt settings.json instead of throwing on startup', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    // hand-mangled file: order is a string, records are wrong types
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ order: 'oops', muted: 42, disabled: null }),
+    );
+    const store = new SettingsStore(dir);
+    expect(() => store.get()).not.toThrow();
+    const s = store.get();
+    expect(s.order).toEqual(DEFAULT_SETTINGS.order);
+    expect(s.disabled).toEqual(DEFAULT_SETTINGS.disabled);
   });
 });

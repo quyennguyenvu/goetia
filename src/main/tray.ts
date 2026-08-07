@@ -7,10 +7,6 @@ const RESOURCES = join(__dirname, '../../resources');
 
 let quitting = false;
 
-export function isQuitting(): boolean {
-  return quitting;
-}
-
 export function createTray(ctx: AppContext): { updateTooltip(total: number): void } {
   const iconName = process.platform === 'darwin' ? 'trayTemplate.png' : 'tray-win.png';
   const tray = new Tray(join(RESOURCES, 'tray', iconName));
@@ -56,10 +52,16 @@ export function createTray(ctx: AppContext): { updateTooltip(total: number): voi
   rebuild();
 
   ctx.win.on('close', (e) => {
-    if (ctx.settings.get().closeToTray && !quitting) {
+    if (quitting) return; // real quit in progress; let it close
+    if (ctx.settings.get().closeToTray) {
       e.preventDefault();
       ctx.win.hide();
       rebuild();
+    } else {
+      // close-to-tray off: the X button means quit, not hide — never leave a
+      // destroyed-window process running with live timers/tray behind it
+      quitting = true;
+      app.quit();
     }
   });
   ctx.win.on('show', rebuild);

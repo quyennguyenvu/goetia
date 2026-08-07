@@ -21,6 +21,26 @@ mac:
   # ad-hoc sign: macOS refuses Notification Center registration for unsigned
   # bundles (notifications fail with UNErrorDomain 1, no permission prompt)
   identity: '-'
+  hardenedRuntime: true
+  # custom entitlements (not electron-builder's default): grant only the JIT +
+  # library-validation exceptions Chromium needs to launch ad-hoc under the
+  # hardened runtime, WITHOUT allow-dyld-environment-variables (which would
+  # reopen the injection path the fuses close)
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+# Locks the packaged binary: no run-as-node / NODE_OPTIONS / --inspect
+# code-exec paths, session cookies encrypted via OS keychain (not plaintext
+# SQLite), and the asar is integrity-checked and the only load source.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableCookieEncryption: true
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  # flipping fuses invalidates the code signature; re-apply the ad-hoc
+  # signature (identity '-') that macOS needs for Notification Center
+  resetAdHocDarwinSignature: true
 win:
   target: nsis
 nsis:

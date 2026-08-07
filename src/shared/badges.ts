@@ -17,5 +17,5 @@ export function aggregateBadges(entries: BadgeEntry[], globalMuted: boolean): Ba
 }
 
 export function badgeLabel(count: number): string {
-  return count > 9 ? '9+' : String(count);
+  return count > 99 ? '99+' : String(count);
 }

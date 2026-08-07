@@ -6,70 +6,161 @@ Shopee in one window, with native notifications and unread badges. macOS + Windo
 Built with Electron + TypeScript + React. Local-only: no server, no accounts,
 no telemetry.
 
-## Download
+## Install (for everyone)
 
-Prebuilt installers are on the [Releases page](https://github.com/quyennguyenvu/goetia/releases):
+Goetia is a normal desktop app — no account, no sign-up, nothing to set up.
+Download it, install it, open it. One heads-up first:
 
-- **macOS**: `Goetia-<version>-arm64.dmg` (Apple Silicon) or `Goetia-<version>-x64.dmg`
-  (Intel). The app is unsigned — on first launch, right-click the app → **Open**.
-- **Windows**: `Goetia Setup <version>.exe`. SmartScreen warns on unsigned
-  installers — click **More info → Run anyway**.
+Goetia isn't signed with a paid Apple or Microsoft certificate (it's a
+personal project, not a company). So the **first** time you open it, your
+computer pops up a scary-looking warning. **The app is safe** — the warning
+only means "the developer didn't buy a certificate," not that anything is
+wrong. Here's how to get past it, once.
 
-Releases are cut by pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`);
-the tag must match `package.json`'s `version`.
+Grab the installer for your computer from the
+[Releases page](https://github.com/quyennguyenvu/goetia/releases).
 
-## Run
+### On a Mac
+
+1. Download the right `.dmg` (see "Which Mac file?" just below),
+   double-click it, and drag the **Goetia** icon onto the **Applications**
+   folder.
+2. Open **Goetia** from your Applications folder. If it opens, you're done.
+3. If macOS says **"Goetia is damaged"** or **"cannot be opened because Apple
+   cannot check it"**, that is only the unsigned-app warning — clear it once
+   with the step below.
+
+To clear the warning, open the **Terminal** app (press ⌘+Space, type
+`Terminal`, press Return), then copy-paste this exact line and press Return:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Goetia.app
+```
+
+Now open Goetia again — it opens normally from here on. (If Terminal replies
+"permission denied", type `sudo`, a space, then the same command again, and
+enter your Mac login password when asked; the password stays invisible as you
+type.)
+
+**Which Mac file?** Use `Goetia-<version>-arm64.dmg` for Apple Silicon
+(M1/M2/M3/M4 — most Macs since 2020), or `Goetia-<version>-x64.dmg` for older
+Intel Macs. Not sure? Apple menu (top-left) → **About This Mac**: a "Chip"
+that starts with "Apple" means arm64; "Intel" means x64.
+
+### On Windows
+
+1. Download `Goetia Setup <version>.exe` and run it.
+2. Windows shows a blue box, **"Windows protected your PC."** Click **More
+   info**, then **Run anyway**. (This shows only because the app isn't signed
+   with a paid certificate — it's safe.)
+3. It installs and opens on its own, and afterwards launches from the Start
+   menu like any other app.
+
+### The first time you open it
+
+You'll see a row of chat-service icons. Click each one and log in the normal
+way — scan the QR code (WhatsApp, Zalo) or type your username and password.
+**You only log in once per service**; Goetia remembers each account
+separately, even after you quit and reopen.
+
+Closing the window does **not** quit Goetia — it keeps running in the menu
+bar (Mac) or the system tray next to the clock (Windows) so notifications
+still arrive. To fully quit, click that icon → **Quit**, or press ⌘Q (Mac) /
+Ctrl+Q (Windows).
+
+### Handy to know
+
+- **Service icons sit in a top bar** by default (each chat app already has
+  its own left-hand column, so a second left rail would double up). Want them
+  on the side? **Settings → General → Menu position**.
+- **Shortcuts**: ⌘/Ctrl+1…6 jump to a service, ⌘/Ctrl+K opens a quick
+  switcher, ⌘/Ctrl+R (or F5) reloads the current service, right-click an icon
+  to mute it, and drag icons to reorder them.
+- **On a Mac, allow notifications the first time**: System Settings →
+  Notifications → **Goetia** → turn on **Allow Notifications**.
+
+### If something looks off
+
+None of these mean the app is broken — they're the known rough edges of a
+free, unsigned personal app:
+
+- **The "damaged" / "unverified" (Mac) or SmartScreen (Windows) warning** is
+  expected; follow the install steps above. It only appears the first time.
+- **Mac asks to use "confidential information stored in Goetia Safe
+  Storage"**: click **Always Allow**. Goetia locks your saved logins with a
+  key kept in your Mac's keychain, and because the app isn't signed with a
+  paid certificate macOS treats each new version as a different app — so it
+  asks again after every update. Clicking **Deny** leaves those saved logins
+  locked and you'd have to sign in to every service again.
+- **A service shows new messages in its own window but the icon has no red
+  badge** (or shows a small grey dot): that service tweaked its website and
+  Goetia's unread counter for it needs a small update. Chatting still works —
+  only the badge is out of date. Tell me and I'll push a fix.
+- **A service logs you out after a while**: some services do that on their
+  own; just log back in. Your other services stay logged in.
+- **Notifications from a service never appear**: open that service once and
+  check its own notification setting is on, and (Mac) that Goetia is allowed
+  to notify in System Settings.
+
+## Build from source (developers)
 
 pnpm may not be on PATH (Node via Homebrew); run it through corepack — the
 version is pinned in `package.json`'s `packageManager` field:
 
-    cd ~/workspace/gh_leo/goetia
-    corepack pnpm install   # first time only
-    corepack pnpm dev       # start with hot reload
+```sh
+cd ~/workspace/gh_leo/goetia
+corepack pnpm install   # first time only
+corepack pnpm dev       # start with hot reload
+```
 
-The window opens with the service rail on the left. Click each service and
-scan its QR / log in once — sessions persist across restarts in
-`~/Library/Application Support/Goetia` (one isolated `persist:<id>` session
-per service).
+Sessions persist across restarts in `~/Library/Application Support/Goetia`
+(one isolated `persist:<id>` session per service).
 
 To use plain `pnpm` instead of the `corepack pnpm` prefix, add the corepack
 shims to your shell (`~/.zshrc`):
 
-    export PATH="$HOME/.local/corepack-bin:$PATH"
+```sh
+export PATH="$HOME/.local/corepack-bin:$PATH"
+```
 
 (Shims were created with `corepack enable --install-directory ~/.local/corepack-bin`.
 Tools that spawn pnpm themselves — e.g. electron-builder — also need this.)
 
-### Install the packaged app
+### Package the installers
 
-    corepack pnpm package:mac   # → dist/Goetia-<version>-arm64.dmg
-    corepack pnpm package:win   # run on a Windows machine
+```sh
+corepack pnpm package:mac   # → dist/Goetia-<version>-arm64.dmg
+corepack pnpm package:win   # run on a Windows machine
+```
 
-Open the dmg, drag Goetia to Applications, then **right-click → Open** on
-first launch — the app is unsigned, so a plain double-click is blocked by
-Gatekeeper.
+A locally built app is **not** quarantined, so it opens with no warning on
+the machine that built it. The "damaged"/Gatekeeper prompt only affects
+copies that were **downloaded** (a downloaded file carries a quarantine
+flag) — see the install steps above for the one-time fix.
 
-### Daily-use notes
+Every build gets a fresh ad-hoc signature, whose designated requirement is
+the binary's own cdhash, so macOS sees a brand-new app identity each time.
+The first launch after installing a rebuild therefore prompts for keychain
+access to **Goetia Safe Storage** — the cookie-encryption key that the
+`enableCookieEncryption` fuse makes Chromium store there. Click **Always
+Allow**; it only covers that build. `security delete-generic-password -s
+"Goetia Safe Storage"` silences the prompt but discards every saved session.
+The permanent fix is a stable signing identity — see
+`docs/superpowers/plans/2026-08-07-code-signing-and-notarization.md`.
 
-- **Close-to-tray is on by default**: closing the window keeps Goetia in the
-  menu bar receiving notifications. Quit via the tray menu or ⌘Q.
-- **Menu position**: the service icons live in a top bar by default (the
-  embedded chat apps have their own left column, so a left rail doubles up);
-  switch to Left or Right in Settings → General.
-- Shortcuts: ⌘/Ctrl+1…6 jump to a service, ⌘/Ctrl+K quick switcher,
-  ⌘/Ctrl+R or F5 reload the current service, right-click a tile to mute it,
-  drag tiles to reorder.
-- After first login, watch the rail badges: if a service shows unread in its
-  own UI but no badge (or a small grey "stale" dot), that recipe's DOM
-  selector needs updating — see Notes below.
+Releases are cut by pushing a version tag
+(`git tag v0.1.0 && git push origin v0.1.0`); the tag must match
+`package.json`'s `version`.
 
 ## Develop
 
-    corepack pnpm dev          # run with HMR
-    corepack pnpm test         # unit tests (Vitest)
-    corepack pnpm e2e          # smoke test (Playwright-Electron)
-    corepack pnpm lint         # Biome
-    corepack pnpm typecheck    # tsc --noEmit
+```sh
+corepack pnpm dev          # run with HMR
+corepack pnpm test         # unit tests (Vitest)
+corepack pnpm e2e          # smoke test (Playwright-Electron)
+corepack pnpm lint         # Biome
+corepack pnpm typecheck    # tsc --noEmit
+```
 
 ## Notes
 
@@ -80,12 +171,12 @@ Gatekeeper.
   locks them to each other.
 - Viber is intentionally absent: it has no web client to embed.
 - `ERROR:base/process/process_mac.cc … task_policy_set TASK_SUPPRESSION_POLICY:
-  (os/kern) invalid argument (4)` on startup is harmless: Chromium failing to put
+(os/kern) invalid argument (4)` on startup is harmless: Chromium failing to put
   a child process under macOS App Nap. Not ours, and nothing breaks.
 - Branding: the icon is "Ember Portal" — a summoning circle as pure energy,
   matching the app's ember accent (dark `#FF9E2C`, light `#E8590C`). SVG
   sources live in `resources/` (`icon.svg`, `tray/*.svg`); regenerate PNGs
   with `rsvg-convert` (e.g. `rsvg-convert -w 1024 -h 1024 resources/icon.svg
-  -o resources/icon.png`).
+-o resources/icon.png`).
 - Design spec: `docs/superpowers/specs/2026-08-04-goetia-chat-client-design.md`.
 - Implementation plan: `docs/superpowers/plans/2026-08-04-goetia-v1.md`.

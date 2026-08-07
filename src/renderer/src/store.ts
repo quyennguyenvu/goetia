@@ -11,8 +11,8 @@ export const useShell = create<ShellStore>((set) => ({
   setState: (s) => set({ state: s }),
 }));
 
-export function connectShell(): void {
-  window.goetia.onState((s) => {
+export function connectShell(): () => void {
+  return window.goetia.onState((s) => {
     document.documentElement.dataset.theme = s.theme;
     useShell.getState().setState(s);
   });

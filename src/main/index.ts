@@ -108,6 +108,7 @@ app
 
     let tray: { updateTooltip(total: number): void } | null = null;
     const broadcast = () => {
+      if (win.isDestroyed()) return;
       const s = settings.get();
       win.webContents.send('shell:state', state.snapshot(s, effectiveTheme(), app.getVersion()));
       const summary = aggregateBadges(
