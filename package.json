@@ -1,7 +1,7 @@
 {
   "name": "goetia",
   "productName": "Goetia",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Personal multi-service chat client",
   "main": "out/main/index.js",
@@ -20,7 +20,7 @@
     "package:win": "electron-vite build && electron-builder --win"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.6",
+    "@biomejs/biome": "^2.5.7",
     "@playwright/test": "^1.62.1",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
@@ -28,7 +28,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
     "conf": "^15.1.0",
-    "electron": "^43.2.0",
+    "electron": "^43.3.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "happy-dom": "^20.11.1",

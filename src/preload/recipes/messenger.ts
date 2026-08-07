@@ -1,4 +1,5 @@
 import type { Counts } from '../../shared/types';
+import { textWithEmoji } from './emoji-text';
 import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
@@ -74,7 +75,7 @@ const messenger: Recipe = {
       let spans = [...row.querySelectorAll('span[dir="auto"]')];
       if (spans.length === 0) spans = [...row.querySelectorAll('span')];
       const texts = spans
-        .map((s) => s.textContent?.trim() ?? '')
+        .map((s) => textWithEmoji(s))
         .filter((t, i, all) => t && t !== '·' && t !== all[i - 1]);
       if (texts.length === 0) return null;
       return {

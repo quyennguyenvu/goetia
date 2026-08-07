@@ -18,6 +18,13 @@ describe('messenger synthesized notification', () => {
     });
   });
 
+  it('keeps the emoji facebook renders as an image in a reaction preview', () => {
+    expect(messenger.synthNotification?.(load('messenger-reaction'))).toEqual({
+      title: 'Hồ Nguyễn Tiến Hưng',
+      body: 'Reacted 😆 to your message',
+    });
+  });
+
   it('returns null when nothing is unread', () => {
     expect(messenger.synthNotification?.(load('blank'))).toBeNull();
   });
