@@ -10,6 +10,7 @@ const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   zalo: ['chat.zalo.me', 'id.zalo.me', 'zalo.me'],
   whatsapp: ['web.whatsapp.com'],
   discord: ['discord.com', 'discordapp.com', 'canary.discord.com'],
+  tiktok: ['www.tiktok.com', 'tiktok.com'],
   shopee: ['shopee.vn', 'accounts.shopee.vn'],
 };
 

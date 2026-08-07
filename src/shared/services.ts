@@ -41,6 +41,15 @@ export const SERVICES: ServiceMeta[] = [
     color: '#5865F2',
     waitForReady: true,
   },
+  // DMs only — land on /messages, not the feed (messenger-style). The
+  // recipe's data-e2e hooks are uncalibrated until a live login pass.
+  {
+    id: 'tiktok',
+    name: 'TikTok',
+    url: 'https://www.tiktok.com/messages',
+    color: '#FE2C55',
+    waitForReady: true,
+  },
   // buyer chat lives in the mini-chat widget on the shopping site; the
   // recipe css reshapes it to fill the view. Never target /webchat —
   // it hits Shopee's anti-bot wall (verify/captcha, scene=crawler_item)

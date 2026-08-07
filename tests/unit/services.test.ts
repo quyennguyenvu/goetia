@@ -3,16 +3,17 @@ import { SERVICES, serviceById } from '../../src/shared/services';
 import { DEFAULT_SETTINGS } from '../../src/shared/types';
 
 describe('service catalog', () => {
-  it('has exactly the six spec services, unique, https', () => {
+  it('has exactly the seven spec services, unique, https', () => {
     expect(SERVICES.map((s) => s.id)).toEqual([
       'messenger',
       'telegram',
       'zalo',
       'whatsapp',
       'discord',
+      'tiktok',
       'shopee',
     ]);
-    expect(new Set(SERVICES.map((s) => s.id)).size).toBe(6);
+    expect(new Set(SERVICES.map((s) => s.id)).size).toBe(7);
     for (const s of SERVICES) expect(s.url).toMatch(/^https:\/\//);
   });
 

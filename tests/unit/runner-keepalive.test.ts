@@ -12,7 +12,17 @@ function harness(recipe: Recipe) {
   let now = 100_000;
   const report = vi.fn();
   const keepAlive = vi.fn();
-  startRecipe(recipe, document, report, vi.fn(), keepAlive, undefined, fakeSetInterval, () => now);
+  startRecipe(
+    recipe,
+    document,
+    report,
+    vi.fn(),
+    keepAlive,
+    undefined,
+    undefined,
+    fakeSetInterval,
+    () => now,
+  );
   if (!tick) throw new Error('interval not started');
   return {
     tick: tick as () => Promise<void>,

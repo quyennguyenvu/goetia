@@ -11,7 +11,17 @@ function harness(recipe: Recipe, focused: boolean) {
     return 0;
   }) as unknown as typeof setInterval;
   const notify = vi.fn();
-  startRecipe(recipe, document, vi.fn(), vi.fn(), undefined, notify, fakeSetInterval, () => 0);
+  startRecipe(
+    recipe,
+    document,
+    vi.fn(),
+    vi.fn(),
+    undefined,
+    notify,
+    undefined,
+    fakeSetInterval,
+    () => 0,
+  );
   if (!tick) throw new Error('interval not started');
   return { tick: tick as () => Promise<void>, notify };
 }

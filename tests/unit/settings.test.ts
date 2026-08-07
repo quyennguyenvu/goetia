@@ -53,9 +53,20 @@ describe('SettingsStore', () => {
       }),
     );
     const s = new SettingsStore(dir).get();
-    expect(s.order).toEqual(['messenger', 'telegram', 'zalo', 'whatsapp', 'discord', 'shopee']);
+    expect(s.order).toEqual([
+      'messenger',
+      'telegram',
+      'zalo',
+      'whatsapp',
+      'discord',
+      'tiktok',
+      'shopee',
+    ]);
+    expect(s.muted.tiktok).toBe(false);
+    expect(s.disabled.tiktok).toBe(true); // new service arrives disabled
+    expect(s.neverHibernate.tiktok).toBe(true);
     expect(s.muted.shopee).toBe(false);
-    expect(s.disabled.shopee).toBe(true); // new service arrives disabled
+    expect(s.disabled.shopee).toBe(true);
     expect(s.neverHibernate.shopee).toBe(true);
     expect(s.muted.messenger).toBe(true); // existing prefs untouched
   });
@@ -67,7 +78,15 @@ describe('SettingsStore', () => {
       JSON.stringify({ order: ['messenger', 'skype', 'zalo'] }),
     );
     const s = new SettingsStore(dir).get();
-    expect(s.order).toEqual(['messenger', 'zalo', 'telegram', 'whatsapp', 'discord', 'shopee']);
+    expect(s.order).toEqual([
+      'messenger',
+      'zalo',
+      'telegram',
+      'whatsapp',
+      'discord',
+      'tiktok',
+      'shopee',
+    ]);
   });
 
   it('coerces a corrupt settings.json instead of throwing on startup', () => {

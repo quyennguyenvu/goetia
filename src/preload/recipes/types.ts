@@ -5,6 +5,12 @@ export interface Recipe {
   intervalMs: number;
   /** Injected into the page on load — cosmetic fixes (hide site chrome, etc). */
   css?: string;
+  /** Pathname prefixes that count as "in chat", for sites that are more than
+   *  chat (facebook, tiktok). Once a document has been on a chat path, SPA
+   *  routing off all of them — a profile link, a feed CTA — makes the runner
+   *  navigate back to the service URL (chat only, rate-limited). Documents
+   *  that never reach a chat path (login flows) are never snapped. */
+  chatPaths?: string[];
   /** Extract unread counts from the live page. Throwing marks counts stale. */
   count(doc: Document): Counts | Promise<Counts>;
   /** Chat UI is rendered and usable — ends the shell's waking cover

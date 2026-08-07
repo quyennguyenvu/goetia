@@ -37,6 +37,10 @@ function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
 const messenger: Recipe = {
   id: 'messenger',
   intervalMs: 2000,
+  // chat only: facebook.com is mostly not chat — profile links, marketplace
+  // panels, shared posts all route away. /messenger_media is the in-chat
+  // attachment lightbox and must not trigger a snap-back.
+  chatPaths: ['/messages', '/messenger_media'],
   // chat only: hide facebook's global top nav. Layout offsets and heights are
   // driven by --header-height (56px), redefined at element level in places —
   // force it to 0 everywhere or the reclaimed space reappears as a footer gap.

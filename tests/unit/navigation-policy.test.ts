@@ -6,10 +6,12 @@ describe('isNavigationAllowed', () => {
     expect(isNavigationAllowed('messenger', 'https://www.facebook.com/messages/')).toBe(true);
     expect(isNavigationAllowed('messenger', 'https://m.facebook.com/login')).toBe(true);
     expect(isNavigationAllowed('whatsapp', 'https://web.whatsapp.com/')).toBe(true);
+    expect(isNavigationAllowed('tiktok', 'https://www.tiktok.com/messages')).toBe(true);
   });
   it('blocks a foreign host', () => {
     expect(isNavigationAllowed('messenger', 'https://evil.example/phish')).toBe(false);
     expect(isNavigationAllowed('whatsapp', 'https://evil.example/')).toBe(false);
+    expect(isNavigationAllowed('tiktok', 'https://evil.example/')).toBe(false);
   });
   it('blocks non-web schemes and malformed urls', () => {
     expect(isNavigationAllowed('discord', 'file:///etc/passwd')).toBe(false);

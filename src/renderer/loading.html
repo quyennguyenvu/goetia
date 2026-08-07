@@ -7,6 +7,37 @@
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'"
     />
     <title>Goetia — waking</title>
+    <style>
+      /* Critical first-paint styles. Dev serves this file from source,
+         where loading.css/tokens.css only arrive via the JS module —
+         after first paint — and a viewBox-only SVG defaults to full body
+         width: the portal flashes huge and uncentered. Mirrors
+         loading.css/tokens.css; var() fallbacks are the pre-theme light
+         values and yield to the real tokens once loaded. */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      .stage {
+        display: flex;
+        height: 100%;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: var(--bg-0, #f7f8fa);
+      }
+      .portal {
+        width: 128px;
+        height: 128px;
+      }
+      .caption {
+        color: var(--text-2, #5a6472);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        font-size: 13px;
+      }
+    </style>
   </head>
   <body>
     <main class="stage">

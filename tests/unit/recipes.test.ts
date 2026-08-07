@@ -22,6 +22,7 @@ const cases: [ServiceId, string, number, number][] = [
   ['telegram', 'telegram', 4, 2], // positive peers direct, negative indirect, muted skipped
   ['discord', 'discord', 3, 1], // lowerBadge_/numberBadge_ sum; "• Discord" title -> indirect
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge
+  ['tiktok', 'tiktok', 3, 0], // nav Messages badge total
   ['shopee', 'shopee', 31, 0], // mini-chat header badge
 ];
 
@@ -79,6 +80,11 @@ describe('ready()', () => {
   it('zalo is ready once the message tab mounts', () => {
     expect(recipes.zalo.ready?.(load('zalo'))).toBe(true);
     expect(recipes.zalo.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('tiktok is ready once the chat list mounts', () => {
+    expect(recipes.tiktok.ready?.(load('tiktok'))).toBe(true);
+    expect(recipes.tiktok.ready?.(load('blank'))).toBe(false);
   });
 });
 

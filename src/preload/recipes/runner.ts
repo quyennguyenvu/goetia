@@ -9,6 +9,10 @@ export const KEEPALIVE_MIN_INTERVAL_MS = 30_000;
  *  released, staleness reported) so a hung IndexedDB read can't wedge polling. */
 export const COUNT_TIMEOUT_MS = 8_000;
 
+/** Floor between chat snap-backs, so a site that force-routes away from
+ *  chat can't fight the containment every tick. */
+export const SNAPBACK_MIN_INTERVAL_MS = 30_000;
+
 export function startRecipe(
   recipe: Recipe,
   doc: Document,
@@ -16,6 +20,7 @@ export function startRecipe(
   reportStale: () => void,
   reportKeepAlive?: (pt: { x: number; y: number }) => void,
   reportNotification?: (n: { title: string; body: string }) => void,
+  snapBack?: () => void,
   setIntervalFn: typeof setInterval = setInterval,
   nowFn: () => number = Date.now,
   countTimeoutMs: number = COUNT_TIMEOUT_MS,
@@ -24,9 +29,23 @@ export function startRecipe(
   let stale = false;
   let busy = false;
   let lastKeepAlive = Number.NEGATIVE_INFINITY;
+  let lastSnapBack = Number.NEGATIVE_INFINITY;
+  let wasInChat = false;
   setIntervalFn(async () => {
     if (busy) return;
     busy = true;
+    // chat containment: SPA routing off every chatPaths prefix after the
+    // document has been on one means the user (or a CTA) left chat — go back.
+    if (snapBack && recipe.chatPaths) {
+      const path = doc.location?.pathname ?? '';
+      if (recipe.chatPaths.some((p) => path.startsWith(p))) {
+        wasInChat = true;
+      } else if (wasInChat && nowFn() - lastSnapBack >= SNAPBACK_MIN_INTERVAL_MS) {
+        lastSnapBack = nowFn();
+        wasInChat = false;
+        snapBack();
+      }
+    }
     if (reportKeepAlive && recipe.keepAlive) {
       try {
         const pt = recipe.keepAlive(doc);

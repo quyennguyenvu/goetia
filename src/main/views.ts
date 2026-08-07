@@ -217,11 +217,15 @@ export class ServiceViewManager {
     this.views.get(id)?.webContents.reload();
   }
 
-  /** Reload a live service; re-shows the active view if a failed load hid it. */
+  /** User-initiated reload: return a live service to its chat URL — Goetia
+   *  is chat-only, and reload is the way back when a site's own links have
+   *  wandered off chat. Re-shows the active view if a failed load hid it.
+   *  (Crash auto-reload stays on the current URL — see ResilienceManager.) */
   refresh(id: ServiceId): void {
-    if (!this.views.has(id)) return; // hibernated/never-created: nothing to reload
+    const view = this.views.get(id);
+    if (!view) return; // hibernated/never-created: nothing to reload
     if (this.activeId === id) this.activate(id);
-    this.reload(id);
+    view.webContents.loadURL(serviceById(id).url);
   }
 
   layout(): void {

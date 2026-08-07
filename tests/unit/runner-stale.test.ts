@@ -23,7 +23,16 @@ describe('runner stale dedup', () => {
     };
     const report = vi.fn();
     const reportStale = vi.fn();
-    startRecipe(recipe, {} as Document, report, reportStale, undefined, undefined, once(ticks));
+    startRecipe(
+      recipe,
+      {} as Document,
+      report,
+      reportStale,
+      undefined,
+      undefined,
+      undefined,
+      once(ticks),
+    );
     await ticks[0]();
     await ticks[0]();
     await ticks[0]();
@@ -48,6 +57,7 @@ describe('runner stale dedup', () => {
       {} as Document,
       vi.fn(),
       reportStale,
+      undefined,
       undefined,
       undefined,
       once(ticks),

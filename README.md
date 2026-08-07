@@ -1,7 +1,8 @@
 # Goetia
 
-Personal multi-service chat client — WhatsApp, Messenger, Telegram, Discord, Zalo,
-Shopee in one window, with native notifications and unread badges. macOS + Windows.
+Personal multi-service chat client — WhatsApp, Messenger, Telegram, Discord,
+Zalo, TikTok, Shopee in one window, with native notifications and unread
+badges. macOS + Windows.
 
 Built with Electron + TypeScript + React. Local-only: no server, no accounts,
 no telemetry.
@@ -73,7 +74,7 @@ Ctrl+Q (Windows).
 - **Service icons sit in a top bar** by default (each chat app already has
   its own left-hand column, so a second left rail would double up). Want them
   on the side? **Settings → General → Menu position**.
-- **Shortcuts**: ⌘/Ctrl+1…6 jump to a service, ⌘/Ctrl+K opens a quick
+- **Shortcuts**: ⌘/Ctrl+1…7 jump to a service, ⌘/Ctrl+K opens a quick
   switcher, ⌘/Ctrl+R (or F5) reloads the current service, right-click an icon
   to mute it, and drag icons to reorder them.
 - **On a Mac, allow notifications the first time**: System Settings →

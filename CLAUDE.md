@@ -10,6 +10,28 @@ typecheck`, and `corepack pnpm test` all green; `corepack pnpm e2e` for
 main/preload/renderer wiring; and for packaging changes a real `package:mac`
 build that launches (see Packaging below).
 
+## Product principle: chat ONLY
+
+Goetia shows each service's chat surface and nothing else — no feeds, shops,
+menus, or other site functions (user decision, 2026-08-07):
+
+- Recipes hide the host site's chrome (nav menus, headers, get-app/download
+  CTAs) via recipe `css`, gated on the chat surface being mounted so login
+  and captcha pages stay untouched (the shopee lesson; `display: none` keeps
+  `textContent` readable for `count()`).
+- User-initiated reload (Cmd/Ctrl+R, F5, tile context menu) returns the view
+  to the service's chat URL via `views.refresh` — reload is the way back
+  when a site's own links wander off chat. Crash auto-reload
+  (`ResilienceManager`) keeps reloading the current URL.
+- Sites that are more than chat (facebook, tiktok) declare `chatPaths` on
+  their recipe: once a document has been on a chat path, SPA routing off all
+  of them makes the runner navigate back to the service URL
+  (`SNAPBACK_MIN_INTERVAL_MS` floor; login flows never snap because they
+  never reach a chat path). CSS hiding is cosmetic; `chatPaths` is the
+  containment.
+- New services land on the chat URL directly (`SERVICES[].url`), not the
+  site's home page.
+
 ## Process boundaries (never weaken)
 
 - Shell window: `contextIsolation: true` + `sandbox: true`. Never turn off.

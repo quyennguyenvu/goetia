@@ -37,6 +37,8 @@ window.addEventListener('DOMContentLoaded', () => {
     () => ipcRenderer.send('unread:stale', { serviceId }),
     (pt) => ipcRenderer.send('service:keepalive-click', { serviceId, ...pt }),
     ({ title, body }) => ipcRenderer.send('notification:fired', { serviceId, title, body }),
+    // chat only: page-initiated navigation, no IPC surface needed
+    () => window.location.assign(serviceById(serviceId).url),
   );
   startReadyPoll(recipe, document, () => ipcRenderer.send('service:ready', { serviceId }));
 });

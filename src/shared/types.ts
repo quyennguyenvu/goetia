@@ -1,4 +1,11 @@
-export type ServiceId = 'whatsapp' | 'messenger' | 'telegram' | 'discord' | 'zalo' | 'shopee';
+export type ServiceId =
+  | 'whatsapp'
+  | 'messenger'
+  | 'telegram'
+  | 'discord'
+  | 'zalo'
+  | 'tiktok'
+  | 'shopee';
 
 export interface Counts {
   direct: number;
@@ -36,13 +43,14 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  order: ['messenger', 'telegram', 'zalo', 'whatsapp', 'discord', 'shopee'],
+  order: ['messenger', 'telegram', 'zalo', 'whatsapp', 'discord', 'tiktok', 'shopee'],
   muted: {
     whatsapp: false,
     messenger: false,
     telegram: false,
     discord: false,
     zalo: false,
+    tiktok: false,
     shopee: false,
   },
   disabled: {
@@ -51,6 +59,7 @@ export const DEFAULT_SETTINGS: Settings = {
     telegram: true,
     discord: true,
     zalo: false,
+    tiktok: true,
     shopee: true,
   },
   globalMuted: false,
@@ -60,6 +69,7 @@ export const DEFAULT_SETTINGS: Settings = {
     telegram: true,
     discord: true,
     zalo: true,
+    tiktok: true,
     shopee: true,
   },
   hibernationMinutes: 30,
