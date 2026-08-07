@@ -1,5 +1,6 @@
 import './tokens.css';
 import './loading.css';
+import './portal.css';
 
 const caption = document.getElementById('caption');
 

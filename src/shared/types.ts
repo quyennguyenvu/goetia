@@ -53,12 +53,13 @@ export const DEFAULT_SETTINGS: Settings = {
     tiktok: false,
     shopee: false,
   },
+  // all disabled ⇒ fresh installs open on the welcome screen
   disabled: {
     whatsapp: true,
-    messenger: false,
+    messenger: true,
     telegram: true,
     discord: true,
-    zalo: false,
+    zalo: true,
     tiktok: true,
     shopee: true,
   },

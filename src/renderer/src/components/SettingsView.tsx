@@ -152,10 +152,6 @@ export default function SettingsView() {
                     <input
                       type="checkbox"
                       checked={!s.disabled[svc.id]}
-                      disabled={
-                        !s.disabled[svc.id] &&
-                        state.services.filter((x) => !s.disabled[x.id]).length === 1
-                      }
                       onChange={(e) =>
                         update({ disabled: { ...s.disabled, [svc.id]: !e.target.checked } })
                       }

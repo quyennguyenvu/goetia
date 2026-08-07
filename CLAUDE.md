@@ -31,6 +31,10 @@ menus, or other site functions (user decision, 2026-08-07):
   containment.
 - New services land on the chat URL directly (`SERVICES[].url`), not the
   site's home page.
+- Fresh installs start with every service disabled: the shell shows the
+  welcome screen whenever all services are disabled (derived from
+  settings — no flag). Zero enabled services must mean zero service
+  views; see `resolveActivation` and the startup guard.
 
 ## Process boundaries (never weaken)
 

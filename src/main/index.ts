@@ -154,9 +154,14 @@ app
     buildAppMenu(ctx);
 
     const s0 = settings.get();
-    state.activeId = s0.order.find((id) => !s0.disabled[id]) ?? s0.order[0];
-    ctx.noteActivated(state.activeId);
-    views.activate(state.activeId);
+    const first = s0.order.find((id) => !s0.disabled[id]);
+    // all-disabled (fresh install): show the welcome screen, create no
+    // view — activating order[0] would give a disabled service network
+    state.activeId = first ?? s0.order[0];
+    if (first) {
+      ctx.noteActivated(first);
+      views.activate(first);
+    }
     // never-hibernate services load hidden from the start, so their unread
     // counts and notifications work before ever being clicked
     for (const id of s0.order) {

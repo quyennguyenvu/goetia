@@ -11,52 +11,6 @@
   width: 128px;
   height: 128px;
 }
-.ring {
-  transform-origin: 48px 48px;
-  animation: portal-spin 6s linear infinite;
-}
-.core {
-  transform-origin: 48px 48px;
-  animation: portal-breathe 2.4s ease-in-out infinite;
-}
 .caption {
   color: var(--text-2);
-}
-@keyframes portal-spin {
-  to {
-    transform: rotate(-360deg);
-  }
-}
-/* embers drift along the ring band (rotate about the ring center keeps
- * them on its radius), trailing behind the counterclockwise spin */
-.ember {
-  transform-origin: 48px 48px;
-  animation: ember-drift 1.8s linear infinite;
-}
-.ember-2 {
-  animation-delay: 0.3s;
-}
-.ember-3 {
-  animation-delay: 0.6s;
-}
-@keyframes ember-drift {
-  0% {
-    transform: rotate(0deg);
-    opacity: 0.95;
-  }
-  100% {
-    transform: rotate(28deg);
-    opacity: 0;
-  }
-}
-@keyframes portal-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.85;
-  }
-  50% {
-    transform: scale(1.14);
-    opacity: 1;
-  }
 }

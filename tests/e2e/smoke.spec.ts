@@ -1,10 +1,26 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
 
 test('launch, rail, badge propagation', async () => {
   const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-'));
+  // fresh profiles now start all-disabled (welcome screen); this spec
+  // assumes the pre-welcome defaults, so seed them explicitly
+  writeFileSync(
+    join(profile, 'settings.json'),
+    JSON.stringify({
+      disabled: {
+        whatsapp: true,
+        messenger: false,
+        telegram: true,
+        discord: true,
+        zalo: false,
+        tiktok: true,
+        shopee: true,
+      },
+    }),
+  );
   const app = await electron.launch({
     args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${profile}`],
   });
@@ -18,7 +34,7 @@ test('launch, rail, badge propagation', async () => {
     app.windows().find(isShell) ?? (await app.waitForEvent('window', { predicate: isShell }));
 
   await expect(win.locator('[data-testid="rail"]')).toBeVisible();
-  // only messenger and zalo are enabled by default
+  // the seeded profile enables only messenger and zalo
   await expect(win.locator('[data-testid="rail"] button[aria-label]')).toHaveCount(2);
 
   // glyph masks must resolve in the built bundle — Vite inlines the logo SVGs

@@ -3,6 +3,7 @@ import type { RendererToMain } from '../shared/ipc';
 import type { ServiceId } from '../shared/types';
 import { activateService } from './activate';
 import { applyOverlay } from './badges';
+import { resolveActivation } from './lib/activation-rules';
 import { ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
@@ -102,8 +103,13 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
           ctx.views.ensure(id);
         }
       }
-      if (after.disabled[ctx.state.activeId]) {
-        const next = after.order.find((id) => !after.disabled[id]) ?? after.order[0];
+      const next = resolveActivation({
+        order: after.order,
+        disabled: after.disabled,
+        activeId: ctx.state.activeId,
+        hasActiveView: ctx.views.has(ctx.state.activeId),
+      });
+      if (next) {
         ctx.state.activeId = next;
         ctx.noteActivated(next);
         ctx.views.activate(next);

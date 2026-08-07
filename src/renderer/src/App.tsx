@@ -5,6 +5,7 @@ import { renderOverlayDataUrl } from './components/overlay-badge';
 import QuickSwitcher from './components/QuickSwitcher';
 import Rail from './components/Rail';
 import SettingsView from './components/SettingsView';
+import Welcome from './components/Welcome';
 import { connectShell, useShell } from './store';
 
 export default function App() {
@@ -29,6 +30,9 @@ export default function App() {
   }, [state]);
 
   const pos = state?.settings.railPosition ?? 'top';
+  const allDisabled = state
+    ? state.services.every((svc) => state.settings.disabled[svc.id])
+    : false;
 
   return (
     <div
@@ -36,7 +40,7 @@ export default function App() {
     >
       {pos !== 'right' && <Rail />}
       <div className="relative flex min-h-0 min-w-0 flex-1">
-        <ContentPlaceholder />
+        {allDisabled ? <Welcome /> : <ContentPlaceholder />}
       </div>
       {pos === 'right' && <Rail />}
       <SettingsView />

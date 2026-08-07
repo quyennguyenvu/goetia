@@ -1,10 +1,26 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
 
 test('waking cover: overlay page exists, tiles breathe, timeout reveals', async () => {
   const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-'));
+  // fresh profiles now start all-disabled (welcome screen); this spec
+  // assumes the pre-welcome defaults, so seed them explicitly
+  writeFileSync(
+    join(profile, 'settings.json'),
+    JSON.stringify({
+      disabled: {
+        whatsapp: true,
+        messenger: false,
+        telegram: true,
+        discord: true,
+        zalo: false,
+        tiktok: true,
+        shopee: true,
+      },
+    }),
+  );
   const app = await electron.launch({
     args: ['out/main/index.js', `--goetia-user-data=${profile}`],
   });

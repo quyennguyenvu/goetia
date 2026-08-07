@@ -32,8 +32,8 @@ describe('service catalog', () => {
     expect(DEFAULT_SETTINGS.railPosition).toBe('top');
   });
 
-  it('defaults: only messenger and zalo enabled', () => {
+  it('defaults: every service disabled, so fresh installs open on the welcome screen', () => {
     const enabled = SERVICES.map((s) => s.id).filter((id) => !DEFAULT_SETTINGS.disabled[id]);
-    expect(enabled).toEqual(['messenger', 'zalo']);
+    expect(enabled).toEqual([]);
   });
 });
