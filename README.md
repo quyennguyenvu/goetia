@@ -1,11 +1,129 @@
-# Goetia
+<h1 align="center">
+  <img src="docs/media/banner.svg" alt="Goetia" width="680">
+</h1>
 
-Personal multi-service chat client — WhatsApp, Messenger, Telegram, Discord,
-Zalo, TikTok, Shopee in one window, with native notifications and unread
-badges. macOS + Windows.
+<p align="center">
+  <a href="https://github.com/quyennguyenvu/goetia/releases"><img
+    src="https://img.shields.io/github/v/release/quyennguyenvu/goetia?label=release&color=E8590C"
+    alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1A1F28"
+    alt="Platforms: macOS and Windows">
+  <img src="https://img.shields.io/badge/Electron-43-47848F" alt="Electron 43">
+  <img src="https://img.shields.io/badge/telemetry-none-2F9E44" alt="No telemetry">
+</p>
 
-Built with Electron + TypeScript + React. Local-only: no server, no accounts,
-no telemetry.
+WhatsApp, Messenger, Telegram, Discord, Zalo, TikTok, and Shopee in one
+window — with native notifications and unread badges, and **nothing but the
+chat**. No feeds, no shops, no menus. Electron + TypeScript + React, local
+only: no server, no account, no telemetry. macOS and Windows.
+
+## Why Goetia
+
+**Chat only.** Every other multi-service client embeds the whole site, feed
+and all. Goetia hides the host chrome and pins Facebook and TikTok to their
+chat paths — route away from chat and the view snaps back.
+
+**Local only.** No server, no account, no telemetry. Each service gets its
+own isolated `persist:<id>` session, so seven logins never see each other.
+
+**Badges that don't lie.** One unread recipe per service, each locked to a
+DOM fixture in the test suite. When a service redesigns, its tile shows a
+grey stale dot instead of a confident zero.
+
+**Notifications done properly.** Native banners carrying each service's own
+icon, mute per service or globally, a per-service rate limit so a page can't
+spam you — plus synthetic notifications for Messenger, which never fires one
+in-page.
+
+**Hardened further than a hobby app usually bothers.** Electron fuses (no
+run-as-node, no `NODE_OPTIONS`, no CLI inspect; cookie encryption and asar
+integrity on), a sandboxed shell, an IPC sender policy that stops one service
+frame from impersonating another, origin-checked permissions, a locked-down
+renderer CSP, and a build-provenance attestation on every installer.
+
+**Zalo, Shopee, and TikTok included.** The services the big clients cover
+badly or not at all.
+
+## A look around
+
+Nothing loads until you pick — a fresh install starts with every service off:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/welcome-dark.png">
+    <img src="docs/media/welcome-light.png" width="760"
+      alt="Goetia's welcome screen: the service picker, three of seven chosen">
+  </picture>
+</p>
+
+Unread counts land on the rail, on the dock or taskbar, and in the tray
+tooltip. Muted services keep counting quietly:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/rail-badges-dark.png">
+    <img src="docs/media/rail-badges-light.png" width="620"
+      alt="The service rail: seven tiles, an unread badge of 3, one muted">
+  </picture>
+</p>
+
+<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> fuzzy-jumps to any service:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/quick-switcher-dark.png">
+    <img src="docs/media/quick-switcher-light.png" width="560"
+      alt="The quick switcher filtering the service list as you type">
+  </picture>
+</p>
+
+Menu position, theme, close-to-tray, launch-at-login, and update checks:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/settings-dark.png">
+    <img src="docs/media/settings-light.png" width="720"
+      alt="Goetia's settings panel, showing the Appearance section">
+  </picture>
+</p>
+
+A service waking up gets Goetia's own loading screen, not a white flash:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/waking-dark.png">
+    <img src="docs/media/waking-light.png" width="300"
+      alt="The ember-portal loading screen shown while a service wakes">
+  </picture>
+</p>
+
+> These show Goetia's own interface only. The app is never captured signed in
+> to anything, so no conversation appears in this repo — regenerate the whole
+> set yourself with `pnpm media`.
+
+## How an unread count reaches you
+
+```mermaid
+flowchart LR
+  page["service page<br/>DOM or IndexedDB"]
+  recipe["recipe count()<br/>src/preload/recipes"]
+  runner["runner<br/>~2s, de-duped"]
+  state["MainState"]
+  rail["rail badge"]
+  dock["dock / taskbar"]
+  tray["tray tooltip"]
+  stale["grey stale dot"]
+
+  page --> recipe --> runner
+  runner -->|"unread:update"| state
+  state --> rail
+  state --> dock
+  state --> tray
+  runner -.->|"count() threw"| stale
+```
+
+Counts are reported only when they change, so a hidden service costs almost
+nothing while it sits there.
 
 ## Install (for everyone)
 
@@ -119,6 +237,9 @@ Ctrl+Q (Windows).
 
 ### If something looks off
 
+<details>
+<summary>Known rough edges of a free, unsigned personal app</summary>
+
 None of these mean the app is broken — they're the known rough edges of a
 free, unsigned personal app:
 
@@ -141,88 +262,9 @@ free, unsigned personal app:
   check its own notification setting is on, and (Mac) that Goetia is allowed
   to notify in System Settings.
 
-## Build from source (developers)
+</details>
 
-pnpm may not be on PATH (Node via Homebrew); run it through corepack — the
-version is pinned in `package.json`'s `packageManager` field:
+## Developing
 
-```sh
-cd ~/workspace/gh_leo/goetia
-corepack pnpm install   # first time only
-corepack pnpm dev       # start with hot reload
-```
-
-Sessions persist across restarts in `~/Library/Application Support/Goetia`
-(one isolated `persist:<id>` session per service).
-
-To use plain `pnpm` instead of the `corepack pnpm` prefix, add the corepack
-shims to your shell (`~/.zshrc`):
-
-```sh
-export PATH="$HOME/.local/corepack-bin:$PATH"
-```
-
-(Shims were created with `corepack enable --install-directory ~/.local/corepack-bin`.
-Tools that spawn pnpm themselves — e.g. electron-builder — also need this.)
-
-### Package the installers
-
-```sh
-corepack pnpm package:mac   # → dist/Goetia-<version>-arm64.dmg
-corepack pnpm package:win   # run on a Windows machine
-```
-
-A locally built app is **not** quarantined, so it opens with no warning on
-the machine that built it. The Gatekeeper prompt only affects copies that
-were **downloaded** (a downloaded file carries a quarantine flag) — see the
-install steps above for the one-time fix. To reproduce what a downloader
-sees, quarantine a copy by hand:
-
-```sh
-flag="0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)"
-xattr -w com.apple.quarantine "$flag" /Applications/Goetia.app
-spctl -a -vvv -t exec /Applications/Goetia.app   # expect: rejected
-```
-
-Every build gets a fresh ad-hoc signature, whose designated requirement is
-the binary's own cdhash, so macOS sees a brand-new app identity each time.
-The first launch after installing a rebuild therefore prompts for keychain
-access to **Goetia Safe Storage** — the cookie-encryption key that the
-`enableCookieEncryption` fuse makes Chromium store there. Click **Always
-Allow**; it only covers that build. `security delete-generic-password -s
-"Goetia Safe Storage"` silences the prompt but discards every saved session.
-The permanent fix is a stable signing identity — see
-`docs/superpowers/plans/2026-08-07-code-signing-and-notarization.md`.
-
-Releases are cut by pushing a version tag
-(`git tag v0.1.0 && git push origin v0.1.0`); the tag must match
-`package.json`'s `version`.
-
-## Develop
-
-```sh
-corepack pnpm dev          # run with HMR
-corepack pnpm test         # unit tests (Vitest)
-corepack pnpm e2e          # smoke test (Playwright-Electron)
-corepack pnpm lint         # Biome
-corepack pnpm typecheck    # tsc --noEmit
-```
-
-## Notes
-
-- Unread counts come from small per-service "recipes" (`src/preload/recipes/`),
-  adapted from [ferdium-recipes](https://github.com/ferdium/ferdium-recipes) (Apache-2.0).
-  If a service redesigns and its count breaks, the tile shows a "stale" dot —
-  fix the selector + fixture pair together in `tests/fixtures/`; `pnpm test`
-  locks them to each other.
-- Viber is intentionally absent: it has no web client to embed.
-- `ERROR:base/process/process_mac.cc … task_policy_set TASK_SUPPRESSION_POLICY:
-(os/kern) invalid argument (4)` on startup is harmless: Chromium failing to put
-  a child process under macOS App Nap. Not ours, and nothing breaks.
-- Branding: the icon is "Ember Portal" — a summoning circle as pure energy,
-  matching the app's ember accent (dark `#FF9E2C`, light `#E8590C`). SVG
-  sources live in `resources/` (`icon.svg`, `tray/*.svg`); regenerate PNGs
-  with `rsvg-convert` (e.g. `rsvg-convert -w 1024 -h 1024 resources/icon.svg
--o resources/icon.png`).
-- Design spec: `docs/superpowers/specs/2026-08-04-goetia-chat-client-design.md`.
-- Implementation plan: `docs/superpowers/plans/2026-08-04-goetia-v1.md`.
+Build from source, packaging, releases, and engineering notes:
+[docs/DEVELOPING.md](docs/DEVELOPING.md).
