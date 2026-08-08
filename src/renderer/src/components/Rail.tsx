@@ -47,6 +47,7 @@ export default function Rail() {
   const pos = state.settings.railPosition;
   const horizontal = pos === 'top';
   const visible = state.services.filter((svc) => !state.settings.disabled[svc.id]);
+  const updateReady = state.update.status === 'available';
 
   const reorder = (fromId: string, toId: string) => {
     const ids = state.services.map((s) => s.id);
@@ -106,10 +107,13 @@ export default function Rail() {
         </button>
         <button
           type="button"
-          title="Settings (⌘,)"
+          title={updateReady ? 'Settings — update available (⌘,)' : 'Settings (⌘,)'}
           data-testid="settings-btn"
-          onClick={() => window.goetia.send('settings:setOpen', { open: !state.settingsOpen })}
-          className={`group flex h-7 w-7 items-center justify-center rounded-ctl transition-colors duration-120 ${
+          onClick={() => {
+            if (updateReady) useShell.getState().setFocusSection('updates');
+            window.goetia.send('settings:setOpen', { open: !state.settingsOpen });
+          }}
+          className={`group relative flex h-7 w-7 items-center justify-center rounded-ctl transition-colors duration-120 ${
             state.settingsOpen
               ? 'bg-bg-2 text-accent'
               : 'text-text-2 hover:bg-bg-2 hover:text-text-1'
@@ -118,6 +122,13 @@ export default function Rail() {
           <span className="transition-transform duration-120 group-hover:rotate-45">
             <GearIcon />
           </span>
+          {updateReady && (
+            <span
+              data-testid="gear-dot"
+              aria-hidden="true"
+              className="absolute right-0.5 top-0.5 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-bg-1"
+            />
+          )}
         </button>
       </div>
     </nav>

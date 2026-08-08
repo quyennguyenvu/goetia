@@ -5,6 +5,7 @@ import { renderOverlayDataUrl } from './components/overlay-badge';
 import QuickSwitcher from './components/QuickSwitcher';
 import Rail from './components/Rail';
 import SettingsView from './components/SettingsView';
+import UpdateToast from './components/UpdateToast';
 import Welcome from './components/Welcome';
 import { connectShell, useShell } from './store';
 
@@ -41,6 +42,7 @@ export default function App() {
       {pos !== 'right' && <Rail />}
       <div className="relative flex min-h-0 min-w-0 flex-1">
         {allDisabled ? <Welcome /> : <ContentPlaceholder />}
+        <UpdateToast />
       </div>
       {pos === 'right' && <Rail />}
       <SettingsView />

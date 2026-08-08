@@ -121,6 +121,14 @@ here should still hold. "Verified" means an automated test asserts it;
 - **Corrupt-file tolerance** — a malformed `settings.json` is coerced to
   defaults per field instead of bricking startup. Impl: `settings.ts`.
   Verified: `settings.test.ts`.
+- **Update check** — GitHub Releases polled 10s after launch and every 24h,
+  plus `Check for Updates…`. Announced by a self-dismissing toast (8s) and a
+  dot on the settings gear; the download page opens via `shell.openExternal`
+  behind `isSafeExternalUrl`, using a URL built from a validated version, not
+  from the API payload. Automatic checks are silent on failure and skipped
+  when unpackaged. Impl: `src/main/updates.ts`,
+  `src/main/lib/update-check.ts`. Verified: `update-check.test.ts`,
+  `updates.test.ts`, `toast-rules.test.ts`, `tests/e2e/updates.spec.ts`.
 
 ## Security hardening
 

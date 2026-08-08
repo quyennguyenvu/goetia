@@ -1,14 +1,17 @@
-import { app, type BrowserWindow, ipcMain } from 'electron';
+import { app, type BrowserWindow, ipcMain, shell } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
 import type { ServiceId } from '../shared/types';
 import { activateService } from './activate';
 import { applyOverlay } from './badges';
 import { resolveActivation } from './lib/activation-rules';
+import { isSafeExternalUrl } from './lib/external-url';
 import { ipcSenderAllowed } from './lib/ipc-sender-policy';
+import { releaseUrl } from './lib/update-check';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
 import type { SettingsStore } from './settings';
 import type { MainState } from './state';
+import type { UpdateChecker } from './updates';
 import type { ServiceViewManager } from './views';
 import type { WakingTracker } from './waking';
 
@@ -18,6 +21,7 @@ export interface AppContext {
   state: MainState;
   settings: SettingsStore;
   waking: WakingTracker;
+  updates: UpdateChecker;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -133,4 +137,13 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', ({ serviceId, title, body }) => router.handle(serviceId, title, body));
   on('service:keepalive-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
+  on('updates:check', () => void ctx.updates.check('manual'));
+  on('updates:openDownload', () => {
+    // the URL is built here from a version main validated — the renderer
+    // never supplies one
+    const version = ctx.state.update.latest;
+    if (!version) return;
+    const url = releaseUrl(version);
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
+  });
 }

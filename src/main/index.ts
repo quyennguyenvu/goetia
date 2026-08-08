@@ -13,6 +13,7 @@ import { ResilienceManager } from './resilience';
 import { SettingsStore } from './settings';
 import { MainState } from './state';
 import { createTray } from './tray';
+import { UpdateChecker } from './updates';
 import { ServiceViewManager } from './views';
 import { WakingTracker } from './waking';
 
@@ -92,6 +93,17 @@ app
       overlay,
     );
 
+    const updates = new UpdateChecker({
+      version: app.getVersion(),
+      state,
+      autoEnabled: () => settings.get().checkForUpdates,
+      lastNotified: () => settings.get().lastNotifiedVersion,
+      setLastNotified: (v) => {
+        settings.update({ lastNotifiedVersion: v });
+      },
+      isVisible: () => !win.isDestroyed() && win.isVisible(),
+    });
+
     const syncOverlay = () => {
       const rt = state.runtime(state.activeId);
       const show = rt.waking && !rt.crashed && !state.switcherOpen && !state.settingsOpen;
@@ -135,6 +147,9 @@ app
       if (!state.switcherOpen && !state.settingsOpen) views.focusActive();
     });
 
+    // a check can land while the app sits in the tray; the toast waits
+    win.on('show', () => updates.flushAnnounce());
+
     let hibernation: HibernationController;
     const ctx = {
       win,
@@ -142,6 +157,7 @@ app
       state,
       settings,
       waking,
+      updates,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
@@ -152,6 +168,10 @@ app
     hibernation.start();
     tray = createTray(ctx);
     buildAppMenu(ctx);
+
+    // dev and e2e runs must not touch the network; a manual check still works
+    if (app.isPackaged) updates.start();
+    app.on('before-quit', () => updates.dispose());
 
     const s0 = settings.get();
     const first = s0.order.find((id) => !s0.disabled[id]);
@@ -174,6 +194,13 @@ app
       setTimeout(() => {
         state.setRuntime('zalo', { unread: { direct: 3, indirect: 0 } });
       }, 1500);
+    }
+
+    // separate flag: an update toast must not perturb the other e2e specs
+    if (process.argv.includes('--goetia-e2e-update')) {
+      setTimeout(() => {
+        state.setUpdate({ status: 'available', latest: '99.0.0', announce: '99.0.0' });
+      }, 800);
     }
   })
   .catch((err) => {

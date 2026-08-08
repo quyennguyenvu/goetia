@@ -12,6 +12,16 @@ export interface Counts {
   indirect: number;
 }
 
+export type UpdateStatus = 'idle' | 'checking' | 'current' | 'available' | 'error';
+
+export interface UpdateState {
+  status: UpdateStatus;
+  /** newest release seen; drives the gear dot and the Updates section */
+  latest: string | null;
+  /** version the shell should toast now; held back while the window is hidden */
+  announce: string | null;
+}
+
 export interface ServiceMeta {
   id: ServiceId;
   name: string;
@@ -40,6 +50,9 @@ export interface Settings {
   launchAtLogin: boolean;
   theme: ThemePref;
   railPosition: RailPosition;
+  checkForUpdates: boolean;
+  /** the version already announced; persisted so a restart never re-toasts */
+  lastNotifiedVersion: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -78,6 +91,8 @@ export const DEFAULT_SETTINGS: Settings = {
   launchAtLogin: false,
   theme: 'system',
   railPosition: 'top',
+  checkForUpdates: true,
+  lastNotifiedVersion: null,
 };
 
 export interface ServiceRuntime {
@@ -100,4 +115,5 @@ export interface ShellState {
   theme: 'light' | 'dark'; // effective theme (system already resolved)
   settings: Settings; // raw preferences, for the settings form
   version: string;
+  update: UpdateState;
 }

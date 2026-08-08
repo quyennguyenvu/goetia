@@ -42,4 +42,27 @@ describe('MainState', () => {
     s.setRuntime('zalo', { stale: false }); // real change -> notify
     expect(cb).toHaveBeenCalledTimes(1);
   });
+
+  it('starts with no update known', () => {
+    const s = new MainState();
+    expect(s.update).toEqual({ status: 'idle', latest: null, announce: null });
+  });
+
+  it('does not notify when an update patch changes nothing', () => {
+    const s = new MainState();
+    s.setUpdate({ status: 'available', latest: '0.3.0' });
+    const cb = vi.fn();
+    s.onChange(cb);
+    s.setUpdate({ status: 'available', latest: '0.3.0' }); // identical -> no notify
+    expect(cb).not.toHaveBeenCalled();
+    s.setUpdate({ announce: '0.3.0' }); // real change -> notify
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('snapshot carries the update slice', () => {
+    const s = new MainState();
+    s.setUpdate({ status: 'available', latest: '0.3.0', announce: '0.3.0' });
+    const snap = s.snapshot(DEFAULT_SETTINGS, 'dark', '0.2.0');
+    expect(snap.update).toEqual({ status: 'available', latest: '0.3.0', announce: '0.3.0' });
+  });
 });

@@ -105,12 +105,17 @@ Ctrl+Q (Windows).
 
 - **Service icons sit in a top bar** by default (each chat app already has
   its own left-hand column, so a second left rail would double up). Want them
-  on the side? **Settings → General → Menu position**.
+  on the side? **Settings → Appearance → Menu position**.
 - **Shortcuts**: ⌘/Ctrl+1…7 jump to a service, ⌘/Ctrl+K opens a quick
   switcher, ⌘/Ctrl+R (or F5) reloads the current service, right-click an icon
   to mute it, and drag icons to reorder them.
 - **On a Mac, allow notifications the first time**: System Settings →
   Notifications → **Goetia** → turn on **Allow Notifications**.
+- **Updates check themselves**: when a newer version is published, a small
+  notice appears for a few seconds and a dot lands on the settings icon.
+  Click either one to open the download page — Goetia can't install its own
+  update, because it isn't code-signed. Turn the check off in
+  **Settings → Updates → Automatic updates**.
 
 ### If something looks off
 

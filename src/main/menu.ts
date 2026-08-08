@@ -18,6 +18,13 @@ export function buildAppMenu(ctx: AppContext): void {
     accelerator: 'CmdOrCtrl+,',
     click: () => openSettings(ctx),
   };
+  const checkUpdatesItem: Electron.MenuItemConstructorOptions = {
+    label: 'Check for Updates…',
+    click: () => {
+      openSettings(ctx); // land the answer where the user is now looking
+      void ctx.updates.check('manual');
+    },
+  };
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
       ? [
@@ -25,6 +32,7 @@ export function buildAppMenu(ctx: AppContext): void {
             label: app.name,
             submenu: [
               { role: 'about' as const },
+              checkUpdatesItem,
               { type: 'separator' as const },
               settingsItem,
               { type: 'separator' as const },
@@ -69,7 +77,9 @@ export function buildAppMenu(ctx: AppContext): void {
             ctx.win.webContents.focus();
           },
         },
-        ...(process.platform !== 'darwin' ? [{ type: 'separator' as const }, settingsItem] : []),
+        ...(process.platform !== 'darwin'
+          ? [{ type: 'separator' as const }, checkUpdatesItem, settingsItem]
+          : []),
       ],
     },
     { role: 'windowMenu' },

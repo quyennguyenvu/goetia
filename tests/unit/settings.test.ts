@@ -89,6 +89,28 @@ describe('SettingsStore', () => {
     ]);
   });
 
+  it('defaults automatic update checks on, with nothing announced yet', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const s = new SettingsStore(dir).get();
+    expect(s.checkForUpdates).toBe(true);
+    expect(s.lastNotifiedVersion).toBeNull();
+  });
+
+  it('adds the update fields to a settings.json written before they existed', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ globalMuted: true }));
+    const s = new SettingsStore(dir).get();
+    expect(s.checkForUpdates).toBe(true);
+    expect(s.lastNotifiedVersion).toBeNull();
+    expect(s.globalMuted).toBe(true); // existing pref survives
+  });
+
+  it('persists the last announced version', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    new SettingsStore(dir).update({ lastNotifiedVersion: '0.3.0' });
+    expect(new SettingsStore(dir).get().lastNotifiedVersion).toBe('0.3.0');
+  });
+
   it('coerces a corrupt settings.json instead of throwing on startup', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     // hand-mangled file: order is a string, records are wrong types

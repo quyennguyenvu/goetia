@@ -1,5 +1,5 @@
 import { serviceById } from '../shared/services';
-import type { ServiceId, ServiceRuntime, Settings, ShellState } from '../shared/types';
+import type { ServiceId, ServiceRuntime, Settings, ShellState, UpdateState } from '../shared/types';
 
 const defaultRuntime = (): ServiceRuntime => ({
   unread: { direct: 0, indirect: 0 },
@@ -10,12 +10,28 @@ const defaultRuntime = (): ServiceRuntime => ({
   waking: false,
 });
 
+const defaultUpdate = (): UpdateState => ({ status: 'idle', latest: null, announce: null });
+
 export class MainState {
   activeId: ServiceId = 'whatsapp';
   switcherOpen = false;
   settingsOpen = false;
   private runtimes = new Map<ServiceId, ServiceRuntime>();
   private listeners: (() => void)[] = [];
+  private updateState: UpdateState = defaultUpdate();
+
+  get update(): UpdateState {
+    return this.updateState;
+  }
+
+  /** Same report-on-change discipline as setRuntime: an identical patch must
+   *  not cost a broadcast. */
+  setUpdate(patch: Partial<UpdateState>): void {
+    const entries = Object.entries(patch) as [keyof UpdateState, string | null][];
+    if (entries.every(([k, v]) => this.updateState[k] === v)) return;
+    Object.assign(this.updateState, patch);
+    this.touch();
+  }
 
   runtime(id: ServiceId): ServiceRuntime {
     let r = this.runtimes.get(id);
@@ -70,6 +86,7 @@ export class MainState {
       theme,
       settings,
       version,
+      update: { ...this.updateState },
     };
   }
 }

@@ -16,6 +16,8 @@ export interface RendererToMain {
   'notification:fired': { serviceId: ServiceId; title: string; body: string };
   'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
   'service:ready': { serviceId: ServiceId };
+  'updates:check': Record<string, never>;
+  'updates:openDownload': Record<string, never>;
 }
 
 /** main -> shell renderer, via webContents.send */
@@ -40,6 +42,8 @@ export const R2M_CHANNELS = [
   'notification:fired',
   'service:keepalive-click',
   'service:ready',
+  'updates:check',
+  'updates:openDownload',
 ] as const satisfies readonly (keyof RendererToMain)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -54,4 +58,6 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain>([
   'settings:setOpen',
   'settings:update',
   'badge:overlay',
+  'updates:check',
+  'updates:openDownload',
 ]);
