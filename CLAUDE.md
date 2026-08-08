@@ -131,10 +131,17 @@ launches and the fuses stuck: read them from the packaged app via
 `@electron/fuses` `getCurrentFuseWire` (byte `49`='1'/on, `48`='0'/off) — the
 CLI is not on PATH; require the module from
 `node_modules/.pnpm/node_modules/@electron/fuses`. `package:win` needs a
-Windows machine. Both apps are unsigned/ad-hoc: a _downloaded_ copy is gated
-(macOS Gatekeeper "damaged" → `xattr -dr com.apple.quarantine`; Windows
-SmartScreen → Run anyway). Only paid signing + notarization removes the gate;
-locally built copies aren't quarantined. User-facing steps live in the README.
+Windows machine. Both apps are unsigned/ad-hoc: a _downloaded_ copy is gated.
+The ad-hoc signature is valid (`codesign --verify --deep --strict` passes) —
+what Gatekeeper rejects is the missing notarization ticket, so on macOS 15+
+the dialog is "Apple could not verify … free of malware" (**not** "damaged",
+which means a _broken_ signature — a different bug) and its default button is
+Move to Trash. Right-click → Open was removed in macOS 15; the two working
+escapes are System Settings → Privacy & Security → Open Anyway, or `xattr -dr
+com.apple.quarantine`. Windows SmartScreen → Run anyway. Only paid signing +
+notarization removes the gate; locally built copies aren't quarantined.
+User-facing steps live in the README and `.github/release-body.md` (which is
+prepended to every release's notes — keep the two in sync).
 Ad-hoc signing also means each build's designated requirement is its own
 cdhash, so every rebuild re-prompts for the `Goetia Safe Storage` keychain
 item that `enableCookieEncryption` creates — expected, answer Always Allow,

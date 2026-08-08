@@ -26,22 +26,36 @@ Grab the installer for your computer from the
 1. Download the right `.dmg` (see "Which Mac file?" just below),
    double-click it, and drag the **Goetia** icon onto the **Applications**
    folder.
-2. Open **Goetia** from your Applications folder. If it opens, you're done.
-3. If macOS says **"Goetia is damaged"** or **"cannot be opened because Apple
-   cannot check it"**, that is only the unsigned-app warning — clear it once
-   with the step below.
+2. Open **Goetia** from your Applications folder. macOS blocks this first
+   launch with a warning — on macOS 15 and newer it reads **"Apple could not
+   verify 'Goetia' is free of malware"**; older versions say *"damaged"* or
+   *"cannot be opened because Apple cannot check it"*. All of them mean the
+   same thing: nobody paid Apple for a certificate.
+3. **Click "Done" — not "Move to Trash".** Move to Trash is the highlighted
+   button, and it deletes the app.
+4. Allow it once, using either method below. Goetia then opens normally from
+   here on.
 
-To clear the warning, open the **Terminal** app (press ⌘+Space, type
-`Terminal`, press Return), then copy-paste this exact line and press Return:
+**Without Terminal (recommended).** Open **System Settings → Privacy &
+Security** and scroll down to the **Security** section. It now offers to open
+the app that was just blocked: click **Open Anyway**, confirm with Touch ID or
+your login password, then click **Open Anyway** again in the dialog that
+follows. (This button only appears *after* step 2, so don't go looking for it
+before then.)
+
+**With Terminal.** Press ⌘+Space, type `Terminal`, press Return, then
+copy-paste this exact line and press Return:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Goetia.app
 ```
 
-Now open Goetia again — it opens normally from here on. (If Terminal replies
-"permission denied", type `sudo`, a space, then the same command again, and
-enter your Mac login password when asked; the password stays invisible as you
-type.)
+Now open Goetia again. (If Terminal replies "permission denied", type `sudo`,
+a space, then the same command again, and enter your Mac login password when
+asked; the password stays invisible as you type.)
+
+> Right-click → **Open** used to be the escape hatch here. Apple removed it in
+> macOS 15 — use one of the two methods above instead.
 
 **Which Mac file?** Use `Goetia-<version>-arm64.dmg` for Apple Silicon
 (M1/M2/M3/M4 — most Macs since 2020), or `Goetia-<version>-x64.dmg` for older
@@ -56,6 +70,24 @@ that starts with "Apple" means arm64; "Intel" means x64.
    with a paid certificate — it's safe.)
 3. It installs and opens on its own, and afterwards launches from the Start
    menu like any other app.
+
+### Checking the download is genuine (optional)
+
+Both steps above amount to telling your computer "trust this file", so it is
+reasonable to want proof it is the file the build server actually produced.
+Every release ships a `SHA256SUMS.txt`, and every installer carries a GitHub
+[build-provenance attestation][provenance] tying it to the exact commit and
+workflow run that built it:
+
+```sh
+# the file matches the published checksum
+shasum -a 256 -c SHA256SUMS.txt --ignore-missing
+
+# ...and it really came out of this repo's release workflow
+gh attestation verify Goetia-<version>-arm64.dmg --repo quyennguyenvu/goetia
+```
+
+[provenance]: https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds
 
 ### The first time you open it
 
@@ -85,8 +117,9 @@ Ctrl+Q (Windows).
 None of these mean the app is broken — they're the known rough edges of a
 free, unsigned personal app:
 
-- **The "damaged" / "unverified" (Mac) or SmartScreen (Windows) warning** is
-  expected; follow the install steps above. It only appears the first time.
+- **The "could not verify … free of malware" / "damaged" (Mac) or SmartScreen
+  (Windows) warning** is expected; follow the install steps above. It only
+  appears the first time.
 - **Mac asks to use "confidential information stored in Goetia Safe
   Storage"**: click **Always Allow**. Goetia locks your saved logins with a
   key kept in your Mac's keychain, and because the app isn't signed with a
@@ -135,9 +168,16 @@ corepack pnpm package:win   # run on a Windows machine
 ```
 
 A locally built app is **not** quarantined, so it opens with no warning on
-the machine that built it. The "damaged"/Gatekeeper prompt only affects
-copies that were **downloaded** (a downloaded file carries a quarantine
-flag) — see the install steps above for the one-time fix.
+the machine that built it. The Gatekeeper prompt only affects copies that
+were **downloaded** (a downloaded file carries a quarantine flag) — see the
+install steps above for the one-time fix. To reproduce what a downloader
+sees, quarantine a copy by hand:
+
+```sh
+flag="0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)"
+xattr -w com.apple.quarantine "$flag" /Applications/Goetia.app
+spctl -a -vvv -t exec /Applications/Goetia.app   # expect: rejected
+```
 
 Every build gets a fresh ad-hoc signature, whose designated requirement is
 the binary's own cdhash, so macOS sees a brand-new app identity each time.

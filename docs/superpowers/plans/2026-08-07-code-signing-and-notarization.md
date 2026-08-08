@@ -12,8 +12,14 @@ survives rebuilds.
 
 Three separate symptoms, all the same root cause — no stable signing identity:
 
-1. **macOS Gatekeeper "Goetia is damaged"** on downloaded dmgs. Users clear it
-   once with `xattr -dr com.apple.quarantine`; notarization removes it.
+1. **macOS Gatekeeper blocks downloaded dmgs.** On macOS 15+ the dialog is
+   "Apple could not verify 'Goetia' is free of malware" (older macOS said
+   "damaged"), defaulting to *Move to Trash*. The ad-hoc signature itself is
+   valid — `spctl -a -t install` reports `no usable signature` and
+   `stapler validate` finds no ticket, i.e. the only thing missing is
+   notarization. Users clear it once via System Settings → Privacy &
+   Security → Open Anyway, or `xattr -dr com.apple.quarantine`; notarization
+   removes it entirely.
 2. **Windows SmartScreen "Windows protected your PC."** Users click *More info
    → Run anyway*; an OV/EV certificate (plus reputation) removes it.
 3. **The recurring "Goetia Safe Storage" keychain prompt on every update.**
