@@ -2,6 +2,7 @@ import type { ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
 import Portal from './Portal';
 import ServiceTile from './ServiceTile';
+import { updatePending } from './update-rules';
 
 function BellIcon({ muted }: { muted: boolean }) {
   return (
@@ -48,7 +49,7 @@ export default function Rail() {
   const pos = state.settings.railPosition;
   const horizontal = pos === 'top';
   const visible = state.services.filter((svc) => !state.settings.disabled[svc.id]);
-  const updateReady = state.update.status === 'available';
+  const updateReady = updatePending(state.update);
 
   const reorder = (fromId: string, toId: string) => {
     const ids = state.services.map((s) => s.id);

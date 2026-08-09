@@ -1,7 +1,8 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
+import { shouldAutoRecheck, updatePending } from './update-rules';
 
 type SectionId = 'general' | 'appearance' | 'services' | 'notifications' | 'shortcuts' | 'updates';
 
@@ -66,6 +67,25 @@ function updateStatusLine(u: UpdateState, current: string): string {
   }
 }
 
+function RefreshIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  );
+}
+
 const close = () => window.goetia.send('settings:setOpen', { open: false });
 
 export default function SettingsView() {
@@ -76,6 +96,7 @@ export default function SettingsView() {
   const [active, setActive] = useState<SectionId>('general');
   const [flash, setFlash] = useState(false);
   const updateStatus = state?.update.status;
+  const lastRecheck = useRef<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -106,11 +127,25 @@ export default function SettingsView() {
     return () => clearTimeout(id);
   }, [flash]);
 
+  // the poll runs once a day, so the card would otherwise show whatever it
+  // last saw — opening the pane is the moment that answer has to be true
+  useEffect(() => {
+    if (!open || active !== 'updates' || !updateStatus) return;
+    if (!shouldAutoRecheck(Date.now(), lastRecheck.current, updateStatus)) return;
+    lastRecheck.current = Date.now();
+    window.goetia.send('updates:check', {});
+  }, [open, active, updateStatus]);
+
   if (!state?.settingsOpen) return null;
   const s = state.settings;
   const update = (patch: Partial<Settings>) => window.goetia.send('settings:update', patch);
   const u = state.update;
-  const updatePending = u.status === 'available' && u.latest !== null;
+  const pending = updatePending(u);
+  const checking = u.status === 'checking';
+  const recheck = () => {
+    lastRecheck.current = Date.now();
+    window.goetia.send('updates:check', {});
+  };
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop; Escape handled globally
@@ -170,7 +205,7 @@ export default function SettingsView() {
                 }`}
               >
                 {sec.label}
-                {sec.id === 'updates' && updatePending && (
+                {sec.id === 'updates' && pending && (
                   <span
                     data-testid="nav-update-dot"
                     aria-hidden="true"
@@ -341,27 +376,45 @@ export default function SettingsView() {
                 <div className="flex items-center justify-between gap-4 border-b border-border py-3">
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="text-text-1">
-                      {updatePending ? `Version ${u.latest} available` : `Version ${state.version}`}
+                      {pending ? `Version ${u.latest} available` : `Version ${state.version}`}
                     </span>
                     <span className="text-text-2">{updateStatusLine(u, state.version)}</span>
                   </span>
-                  <button
-                    type="button"
-                    data-testid="update-action"
-                    disabled={u.status === 'checking'}
-                    onClick={() =>
-                      updatePending
-                        ? window.goetia.send('updates:openDownload', {})
-                        : window.goetia.send('updates:check', {})
-                    }
-                    className={`flex-none rounded-ctl px-3 py-1.5 transition-colors duration-120 disabled:opacity-50 ${
-                      updatePending
-                        ? 'bg-accent font-semibold text-on-accent hover:brightness-110'
-                        : 'border border-border bg-bg-2 text-text-1 hover:border-accent'
-                    }`}
-                  >
-                    {updatePending ? 'Download' : 'Check for updates'}
-                  </button>
+                  <span className="flex flex-none items-center gap-2">
+                    {/* Download must not be the only thing here: it used to
+                        replace the check button, stranding the card on
+                        whatever release the last poll happened to see */}
+                    {pending && (
+                      <button
+                        type="button"
+                        data-testid="update-recheck"
+                        title="Check for updates"
+                        aria-label="Check for updates"
+                        disabled={checking}
+                        onClick={recheck}
+                        className="flex h-8 w-8 items-center justify-center rounded-ctl border border-border bg-bg-2 text-text-2 transition-colors duration-120 hover:border-accent hover:text-text-1 disabled:opacity-50"
+                      >
+                        <span className={checking ? 'animate-spin' : undefined}>
+                          <RefreshIcon />
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      data-testid="update-action"
+                      disabled={checking && !pending}
+                      onClick={() =>
+                        pending ? window.goetia.send('updates:openDownload', {}) : recheck()
+                      }
+                      className={`rounded-ctl px-3 py-1.5 transition-colors duration-120 disabled:opacity-50 ${
+                        pending
+                          ? 'bg-accent font-semibold text-on-accent hover:brightness-110'
+                          : 'border border-border bg-bg-2 text-text-1 hover:border-accent'
+                      }`}
+                    >
+                      {pending ? 'Download' : 'Check for updates'}
+                    </button>
+                  </span>
                 </div>
                 <Row label="Automatic updates">
                   <input

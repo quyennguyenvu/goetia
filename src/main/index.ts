@@ -21,6 +21,7 @@ app.setName('Goetia');
 // e2e runs in an isolated throwaway profile, never the user's real sessions
 const userDataArg = process.argv.find((a) => a.startsWith('--goetia-user-data='));
 if (userDataArg) app.setPath('userData', userDataArg.slice('--goetia-user-data='.length));
+const e2eUpdate = process.argv.includes('--goetia-e2e-update');
 // Windows toasts are dropped without an explicit AppUserModelID matching the installer's appId
 if (process.platform === 'win32') app.setAppUserModelId('com.quyennguyenvu.goetia');
 app.userAgentFallback = chromeUserAgent(app.userAgentFallback);
@@ -102,6 +103,16 @@ app
         settings.update({ lastNotifiedVersion: v });
       },
       isVisible: () => !win.isDestroyed() && win.isVisible(),
+      // opening the Updates pane re-checks, so e2e needs an answer that is
+      // neither the network nor whatever this repo's real latest release is
+      fetchFn: e2eUpdate
+        ? async () =>
+            ({
+              ok: true,
+              status: 200,
+              json: async () => ({ tag_name: 'v99.0.0' }),
+            }) as unknown as Response
+        : undefined,
     });
 
     const syncOverlay = () => {
@@ -198,7 +209,7 @@ app
     }
 
     // separate flag: an update toast must not perturb the other e2e specs
-    if (process.argv.includes('--goetia-e2e-update')) {
+    if (e2eUpdate) {
       setTimeout(() => {
         state.setUpdate({ status: 'available', latest: '99.0.0', announce: '99.0.0' });
       }, 800);

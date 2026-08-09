@@ -262,10 +262,25 @@ after the Obsidian reference the user supplied:
 
 - **Version row** — `Version 0.2.0` with a status sub-line, and a
   `Check for updates` button on the right. When an update exists the row reads
-  `Version 0.3.0 available` and the button becomes `Download`.
+  `Version 0.3.0 available` and the button becomes `Download`, with an
+  icon-only re-check button beside it.
   Sub-line by status: `idle` → the product tagline; `checking` →
   "Checking…"; `current` → "Goetia is up to date"; `available` → "You're on
   0.2.0"; `error` → "Couldn't reach GitHub. Try again."
+
+  Amended 2026-08-09: `Download` originally *replaced* `Check for updates`,
+  which stranded the card on whatever release the 24h poll last saw — with
+  the update state in memory, only a restart or the menu item could refresh
+  it. A pending update must never remove the re-check affordance. Two
+  consequences follow:
+
+  - Opening the Updates pane fires a check, floored at
+    `RECHECK_MIN_INTERVAL_MS` so flipping between panes cannot spend the
+    unauthenticated GitHub rate limit (`shouldAutoRecheck`).
+  - "Pending" is `latest !== null`, not `status === 'available'` — the same
+    signal `updates:openDownload` already trusts — so a failed or in-flight
+    re-check keeps the Download button and the gear dot instead of dropping
+    an update the user was told about (`updatePending`).
 - **Automatic updates row** — `checkForUpdates` checkbox with the description
   "Turn this off to stop Goetia checking for new versions." The timer keeps
   running either way; `check('auto')` returns early while the setting is off,

@@ -61,6 +61,14 @@ test('update toast expires on its own and leaves a dot that opens Updates', asyn
   await expect(action).toHaveText('Download');
   await expect(action).toBeInViewport();
 
+  // Download is not the only way out: a pending update must still be
+  // re-checkable, or the card is stuck on whatever the last poll saw
+  const recheck = win.locator('[data-testid="update-recheck"]');
+  await expect(recheck).toBeVisible();
+  await recheck.click();
+  await expect(action).toHaveText('Download');
+  await expect(win.getByText('Version 99.0.0 available')).toBeVisible();
+
   // and the panes are genuinely separate: switching hides the Updates content
   await win.locator('[data-testid="settings-nav-appearance"]').click();
   await expect(action).toHaveCount(0);

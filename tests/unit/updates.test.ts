@@ -127,6 +127,39 @@ describe('UpdateChecker.check', () => {
     expect(h.fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  // a manual click that lands on an in-flight automatic check still has to
+  // answer the user: joining the request must not inherit its silence
+  it('upgrades an in-flight automatic check to report like a manual one', async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error('offline'));
+    const h = harness({ fetchFn });
+    const auto = h.checker.check('auto');
+    await h.checker.check('manual');
+    await auto;
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(h.state.update.status).toBe('error');
+  });
+
+  it('shows it is checking when a manual click joins an automatic check', async () => {
+    const h = harness();
+    const auto = h.checker.check('auto');
+    void h.checker.check('manual');
+    expect(h.state.update.status).toBe('checking');
+    await auto;
+    expect(h.state.update.status).toBe('available');
+  });
+
+  // the reason must not leak across runs: a later automatic failure is silent
+  it('goes back to silence on the next automatic check', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(release('v0.3.0'))
+      .mockRejectedValueOnce(new Error('offline'));
+    const h = harness({ fetchFn });
+    await h.checker.check('manual');
+    await h.checker.check('auto');
+    expect(h.state.update.status).toBe('available');
+  });
+
   it('skips an automatic check when the setting is off, but honors a manual one', async () => {
     const h = harness({ autoEnabled: false });
     await h.checker.check('auto');

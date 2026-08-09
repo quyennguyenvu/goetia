@@ -24,6 +24,8 @@ export interface UpdateCheckerDeps {
  *  electron objects: everything it needs arrives as a function. */
 export class UpdateChecker {
   private inFlight: Promise<void> | null = null;
+  /** the run in flight was asked for by the user, so it reports failures */
+  private asked = false;
   private pending: string | null = null;
   private first: NodeJS.Timeout | null = null;
   private interval: NodeJS.Timeout | null = null;
@@ -48,10 +50,16 @@ export class UpdateChecker {
 
   check(reason: 'auto' | 'manual'): Promise<void> {
     if (reason === 'auto' && !this.deps.autoEnabled()) return Promise.resolve();
+    // set before the in-flight bail: a manual click that merely joins a running
+    // automatic check still asked a question, and must get an answer
+    if (reason === 'manual') {
+      this.asked = true;
+      this.deps.state.setUpdate({ status: 'checking' });
+    }
     if (this.inFlight) return this.inFlight;
-    if (reason === 'manual') this.deps.state.setUpdate({ status: 'checking' });
-    this.inFlight = this.run(reason).finally(() => {
+    this.inFlight = this.run().finally(() => {
       this.inFlight = null;
+      this.asked = false;
     });
     return this.inFlight;
   }
@@ -64,7 +72,7 @@ export class UpdateChecker {
     this.announce(version);
   }
 
-  private async run(reason: 'auto' | 'manual'): Promise<void> {
+  private async run(): Promise<void> {
     try {
       const res = await this.fetchFn(LATEST_RELEASE_API, {
         headers: {
@@ -80,7 +88,7 @@ export class UpdateChecker {
       this.apply(latest);
     } catch {
       // being offline is not news: only a check the user asked for reports back
-      if (reason === 'manual') this.deps.state.setUpdate({ status: 'error' });
+      if (this.asked) this.deps.state.setUpdate({ status: 'error' });
     }
   }
 
