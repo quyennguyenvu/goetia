@@ -27,4 +27,15 @@ describe('activateService', () => {
     activateService(makeCtx(state, activate), 'telegram');
     expect(activate).toHaveBeenCalledWith('telegram');
   });
+
+  it('leaves home when a service is activated', () => {
+    const state = new MainState();
+    state.homeOpen = true;
+    state.settingsOpen = true;
+    state.switcherOpen = true;
+    activateService(makeCtx(state), 'zalo');
+    expect(state.homeOpen).toBe(false);
+    expect(state.settingsOpen).toBe(false);
+    expect(state.switcherOpen).toBe(false);
+  });
 });

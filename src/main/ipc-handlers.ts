@@ -6,6 +6,7 @@ import { applyOverlay } from './badges';
 import { resolveActivation } from './lib/activation-rules';
 import { isSafeExternalUrl } from './lib/external-url';
 import { ipcSenderAllowed } from './lib/ipc-sender-policy';
+import { anyOverlayOpen } from './lib/overlay-rules';
 import { releaseUrl } from './lib/update-check';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
@@ -82,6 +83,14 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     else ctx.views.showActive();
     ctx.state.touch();
   });
+  on('home:setOpen', ({ open }) => {
+    ctx.state.homeOpen = open;
+    if (open) ctx.views.hideActive();
+    else ctx.views.showActive();
+    ctx.state.touch();
+    // so Escape and the accelerators reach the shell, not the buried view
+    if (open) ctx.win.webContents.focus();
+  });
   on('settings:update', (patch) => {
     const before = ctx.settings.get();
     const after = ctx.settings.update(patch);
@@ -116,7 +125,9 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       if (next) {
         ctx.state.activeId = next;
         ctx.noteActivated(next);
-        ctx.views.activate(next);
+        // Resolve now, present later. Showing a view here would cover the
+        // surface the user is standing on — this is the settings-modal bug.
+        ctx.views.activate(next, { show: !anyOverlayOpen(ctx.state) });
       }
       buildAppMenu(ctx);
     }

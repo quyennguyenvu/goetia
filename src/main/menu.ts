@@ -10,6 +10,15 @@ function openSettings(ctx: AppContext): void {
   ctx.win.webContents.focus(); // so Escape closes the modal immediately
 }
 
+function toggleHome(ctx: AppContext): void {
+  const open = !ctx.state.homeOpen;
+  ctx.state.homeOpen = open;
+  if (open) ctx.views.hideActive();
+  else ctx.views.showActive();
+  ctx.state.touch();
+  ctx.win.webContents.focus();
+}
+
 export function buildAppMenu(ctx: AppContext): void {
   const s = ctx.settings.get();
   const order = s.order.filter((id) => !s.disabled[id]);
@@ -51,6 +60,15 @@ export function buildAppMenu(ctx: AppContext): void {
     {
       label: 'Go',
       submenu: [
+        {
+          label: 'Home',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => {
+            ctx.win.show();
+            toggleHome(ctx);
+          },
+        },
+        { type: 'separator' as const },
         ...order.map((id, i) => ({
           label: serviceById(id).name,
           accelerator: `CmdOrCtrl+${i + 1}`,

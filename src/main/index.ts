@@ -106,7 +106,8 @@ app
 
     const syncOverlay = () => {
       const rt = state.runtime(state.activeId);
-      const show = rt.waking && !rt.crashed && !state.switcherOpen && !state.settingsOpen;
+      const show =
+        rt.waking && !rt.crashed && !state.switcherOpen && !state.settingsOpen && !state.homeOpen;
       if (!show) {
         overlay.hide();
         return;
@@ -144,7 +145,7 @@ app
     // keyboard focus must land in the service page, not the shell rail —
     // otherwise auto-typed "user → Tab → password → Enter" walks the rail.
     win.on('focus', () => {
-      if (!state.switcherOpen && !state.settingsOpen) views.focusActive();
+      if (!state.switcherOpen && !state.settingsOpen && !state.homeOpen) views.focusActive();
     });
 
     // a check can land while the app sits in the tray; the toast waits

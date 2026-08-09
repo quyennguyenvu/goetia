@@ -35,7 +35,7 @@ test('launch, rail, badge propagation', async () => {
 
   await expect(win.locator('[data-testid="rail"]')).toBeVisible();
   // the seeded profile enables only messenger and zalo
-  await expect(win.locator('[data-testid="rail"] button[aria-label]')).toHaveCount(2);
+  await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
 
   // glyph masks must resolve in the built bundle — Vite inlines the logo SVGs
   // as data URIs with single quotes, which break unquoted CSS url() tokens

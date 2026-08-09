@@ -16,6 +16,9 @@ export class MainState {
   activeId: ServiceId = 'whatsapp';
   switcherOpen = false;
   settingsOpen = false;
+  /** Home (the welcome screen) is a shell surface, not a persisted
+   *  preference: a restart lands on the active service. */
+  homeOpen = false;
   private runtimes = new Map<ServiceId, ServiceRuntime>();
   private listeners: (() => void)[] = [];
   private updateState: UpdateState = defaultUpdate();
@@ -83,6 +86,7 @@ export class MainState {
       globalMuted: settings.globalMuted,
       switcherOpen: this.switcherOpen,
       settingsOpen: this.settingsOpen,
+      homeOpen: this.homeOpen,
       theme,
       settings,
       version,

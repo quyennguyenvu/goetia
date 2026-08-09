@@ -22,7 +22,7 @@ test('fresh install: welcome picker → summon → rail', async () => {
   // fresh profile: welcome shows, no rail tiles, no service views
   const welcome = win.locator('[data-testid="welcome"]');
   await expect(welcome).toBeVisible();
-  const tiles = win.locator('[data-testid="rail"] button[aria-label]');
+  const tiles = win.locator('[data-testid="service-tile"]');
   await expect(tiles).toHaveCount(0);
 
   // confirm is disabled until something is selected
@@ -36,7 +36,7 @@ test('fresh install: welcome picker → summon → rail', async () => {
   // welcome gone, one tile, zalo active
   await expect(welcome).toHaveCount(0);
   await expect(tiles).toHaveCount(1);
-  await expect(win.locator('[data-testid="rail"] button[aria-current="page"]')).toHaveAttribute(
+  await expect(win.locator('[data-testid="service-tile"][aria-current="page"]')).toHaveAttribute(
     'aria-label',
     'Zalo',
   );
@@ -44,7 +44,7 @@ test('fresh install: welcome picker → summon → rail', async () => {
 
   // the choice persisted: a relaunch skips the welcome
   const second = await launch(profile);
-  await expect(second.win.locator('[data-testid="rail"] button[aria-label]')).toHaveCount(1);
+  await expect(second.win.locator('[data-testid="service-tile"]')).toHaveCount(1);
   await expect(second.win.locator('[data-testid="welcome"]')).toHaveCount(0);
   await second.app.close();
 });

@@ -1,7 +1,7 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ServiceId, ServiceMeta } from '../../../shared/types';
-import { buildDisabledPatch } from '../../../shared/welcome';
+import { buildDisabledPatch, summonDelta, summonLabel } from '../../../shared/welcome';
 import { useShell } from '../store';
 import Portal from './Portal';
 
@@ -118,7 +118,36 @@ function PickTile({
 
 export default function Welcome() {
   const state = useShell((s) => s.state);
+  const enabledKey = state
+    ? state.services
+        .filter((svc) => !state.settings.disabled[svc.id])
+        .map((svc) => svc.id)
+        .join(',')
+    : '';
   const [selected, setSelected] = useState<ReadonlySet<ServiceId>>(new Set());
+
+  // Re-seed every time the screen becomes visible or the live set changes, so
+  // a discarded edit never survives to the next visit. A fresh install has an
+  // empty enabled set, which reproduces the original empty selection.
+  useEffect(() => {
+    setSelected(new Set(enabledKey ? (enabledKey.split(',') as ServiceId[]) : []));
+  }, [enabledKey]);
+
+  // Home is a place, not a modal — but Escape is the reflex. Guarded the way
+  // SettingsView guards its own handler: only when nothing is layered on top,
+  // and never when there is no service to go back to.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      const s = useShell.getState().state;
+      if (!s?.homeOpen || s.settingsOpen || s.switcherOpen) return;
+      if (s.services.every((svc) => s.settings.disabled[svc.id])) return;
+      window.goetia.send('home:setOpen', { open: false });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   if (!state) return null;
 
   const toggle = (id: ServiceId) => {
@@ -128,15 +157,15 @@ export default function Welcome() {
     setSelected(next);
   };
 
-  const summon = () =>
-    window.goetia.send('settings:update', {
-      disabled: buildDisabledPatch(
-        state.services.map((svc) => svc.id),
-        selected,
-      ),
-    });
+  const enabled = new Set<ServiceId>(
+    state.services.filter((svc) => !state.settings.disabled[svc.id]).map((svc) => svc.id),
+  );
+  const order = state.services.map((svc) => svc.id);
+  const { label, disabled } = summonLabel(summonDelta(order, enabled, selected), enabled.size > 0);
 
-  const n = selected.size;
+  const summon = () =>
+    window.goetia.send('settings:update', { disabled: buildDisabledPatch(order, selected) });
+
   return (
     <div
       data-testid="welcome"
@@ -161,7 +190,7 @@ export default function Welcome() {
         <Tip
           icon={<KeysIcon />}
           title="Quick keys"
-          body="⌘/Ctrl K switcher · ⌘/Ctrl , settings · right-click mutes."
+          body="⌘/Ctrl K switcher · ⌘/Ctrl 0 home · right-click mutes."
         />
       </div>
       <div className="flex flex-wrap items-start justify-center gap-2">
@@ -175,18 +204,18 @@ export default function Welcome() {
         ))}
       </div>
       <p className="text-xs text-text-2">
-        Pick at least one — you can change this anytime in Settings.
+        Pick at least one — come back here anytime with ⌘/Ctrl 0.
       </p>
       <button
         type="button"
-        disabled={n === 0}
+        disabled={disabled}
         onClick={summon}
         className="tabular rounded-ctl bg-linear-to-br from-[#FFB43D] via-[#FF8A2A] to-[#F04E3E]
           px-6 py-2 font-semibold text-[#15181F] shadow-[0_0_12px_rgba(255,158,44,0.35)]
           transition-opacity duration-150 enabled:hover:opacity-90 disabled:opacity-40
           disabled:shadow-none"
       >
-        Summon {n} {n === 1 ? 'service' : 'services'}
+        {label}
       </button>
     </div>
   );

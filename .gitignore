@@ -13,3 +13,6 @@ graphify-out/manifest.json
 
 # Optional: keep repo size small, or commit it to speed up team parsing
 graphify-out/cache/
+
+# brainstorming session mockups (scratch, not source)
+.superpowers/

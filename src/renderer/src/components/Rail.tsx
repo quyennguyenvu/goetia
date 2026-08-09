@@ -1,5 +1,6 @@
 import type { ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
+import Portal from './Portal';
 import ServiceTile from './ServiceTile';
 
 function BellIcon({ muted }: { muted: boolean }) {
@@ -68,13 +69,32 @@ export default function Rail() {
             } border-border`
       }
     >
+      <button
+        type="button"
+        data-testid="home-btn"
+        aria-label="Home"
+        aria-current={state.homeOpen ? 'page' : undefined}
+        title="Home — all services (⌘0)"
+        onClick={() => window.goetia.send('home:setOpen', { open: !state.homeOpen })}
+        className={`flex h-8 w-8 flex-none items-center justify-center rounded-[11px]
+          transition-all duration-150 ease-out outline-none focus-visible:ring-2
+          focus-visible:ring-accent ${
+            state.homeOpen ? 'bg-bg-2 opacity-100' : 'opacity-60 hover:opacity-100'
+          }`}
+      >
+        <Portal className="h-[22px] w-[22px]" />
+      </button>
+      <div
+        aria-hidden="true"
+        className={horizontal ? 'h-5 w-px flex-none bg-border' : 'h-px w-6 flex-none bg-border'}
+      />
       {visible.map((svc) => (
         <ServiceTile
           key={svc.id}
           service={svc}
           runtime={state.runtime[svc.id]}
           muted={state.muted[svc.id]}
-          active={state.activeId === svc.id}
+          active={!state.homeOpen && state.activeId === svc.id}
           onActivate={() => window.goetia.send('service:activate', { serviceId: svc.id })}
           onContextMenu={(e) => {
             e.preventDefault();

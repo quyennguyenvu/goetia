@@ -31,6 +31,10 @@ menus, or other site functions (user decision, 2026-08-07):
   containment.
 - New services land on the chat URL directly (`SERVICES[].url`), not the
   site's home page.
+- Enabling and disabling services lives on Home (the welcome screen),
+  reachable from the rail sigil and `⌘/Ctrl 0`. Settings never gets an
+  enable toggle back: composition behind a modal is what let a service view
+  bury the modal it was toggled from.
 - Fresh installs start with every service disabled: the shell shows the
   welcome screen whenever all services are disabled (derived from
   settings — no flag). Zero enabled services must mean zero service
@@ -46,6 +50,11 @@ menus, or other site functions (user decision, 2026-08-07):
   it is safe to bundle into both main and the sandboxed preload.
 - Pure decision logic goes in a `lib/` helper with a vitest unit test; keep
   `views.ts` / `index.ts` / `ipc-handlers.ts` as thin wiring.
+- Service views are layered above the shell renderer, so a visible view
+  covers any shell surface. No code path may make a view visible while
+  `anyOverlayOpen()` is true (settings, quick switcher, home) — resolve
+  activation with `views.activate(id, { show: false })` and let
+  `showActive()` present it when the surface closes.
 
 ## Security (every new service, IPC channel, or view must hold these)
 

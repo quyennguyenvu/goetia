@@ -9,6 +9,7 @@ export interface RendererToMain {
   'global:setMuted': { muted: boolean };
   'switcher:setOpen': { open: boolean };
   'settings:setOpen': { open: boolean };
+  'home:setOpen': { open: boolean };
   'settings:update': Partial<Settings>;
   'badge:overlay': { dataUrl: string | null; count: number };
   'unread:update': { serviceId: ServiceId } & Counts;
@@ -35,6 +36,7 @@ export const R2M_CHANNELS = [
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
+  'home:setOpen',
   'settings:update',
   'badge:overlay',
   'unread:update',
@@ -56,6 +58,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain>([
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
+  'home:setOpen',
   'settings:update',
   'badge:overlay',
   'updates:check',

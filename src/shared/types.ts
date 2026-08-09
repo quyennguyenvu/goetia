@@ -112,6 +112,7 @@ export interface ShellState {
   globalMuted: boolean;
   switcherOpen: boolean;
   settingsOpen: boolean;
+  homeOpen: boolean;
   theme: 'light' | 'dark'; // effective theme (system already resolved)
   settings: Settings; // raw preferences, for the settings form
   version: string;

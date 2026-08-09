@@ -34,6 +34,7 @@ export default function App() {
   const allDisabled = state
     ? state.services.every((svc) => state.settings.disabled[svc.id])
     : false;
+  const showWelcome = (state?.homeOpen ?? false) || allDisabled;
 
   return (
     <div
@@ -41,7 +42,7 @@ export default function App() {
     >
       {pos !== 'right' && <Rail />}
       <div className="relative flex min-h-0 min-w-0 flex-1">
-        {allDisabled ? <Welcome /> : <ContentPlaceholder />}
+        {showWelcome ? <Welcome /> : <ContentPlaceholder />}
         <UpdateToast />
       </div>
       {pos === 'right' && <Rail />}

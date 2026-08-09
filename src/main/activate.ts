@@ -7,6 +7,7 @@ import type { AppContext } from './ipc-handlers';
 export function activateService(ctx: AppContext, id: ServiceId): void {
   ctx.state.settingsOpen = false;
   ctx.state.switcherOpen = false;
+  ctx.state.homeOpen = false;
   ctx.state.activeId = id;
   ctx.state.setRuntime(id, { hibernated: false });
   ctx.noteActivated(id);

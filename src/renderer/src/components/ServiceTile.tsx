@@ -41,6 +41,7 @@ export default function ServiceTile({
   return (
     <button
       type="button"
+      data-testid="service-tile"
       draggable
       onDragStart={(e) => e.dataTransfer.setData('text/goetia-service', service.id)}
       onDragOver={(e) => e.preventDefault()}

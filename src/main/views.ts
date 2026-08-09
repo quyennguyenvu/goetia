@@ -164,7 +164,10 @@ export class ServiceViewManager {
     if (!this.views.has(id)) this.create(id);
   }
 
-  activate(id: ServiceId): void {
+  /** `show: false` resolves activation without presenting: the view is
+   *  created and z-ordered but stays hidden and unfocused, so a shell
+   *  surface (settings, switcher, home) is never buried by it. */
+  activate(id: ServiceId, { show = true }: { show?: boolean } = {}): void {
     const view = this.views.get(id) ?? this.create(id);
     for (const [otherId, v] of this.views) {
       if (otherId !== id) v.setVisible(false);
@@ -172,13 +175,13 @@ export class ServiceViewManager {
     // always re-add: moves the active view to the top of the z-order, so a
     // flashed keep-alive view (attached at index 0) stays covered
     this.win.contentView.addChildView(view);
-    view.setVisible(true);
+    view.setVisible(show);
     // a covering loading overlay must outrank the view we just re-added
     this.overlay?.raise();
     this.activeId = id;
     this.layout();
     // keyboard (incl. Tab) goes into the service, not the shell rail
-    view.webContents.focus();
+    if (show) view.webContents.focus();
   }
 
   hideActive(): void {

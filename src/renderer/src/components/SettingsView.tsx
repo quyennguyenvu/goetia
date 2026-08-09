@@ -242,63 +242,68 @@ export default function SettingsView() {
 
             {active === 'services' && (
               <Pane title="Services">
-                {state.services.map((svc) => (
-                  <div
-                    key={svc.id}
-                    className={`flex items-center justify-between gap-4 border-b border-border py-2 last:border-0 ${
-                      s.disabled[svc.id] ? 'opacity-50' : ''
-                    }`}
+                {state.services
+                  .filter((svc) => !s.disabled[svc.id])
+                  .map((svc) => (
+                    <div
+                      key={svc.id}
+                      className="flex items-center justify-between gap-4 border-b border-border py-2"
+                    >
+                      <span className="text-text-1">{svc.name}</span>
+                      <span className="flex items-center gap-4 text-text-2">
+                        <label className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={s.muted[svc.id]}
+                            onChange={(e) =>
+                              window.goetia.send('service:setMuted', {
+                                serviceId: svc.id,
+                                muted: e.target.checked,
+                              })
+                            }
+                          />
+                          mute
+                        </label>
+                        <label className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={s.neverHibernate[svc.id]}
+                            onChange={(e) =>
+                              update({
+                                neverHibernate: { ...s.neverHibernate, [svc.id]: e.target.checked },
+                              })
+                            }
+                          />
+                          never hibernate
+                        </label>
+                        <button
+                          type="button"
+                          className="rounded-ctl border border-border px-2 py-0.5 hover:bg-bg-2"
+                          onClick={() =>
+                            window.goetia.send('service:reload', { serviceId: svc.id })
+                          }
+                        >
+                          reload
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                {/* composition lives on Home: an enable toggle behind a modal
+                    is what let a view bury the modal it was toggled from */}
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <span className="text-text-2">Add or remove services</span>
+                  <button
+                    type="button"
+                    data-testid="manage-services"
+                    onClick={() => {
+                      window.goetia.send('settings:setOpen', { open: false });
+                      window.goetia.send('home:setOpen', { open: true });
+                    }}
+                    className="rounded-ctl border border-border bg-bg-2 px-3 py-1 text-text-1 transition-colors duration-120 hover:border-accent"
                   >
-                    <span className="text-text-1">{svc.name}</span>
-                    <span className="flex items-center gap-4 text-text-2">
-                      <label
-                        className="flex items-center gap-1.5"
-                        title="Disabled services load nothing — no tile, no requests"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!s.disabled[svc.id]}
-                          onChange={(e) =>
-                            update({ disabled: { ...s.disabled, [svc.id]: !e.target.checked } })
-                          }
-                        />
-                        enabled
-                      </label>
-                      <label className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={s.muted[svc.id]}
-                          onChange={(e) =>
-                            window.goetia.send('service:setMuted', {
-                              serviceId: svc.id,
-                              muted: e.target.checked,
-                            })
-                          }
-                        />
-                        mute
-                      </label>
-                      <label className="flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={s.neverHibernate[svc.id]}
-                          onChange={(e) =>
-                            update({
-                              neverHibernate: { ...s.neverHibernate, [svc.id]: e.target.checked },
-                            })
-                          }
-                        />
-                        never hibernate
-                      </label>
-                      <button
-                        type="button"
-                        className="rounded-ctl border border-border px-2 py-0.5 hover:bg-bg-2"
-                        onClick={() => window.goetia.send('service:reload', { serviceId: svc.id })}
-                      >
-                        reload
-                      </button>
-                    </span>
-                  </div>
-                ))}
+                    Manage services…
+                  </button>
+                </div>
               </Pane>
             )}
 
@@ -321,6 +326,7 @@ export default function SettingsView() {
                 <div className="py-2 text-text-2">
                   <p className="py-1">⌘/Ctrl + 1…6 — jump to service</p>
                   <p className="py-1">⌘/Ctrl + K — quick switcher</p>
+                  <p className="py-1">⌘/Ctrl + 0 — home / all services</p>
                   <p className="py-1">⌘/Ctrl + , — settings</p>
                   <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
                   <p className="py-1">Esc — close this window</p>
