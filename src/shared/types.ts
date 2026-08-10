@@ -53,6 +53,10 @@ export interface Settings {
   checkForUpdates: boolean;
   /** the version already announced; persisted so a restart never re-toasts */
   lastNotifiedVersion: string | null;
+  /** service focused when the app last closed; null until first recorded */
+  lastActiveId: ServiceId | null;
+  /** Home was the surface on top at close — Settings deliberately is not */
+  lastHomeOpen: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -93,6 +97,8 @@ export const DEFAULT_SETTINGS: Settings = {
   railPosition: 'top',
   checkForUpdates: true,
   lastNotifiedVersion: null,
+  lastActiveId: null,
+  lastHomeOpen: false,
 };
 
 export interface ServiceRuntime {

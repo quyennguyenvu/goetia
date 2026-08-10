@@ -111,6 +111,30 @@ describe('SettingsStore', () => {
     expect(new SettingsStore(dir).get().lastNotifiedVersion).toBe('0.3.0');
   });
 
+  it('starts with no remembered surface', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const s = new SettingsStore(dir).get();
+    expect(s.lastActiveId).toBeNull();
+    expect(s.lastHomeOpen).toBe(false);
+  });
+
+  it('persists the remembered surface across instances', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    new SettingsStore(dir).update({ lastActiveId: 'discord', lastHomeOpen: true });
+    const reread = new SettingsStore(dir).get();
+    expect(reread.lastActiveId).toBe('discord');
+    expect(reread.lastHomeOpen).toBe(true);
+  });
+
+  it('keeps an unknown lastActiveId rather than nulling it', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ lastActiveId: 'skype' }));
+    // normalize() scrubs order and the boolean records but must not touch this:
+    // resolveStartupSurface needs "recorded but gone" to read differently from
+    // "never recorded", and only the raw value carries that difference
+    expect(new SettingsStore(dir).get().lastActiveId as string).toBe('skype');
+  });
+
   it('coerces a corrupt settings.json instead of throwing on startup', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     // hand-mangled file: order is a string, records are wrong types

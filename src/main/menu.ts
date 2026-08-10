@@ -1,6 +1,6 @@
 import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
-import { activateService } from './activate';
+import { activateService, setHomeOpen } from './activate';
 import type { AppContext } from './ipc-handlers';
 
 function openSettings(ctx: AppContext): void {
@@ -11,11 +11,7 @@ function openSettings(ctx: AppContext): void {
 }
 
 function toggleHome(ctx: AppContext): void {
-  const open = !ctx.state.homeOpen;
-  ctx.state.homeOpen = open;
-  if (open) ctx.views.hideActive();
-  else ctx.views.showActive();
-  ctx.state.touch();
+  setHomeOpen(ctx, !ctx.state.homeOpen);
   ctx.win.webContents.focus();
 }
 

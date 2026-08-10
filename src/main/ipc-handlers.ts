@@ -1,7 +1,7 @@
 import { app, type BrowserWindow, ipcMain, shell } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
 import type { ServiceId } from '../shared/types';
-import { activateService } from './activate';
+import { activateService, rememberSurface, setHomeOpen } from './activate';
 import { applyOverlay } from './badges';
 import { resolveActivation } from './lib/activation-rules';
 import { isSafeExternalUrl } from './lib/external-url';
@@ -84,10 +84,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     ctx.state.touch();
   });
   on('home:setOpen', ({ open }) => {
-    ctx.state.homeOpen = open;
-    if (open) ctx.views.hideActive();
-    else ctx.views.showActive();
-    ctx.state.touch();
+    setHomeOpen(ctx, open);
     // so Escape and the accelerators reach the shell, not the buried view
     if (open) ctx.win.webContents.focus();
   });
@@ -129,6 +126,10 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
         // surface the user is standing on — this is the settings-modal bug.
         ctx.views.activate(next, { show: !anyOverlayOpen(ctx.state) });
       }
+      // also runs when next is null: banishing the last service leaves
+      // activeId pointing at a disabled one, which is exactly the unrestorable
+      // record that should reopen on Home
+      rememberSurface(ctx);
       buildAppMenu(ctx);
     }
     if (patch.neverHibernate) {

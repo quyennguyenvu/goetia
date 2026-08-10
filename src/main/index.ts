@@ -5,6 +5,7 @@ import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
 import { registerIpcHandlers } from './ipc-handlers';
+import { resolveStartupSurface } from './lib/startup-surface';
 import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
 import { buildAppMenu } from './menu';
@@ -186,13 +187,20 @@ app
     app.on('before-quit', () => updates.dispose());
 
     const s0 = settings.get();
-    const first = s0.order.find((id) => !s0.disabled[id]);
+    const surface = resolveStartupSurface({
+      order: s0.order,
+      disabled: s0.disabled,
+      lastActiveId: s0.lastActiveId,
+      lastHomeOpen: s0.lastHomeOpen,
+    });
     // all-disabled (fresh install): show the welcome screen, create no
     // view — activating order[0] would give a disabled service network
-    state.activeId = first ?? s0.order[0];
-    if (first) {
-      ctx.noteActivated(first);
-      views.activate(first);
+    state.activeId = surface.activeId ?? s0.order[0];
+    state.homeOpen = surface.homeOpen;
+    if (surface.activeId) {
+      ctx.noteActivated(surface.activeId);
+      // Home covers the view: resolve now, present when Home closes
+      views.activate(surface.activeId, { show: !surface.homeOpen });
     }
     // never-hibernate services load hidden from the start, so their unread
     // counts and notifications work before ever being clicked

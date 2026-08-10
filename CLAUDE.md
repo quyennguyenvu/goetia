@@ -39,6 +39,10 @@ menus, or other site functions (user decision, 2026-08-07):
   welcome screen whenever all services are disabled (derived from
   settings — no flag). Zero enabled services must mean zero service
   views; see `resolveActivation` and the startup guard.
+- Launch restores the surface you left: the last active service, or Home if
+  that is where you quit (`resolveStartupSurface`, recorded by
+  `rememberSurface` on every change). A recorded service that is now disabled
+  or gone opens Home rather than silently substituting another.
 
 ## Process boundaries (never weaken)
 
@@ -54,7 +58,8 @@ menus, or other site functions (user decision, 2026-08-07):
   covers any shell surface. No code path may make a view visible while
   `anyOverlayOpen()` is true (settings, quick switcher, home) — resolve
   activation with `views.activate(id, { show: false })` and let
-  `showActive()` present it when the surface closes.
+  `showActive()` present it when the surface closes. Startup is a code path
+  too: a restored-open Home must activate its view hidden.
 
 ## Security (every new service, IPC channel, or view must hold these)
 
