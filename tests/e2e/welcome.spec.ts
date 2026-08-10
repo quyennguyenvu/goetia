@@ -25,12 +25,25 @@ test('fresh install: welcome picker → summon → rail', async () => {
   const tiles = win.locator('[data-testid="service-tile"]');
   await expect(tiles).toHaveCount(0);
 
+  // nothing is summoned yet: that section is empty and all seven wait below
+  const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+  await expect(summoned).toContainText('Nothing yet.');
+  await expect(unbound.getByRole('button')).toHaveCount(7);
+
   // confirm is disabled until something is selected
   const summon = win.getByRole('button', { name: /^Summon/ });
   await expect(summon).toBeDisabled();
 
-  await welcome.getByRole('button', { name: 'Zalo' }).click();
+  // selecting stages the change without moving the tile out of Unbound
+  await unbound.getByRole('button', { name: 'Zalo' }).click();
   await expect(summon).toHaveText('Summon 1 service');
+  await expect(unbound.getByRole('button', { name: 'Zalo' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(summoned.getByRole('button', { name: 'Zalo' })).toHaveCount(0);
+
   await summon.click();
 
   // welcome gone, one tile, zalo active

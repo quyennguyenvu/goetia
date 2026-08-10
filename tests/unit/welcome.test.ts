@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type ServiceId } from '../../src/shared/types';
-import { summonDelta, summonLabel } from '../../src/shared/welcome';
+import { summonDelta, summonLabel, welcomeSections } from '../../src/shared/welcome';
 
 const order = DEFAULT_SETTINGS.order;
 const set = (...ids: ServiceId[]) => new Set<ServiceId>(ids);
@@ -74,6 +74,44 @@ describe('summonLabel', () => {
     expect(label(['messenger', 'zalo'], ['zalo', 'discord', 'telegram'])).toEqual({
       label: 'Summon 2 · Banish 1',
       disabled: false,
+    });
+  });
+});
+
+describe('welcomeSections', () => {
+  it('puts everything in unbound on a fresh install', () => {
+    expect(welcomeSections(order, set())).toEqual({
+      summoned: [],
+      unbound: order,
+    });
+  });
+
+  it('puts everything in summoned when all are enabled', () => {
+    expect(welcomeSections(order, set(...order))).toEqual({
+      summoned: order,
+      unbound: [],
+    });
+  });
+
+  it('splits a mixed set', () => {
+    expect(welcomeSections(order, set('messenger', 'zalo'))).toEqual({
+      summoned: ['messenger', 'zalo'],
+      unbound: ['telegram', 'whatsapp', 'discord', 'tiktok', 'shopee'],
+    });
+  });
+
+  it('lists each section in rail order, not enabled-set order', () => {
+    // 'shopee' is last in order but first into the Set
+    expect(welcomeSections(order, set('shopee', 'telegram')).summoned).toEqual([
+      'telegram',
+      'shopee',
+    ]);
+  });
+
+  it('ignores ids that are enabled but not in order', () => {
+    expect(welcomeSections(['messenger', 'zalo'], set('messenger', 'discord'))).toEqual({
+      summoned: ['messenger'],
+      unbound: ['zalo'],
     });
   });
 });

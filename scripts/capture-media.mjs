@@ -54,13 +54,23 @@ async function clipAround(page, selectors, pad = 24) {
  */
 const SURFACES = {
   async welcome({ win }) {
+    // with services enabled Home is not the default surface any more, so
+    // reach it the way a user does — the rail sigil
+    await win.locator('[data-testid="home-btn"]').click();
     const welcome = win.locator('[data-testid="welcome"]');
     await welcome.waitFor();
-    // pick a few so the confirm button is live rather than a greyed "Summon 0"
-    for (const name of ['Telegram', 'WhatsApp', 'Zalo']) {
+    // stage one of each so the confirm names a real change and Dispel goes
+    // live: whatsapp lights up under Unbound, messenger dims in place under
+    // Summoned. Neither moves section until confirm — that is the point.
+    for (const name of ['WhatsApp', 'Messenger']) {
       await welcome.getByRole('button', { name, exact: true }).click();
     }
-    await win.waitForTimeout(200);
+    // drop the focus ring and hover outline the last click left behind: both
+    // read as a third tile state next to the staged glow and the dimmed face.
+    // (4, 4) lands on the rail, outside the clip below.
+    await win.evaluate(() => document.activeElement?.blur());
+    await win.mouse.move(4, 4);
+    await win.waitForTimeout(400); // the 150ms tile transition must settle
     // the welcome pane is full-bleed; frame its content, not the empty margins
     const clip = await clipAround(win, ['[data-testid="welcome"] > *'], 40);
     return (path) => win.screenshot({ path, clip, scale: SCALE });

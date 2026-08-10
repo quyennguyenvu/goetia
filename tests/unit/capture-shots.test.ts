@@ -50,10 +50,14 @@ describe('capture matrix', () => {
     }
   });
 
-  it('leaves every service disabled for the welcome shot', () => {
+  it('seeds a mixed set for the welcome shot, so both Home sections show tiles', () => {
+    // an all-disabled seed would leave Summoned empty and put every tile under
+    // Unbound — a poor showcase for a two-section picker
     const shot = SHOTS.find((s) => s.stem === 'welcome');
     if (!shot) throw new Error('welcome missing from the matrix');
-    expect(Object.values(settingsFor(shot).disabled).every(Boolean)).toBe(true);
+    const disabled = Object.values(settingsFor(shot).disabled);
+    expect(disabled.some(Boolean)).toBe(true);
+    expect(disabled.some((d) => !d)).toBe(true);
   });
 
   it('enables zalo for any shot that needs the injected unread badge', () => {

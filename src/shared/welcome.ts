@@ -43,3 +43,21 @@ export function summonLabel(
   if (remove.length > 0) return { label: `Banish ${services(remove.length)}`, disabled: false };
   return { label: hasEnabled ? 'No changes' : 'Summon 0 services', disabled: true };
 }
+
+export interface WelcomeSections {
+  summoned: ServiceId[];
+  unbound: ServiceId[];
+}
+
+/** Partition for the Home picker, in rail order. Keyed on the LIVE enabled set,
+ *  never the staged selection: a tile must not move out from under the cursor
+ *  mid-edit, so sections re-sort only once a confirm lands. */
+export function welcomeSections(
+  order: ServiceId[],
+  enabled: ReadonlySet<ServiceId>,
+): WelcomeSections {
+  return {
+    summoned: order.filter((id) => enabled.has(id)),
+    unbound: order.filter((id) => !enabled.has(id)),
+  };
+}

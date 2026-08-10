@@ -20,7 +20,9 @@ export const THEMES = ['light', 'dark'];
 // unread count on zalo alone. The rail and switcher enable everything — a
 // half-empty rail makes a poor showcase.
 const SURFACES = [
-  { stem: 'welcome', surface: 'welcome', enabled: [] },
+  // a mixed live set so both Home sections carry tiles; the capture then
+  // stages one summon and one banishment across them
+  { stem: 'welcome', surface: 'welcome', enabled: ['messenger', 'telegram', 'zalo'] },
   {
     stem: 'rail-badges',
     surface: 'rail',

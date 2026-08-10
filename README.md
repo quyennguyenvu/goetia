@@ -46,13 +46,15 @@ badly or not at all.
 
 ## A look around
 
-Nothing loads until you pick — a fresh install starts with every service off:
+Nothing loads until you pick — a fresh install starts with every service off.
+Home keeps the summoned apart from the unbound, and a pick only changes which
+side it's on once you confirm; **Dispel** throws the edit away:
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/welcome-dark.png">
     <img src="docs/media/welcome-light.png" width="760"
-      alt="Goetia's welcome screen: the service picker, three of seven chosen">
+      alt="Goetia's Home screen: three services summoned, four unbound">
   </picture>
 </p>
 
@@ -209,10 +211,11 @@ gh attestation verify Goetia-<version>-arm64.dmg --repo quyennguyenvu/goetia
 
 ### The first time you open it
 
-You'll see a row of chat-service icons. Click each one and log in the normal
-way — scan the QR code (WhatsApp, Zalo) or type your username and password.
-**You only log in once per service**; Goetia remembers each account
-separately, even after you quit and reopen.
+You'll see every service sitting under **Unbound**. Click the ones you want —
+they light up but stay put — then press **Summon** to bring them in. Now log
+in to each the normal way: scan the QR code (WhatsApp, Zalo) or type your
+username and password. **You only log in once per service**; Goetia remembers
+each account separately, even after you quit and reopen.
 
 Closing the window does **not** quit Goetia — it keeps running in the menu
 bar (Mac) or the system tray next to the clock (Windows) so notifications
@@ -224,9 +227,14 @@ Ctrl+Q (Windows).
 - **Service icons sit in a top bar** by default (each chat app already has
   its own left-hand column, so a second left rail would double up). Want them
   on the side? **Settings → Appearance → Menu position**.
+- **Add or drop services later**: press ⌘/Ctrl+0, or click the ember sigil at
+  the head of the icon bar, for **Home**. Summoned and unbound sit in separate
+  rows; nothing changes until you press **Summon**/**Banish**, and **Dispel**
+  throws a selection away. Banishing keeps the login — summon it back and
+  you're still signed in.
 - **Shortcuts**: ⌘/Ctrl+1…7 jump to a service, ⌘/Ctrl+K opens a quick
-  switcher, ⌘/Ctrl+R (or F5) reloads the current service, right-click an icon
-  to mute it, and drag icons to reorder them.
+  switcher, ⌘/Ctrl+0 opens Home, ⌘/Ctrl+R (or F5) reloads the current service,
+  right-click an icon to mute it, and drag icons to reorder them.
 - **On a Mac, allow notifications the first time**: System Settings →
   Notifications → **Goetia** → turn on **Allow Notifications**.
 - **Updates check themselves**: when a newer version is published, a small

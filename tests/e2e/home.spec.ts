@@ -68,7 +68,16 @@ test('home: banishing the active service leaves welcome on screen', async () => 
   );
 
   await win.locator('[data-testid="home-btn"]').click();
-  await welcome.getByRole('button', { name: 'Messenger' }).click();
+  const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+  await summoned.getByRole('button', { name: 'Messenger' }).click();
+
+  // deselecting drops the glow but leaves the tile exactly where it was
+  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await expect(unbound.getByRole('button', { name: 'Messenger' })).toHaveCount(0);
 
   const confirm = win.getByRole('button', { name: 'Banish 1 service' });
   await expect(confirm).toBeEnabled();
@@ -78,6 +87,46 @@ test('home: banishing the active service leaves welcome on screen', async () => 
   await expect(welcome).toBeVisible();
   await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(1);
   await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
+
+  // confirming is the one moment a tile changes section
+  await expect(unbound.getByRole('button', { name: 'Messenger' })).toBeVisible();
+  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveCount(0);
+  await app.close();
+});
+
+test('home: Dispel abandons a staged edit without leaving the screen', async () => {
+  const { app, win } = await launch();
+  const welcome = win.locator('[data-testid="welcome"]');
+  const dispel = win.getByRole('button', { name: 'Dispel' });
+
+  await win.locator('[data-testid="home-btn"]').click();
+
+  // nothing staged: both buttons rest dead together
+  await expect(dispel).toBeDisabled();
+  await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
+
+  const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+  await summoned.getByRole('button', { name: 'Messenger' }).click();
+  await unbound.getByRole('button', { name: 'Telegram' }).click();
+  await expect(win.getByRole('button', { name: 'Summon 1 · Banish 1' })).toBeEnabled();
+  await expect(dispel).toBeEnabled();
+
+  await dispel.click();
+
+  // back to the live set, still on Home, nothing persisted
+  await expect(welcome).toBeVisible();
+  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(unbound.getByRole('button', { name: 'Telegram' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
+  await expect(dispel).toBeDisabled();
+  await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
   await app.close();
 });
 
