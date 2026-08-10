@@ -14,7 +14,9 @@ export interface RendererToMain {
   'badge:overlay': { dataUrl: string | null; count: number };
   'unread:update': { serviceId: ServiceId } & Counts;
   'unread:stale': { serviceId: ServiceId };
-  'notification:fired': { serviceId: ServiceId; title: string; body: string };
+  /** `synthetic`: the recipe built this because the site notifies nowhere
+   *  in-page, so no page sound accompanied it — see soundOptions. */
+  'notification:fired': { serviceId: ServiceId; title: string; body: string; synthetic: boolean };
   'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
   'service:ready': { serviceId: ServiceId };
   'updates:check': Record<string, never>;

@@ -23,6 +23,15 @@ export function buildAppMenu(ctx: AppContext): void {
     accelerator: 'CmdOrCtrl+,',
     click: () => openSettings(ctx),
   };
+  const muteItem: Electron.MenuItemConstructorOptions = {
+    label: 'Mute All Notifications',
+    accelerator: 'CmdOrCtrl+Shift+M',
+    type: 'checkbox',
+    checked: s.globalMuted,
+    // the item's own `checked` is stale the moment mute moves elsewhere; read
+    // the setting instead, and let setGlobalMuted rebuild both menus
+    click: () => ctx.setGlobalMuted(!ctx.settings.get().globalMuted),
+  };
   const checkUpdatesItem: Electron.MenuItemConstructorOptions = {
     label: 'Check for Updates…',
     click: () => {
@@ -39,6 +48,7 @@ export function buildAppMenu(ctx: AppContext): void {
               { role: 'about' as const },
               checkUpdatesItem,
               { type: 'separator' as const },
+              muteItem,
               settingsItem,
               { type: 'separator' as const },
               { role: 'services' as const },
@@ -92,7 +102,7 @@ export function buildAppMenu(ctx: AppContext): void {
           },
         },
         ...(process.platform !== 'darwin'
-          ? [{ type: 'separator' as const }, checkUpdatesItem, settingsItem]
+          ? [{ type: 'separator' as const }, muteItem, checkUpdatesItem, settingsItem]
           : []),
       ],
     },

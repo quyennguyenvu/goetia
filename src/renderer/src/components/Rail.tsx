@@ -116,7 +116,9 @@ export default function Rail() {
       >
         <button
           type="button"
-          title={state.globalMuted ? 'Unmute all notifications' : 'Mute all notifications'}
+          title={`${
+            state.globalMuted ? 'Unmute all notifications' : 'Mute all notifications'
+          } (⌘/Ctrl+⇧+M) — badges stay`}
           onClick={() => window.goetia.send('global:setMuted', { muted: !state.globalMuted })}
           className={`flex h-7 w-7 items-center justify-center rounded-ctl transition-colors duration-120 ${
             state.globalMuted

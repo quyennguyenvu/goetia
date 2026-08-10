@@ -44,6 +44,25 @@ menus, or other site functions (user decision, 2026-08-07):
   `rememberSurface` on every change). A recorded service that is now disabled
   or gone opens Home rather than silently substituting another.
 
+## Notifications & mute
+
+- **One sound per message.** Most services ding in-page themselves, so Goetia
+  sounds only banners the page could not have made: `notification:fired`
+  carries `synthetic` (true only from a recipe's `synthNotification`, where the
+  site delegates to push Electron can't receive), and `soundOptions` is the
+  single place that decides. Setting `sound` without `silent` is a bug — macOS
+  reads the name, Windows/Linux read the flag.
+- **Mute means silence, never blindness.** Muting suppresses the banner _and_
+  the page's own audio (`views.applyAudioMute`, `audioMuted` = the inverse of
+  `shouldNotify`), and leaves badges alone. `aggregateBadges` must stay
+  ignorant of mute — the badge is how a muted service is still found.
+- Every global-mute path (bell, tray, app menu, `⌘/Ctrl+⇧+M`) goes through
+  `ctx.setGlobalMuted`, which persists, re-mutes the views and rebuilds both
+  menus — their checkmarks are baked in at build time. Don't call
+  `settings.update({ globalMuted })` directly.
+- The accelerator is declared in the app menu only; the tray's copy of the item
+  carries none, or one keypress fires the toggle twice.
+
 ## Process boundaries (never weaken)
 
 - Shell window: `contextIsolation: true` + `sandbox: true`. Never turn off.

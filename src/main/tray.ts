@@ -7,7 +7,10 @@ const RESOURCES = join(__dirname, '../../resources');
 
 let quitting = false;
 
-export function createTray(ctx: AppContext): { updateTooltip(total: number): void } {
+export function createTray(ctx: AppContext): {
+  updateTooltip(total: number): void;
+  refresh(): void;
+} {
   const iconName = process.platform === 'darwin' ? 'trayTemplate.png' : 'tray-win.png';
   const tray = new Tray(join(RESOURCES, 'tray', iconName));
 
@@ -29,10 +32,9 @@ export function createTray(ctx: AppContext): { updateTooltip(total: number): voi
           label: 'Mute all notifications',
           type: 'checkbox',
           checked: s.globalMuted,
-          click: (item) => {
-            ctx.settings.update({ globalMuted: item.checked });
-            ctx.broadcast();
-          },
+          // no accelerator here: the app menu owns the binding, and declaring
+          // it twice risks the toggle firing twice for one keypress
+          click: (item) => ctx.setGlobalMuted(item.checked),
         },
         { type: 'separator' },
         {
@@ -74,5 +76,8 @@ export function createTray(ctx: AppContext): { updateTooltip(total: number): voi
     updateTooltip(total: number) {
       tray.setToolTip(total > 0 ? `Goetia — ${total} unread` : 'Goetia');
     },
+    /** the mute checkmark is baked in at build time — re-stamp it when mute
+     *  moves from the bell, the app menu or the accelerator */
+    refresh: rebuild,
   };
 }

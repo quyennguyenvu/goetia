@@ -27,6 +27,7 @@ export class ServiceViewManager {
     private win: BrowserWindow,
     private hooks: ViewHooks,
     private railPosition: () => RailPosition,
+    private audioMuted: (id: ServiceId) => boolean,
     private overlay?: {
       setBounds(b: { x: number; y: number; width: number; height: number }): void;
       raise(): void;
@@ -100,6 +101,7 @@ export class ServiceViewManager {
       },
     });
     const wc = view.webContents;
+    wc.setAudioMuted(this.audioMuted(id)); // a fresh view starts unmuted
     if (svc.keepRendered) wc.setBackgroundThrottling(false);
     wc.setWindowOpenHandler(({ url }) => {
       // external links open in the OS browser, never inside Goetia; only
@@ -157,6 +159,20 @@ export class ServiceViewManager {
         }, 300),
       );
     }
+  }
+
+  /** Muting silences the page as well: the site's own ding is the sound the
+   *  mute is really about, and suppressing banners alone left it ringing. The
+   *  view's other audio goes with it (calls, voice notes) — setAudioMuted is
+   *  per-WebContents, and silence is the whole point of a mute. */
+  applyAudioMute(id: ServiceId): void {
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) wc.setAudioMuted(this.audioMuted(id));
+  }
+
+  /** Global mute moved: every live view, not just the one that changed. */
+  applyAudioMuteAll(): void {
+    for (const id of this.views.keys()) this.applyAudioMute(id);
   }
 
   /** Create the view (starts loading, recipes, notifications) without showing it. */

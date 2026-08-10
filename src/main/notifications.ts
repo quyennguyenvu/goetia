@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, Notification } from 'electron';
+import type { RendererToMain } from '../shared/ipc';
 import { SERVICES, serviceById } from '../shared/services';
-import type { ServiceId } from '../shared/types';
 import { activateService } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { resolveIcons } from './lib/notification-icons';
-import { notificationTitle, shouldNotify } from './lib/notification-rules';
+import { notificationTitle, shouldNotify, soundOptions } from './lib/notification-rules';
 import { NotificationThrottle } from './lib/notification-throttle';
 
 // Packaged, extraResources drops these beside the asar rather than inside it,
@@ -27,22 +27,22 @@ export class NotificationRouter {
 
   constructor(private ctx: AppContext) {}
 
-  handle(serviceId: ServiceId, title: string, body: string): void {
+  handle({ serviceId, title, body, synthetic }: RendererToMain['notification:fired']): void {
     const s = this.ctx.settings.get();
     if (!shouldNotify({ serviceMuted: s.muted[serviceId], globalMuted: s.globalMuted })) return;
     if (!this.throttle.allow(serviceId, Date.now())) return;
     const icon = this.icons.get(serviceId);
-    const n = new Notification({
+    const notification = new Notification({
       title: notificationTitle(title, serviceById(serviceId).name),
       body,
-      sound: 'default', // macOS plays no sound unless one is requested
+      ...soundOptions({ enabled: s.notificationSound, synthetic }),
       ...(icon ? { icon } : {}),
     });
-    n.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
-    n.on('click', () => {
+    notification.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
+    notification.on('click', () => {
       this.ctx.win.show();
       activateService(this.ctx, serviceId);
     });
-    n.show();
+    notification.show();
   }
 }

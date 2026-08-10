@@ -44,6 +44,10 @@ export interface Settings {
   muted: Record<ServiceId, boolean>;
   disabled: Record<ServiceId, boolean>; // no tile, no view, no network
   globalMuted: boolean;
+  /** Play a sound with Goetia's banner. Services that notify through the shim
+   *  (Discord, WhatsApp, …) already ding in-page, so this is the second sound
+   *  the user hears — turning it off leaves the page's own. */
+  notificationSound: boolean;
   neverHibernate: Record<ServiceId, boolean>;
   hibernationMinutes: number;
   closeToTray: boolean;
@@ -81,6 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
     shopee: true,
   },
   globalMuted: false,
+  notificationSound: true,
   neverHibernate: {
     whatsapp: true,
     messenger: true,

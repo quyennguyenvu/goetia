@@ -46,6 +46,9 @@ here should still hold. "Verified" means an automated test asserts it;
   `src/main/badges.ts`. Verified: e2e (`getBadgeCount() === 3` on darwin).
 - **Windows taskbar overlay** (canvas badge). Impl: `App.tsx`,
   `components/overlay-badge.ts`, `badges.ts`. Verified: Manual (Windows).
+- **Mute never hides a count** — `aggregateBadges` knows nothing about mute, so
+  a muted service still reaches the dock, tray tooltip and taskbar overlay,
+  matching the rail. Impl: `shared/badges.ts`. Verified: `badges.test.ts`.
 - **Tray tooltip** shows the unread total. Impl: `src/main/tray.ts`. Verified:
   Manual.
 - **Stale indicator** — a grey dot when a recipe throws. Impl: `runner.ts`,
@@ -63,9 +66,19 @@ here should still hold. "Verified" means an automated test asserts it;
 - **Notification shim** — the page's `Notification` API is rerouted to native.
   Impl: `src/preload/lib/notification-shim.ts`. Verified:
   `notification-shim.test.ts`.
-- **Mute** per-service (right-click a tile) and global (bell / tray). Impl:
-  `lib/notification-rules.ts`, settings. Verified:
-  `notification-rules.test.ts`.
+- **Mute** per-service (right-click a tile) and global (bell / tray / app menu
+  / `⌘/Ctrl+⇧+M`). Mute is silence: no banner, and the page itself is muted
+  (`setAudioMuted`) so the site's own ding stops — the view's other audio goes
+  with it. Badges are never touched. Every path routes through
+  `ctx.setGlobalMuted` so the pages, both menus' checkmarks and the shell stay
+  in step. Impl: `audioMuted` in `lib/notification-rules.ts`,
+  `views.applyAudioMute(All)`, `index.ts`. Verified:
+  `notification-rules.test.ts`; audio is Manual.
+- **Notification sound** — Goetia sounds only the banners the page couldn't
+  make itself (synthetic ones), so a service that dings in-page is never
+  doubled; the Settings → Notifications toggle silences even those. Impl:
+  `soundOptions` in `lib/notification-rules.ts`, `synthetic` on
+  `notification:fired`. Verified: `notification-rules.test.ts`.
 - **Rate limit** — per-service floor so a page can't spam banners. Impl:
   `lib/notification-throttle.ts`. Verified: `notification-throttle.test.ts`.
 - **Click a banner** → window shows and switches to that service. Impl:
@@ -105,8 +118,10 @@ here should still hold. "Verified" means an automated test asserts it;
   Verified: Manual.
 - **Theme** system / light / dark. Impl: settings + `nativeTheme`, `store.ts`
   applies `data-theme`. Verified: Manual.
-- **App menu** — Go menu (`⌘1…6`, reload, quick switcher), Settings. Impl:
-  `menu.ts`. Verified: Manual.
+- **App menu** — Go menu (`⌘1…6`, reload, quick switcher), Mute All
+  (`⌘/Ctrl+⇧+M`, checkbox), Settings. The tray carries the same mute item
+  without the accelerator, so one keypress can't fire the toggle twice. Impl:
+  `menu.ts`, `tray.ts`. Verified: Manual.
 - **Window resize** — view bounds are re-laid-out, coalesced to one pass per
   burst. Impl: `views.ts` (`scheduleLayout`). Verified: Manual.
 

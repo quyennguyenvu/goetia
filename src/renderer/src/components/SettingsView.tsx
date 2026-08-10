@@ -15,11 +15,22 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'updates', label: 'Updates' },
 ];
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed as children
     <label className="flex items-center justify-between gap-4 py-2">
-      <span className="text-text-1">{label}</span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-text-1">{label}</span>
+        {hint && <span className="text-text-2">{hint}</span>}
+      </span>
       {children}
     </label>
   );
@@ -286,7 +297,10 @@ export default function SettingsView() {
                     >
                       <span className="text-text-1">{svc.name}</span>
                       <span className="flex items-center gap-4 text-text-2">
-                        <label className="flex items-center gap-1.5">
+                        <label
+                          className="flex items-center gap-1.5"
+                          title="No banners, and the site's own sounds are silenced"
+                        >
                           <input
                             type="checkbox"
                             checked={s.muted[svc.id]}
@@ -353,6 +367,19 @@ export default function SettingsView() {
                     }
                   />
                 </Row>
+                <Row
+                  label="Play notification sound"
+                  hint="Only for services that play none of their own, so nothing ever doubles up."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="notification-sound"
+                    checked={s.notificationSound}
+                    disabled={s.globalMuted}
+                    onChange={(e) => update({ notificationSound: e.target.checked })}
+                    className="flex-none disabled:opacity-40"
+                  />
+                </Row>
               </Pane>
             )}
 
@@ -363,6 +390,7 @@ export default function SettingsView() {
                   <p className="py-1">⌘/Ctrl + K — quick switcher</p>
                   <p className="py-1">⌘/Ctrl + 0 — home / all services</p>
                   <p className="py-1">⌘/Ctrl + , — settings</p>
+                  <p className="py-1">⌘/Ctrl + ⇧ + M — mute / unmute everything</p>
                   <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
                   <p className="py-1">Esc — close this window</p>
                   <p className="py-1">Right-click a tile — mute/unmute service</p>

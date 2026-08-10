@@ -4,7 +4,8 @@ import { aggregateBadges } from '../shared/badges';
 import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
-import { registerIpcHandlers } from './ipc-handlers';
+import { type AppContext, registerIpcHandlers } from './ipc-handlers';
+import { audioMuted } from './lib/notification-rules';
 import { resolveStartupSurface } from './lib/startup-surface';
 import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
@@ -92,6 +93,10 @@ app
         },
       },
       () => settings.get().railPosition,
+      (id) => {
+        const s = settings.get();
+        return audioMuted({ serviceMuted: s.muted[id], globalMuted: s.globalMuted });
+      },
       overlay,
     );
 
@@ -131,15 +136,12 @@ app
       overlay.show();
     };
 
-    let tray: { updateTooltip(total: number): void } | null = null;
+    let tray: ReturnType<typeof createTray> | null = null;
     const broadcast = () => {
       if (win.isDestroyed()) return;
       const s = settings.get();
       win.webContents.send('shell:state', state.snapshot(s, effectiveTheme(), app.getVersion()));
-      const summary = aggregateBadges(
-        s.order.map((id) => ({ ...state.runtime(id).unread, muted: s.muted[id] })),
-        s.globalMuted,
-      );
+      const summary = aggregateBadges(s.order.map((id) => state.runtime(id).unread));
       applyBadges(win, summary);
       tray?.updateTooltip(summary.total);
       syncOverlay();
@@ -164,7 +166,7 @@ app
     win.on('show', () => updates.flushAnnounce());
 
     let hibernation: HibernationController;
-    const ctx = {
+    const ctx: AppContext = {
       win,
       views,
       state,
@@ -174,6 +176,14 @@ app
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
+      setGlobalMuted: (muted) => {
+        settings.update({ globalMuted: muted });
+        views.applyAudioMuteAll();
+        // both menus capture the checkmark when they are built
+        buildAppMenu(ctx);
+        tray?.refresh();
+        broadcast();
+      },
     };
     hibernation = new HibernationController(ctx);
     resilience = new ResilienceManager(ctx);

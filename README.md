@@ -234,7 +234,12 @@ Ctrl+Q (Windows).
   you're still signed in.
 - **Shortcuts**: ⌘/Ctrl+1…7 jump to a service, ⌘/Ctrl+K opens a quick
   switcher, ⌘/Ctrl+0 opens Home, ⌘/Ctrl+R (or F5) reloads the current service,
-  right-click an icon to mute it, and drag icons to reorder them.
+  ⌘/Ctrl+⇧+M mutes everything, right-click an icon to mute it, and drag icons
+  to reorder them.
+- **Muting means silence, not blindness**: a muted service raises no banner and
+  its page is silenced too, so the site's own alert sound stops as well — but
+  its unread badge keeps counting, so you can still see what came in. Muting
+  also silences that service's calls and voice notes while it's muted.
 - **On a Mac, allow notifications the first time**: System Settings →
   Notifications → **Goetia** → turn on **Allow Notifications**.
 - **Updates check themselves**: when a newer version is published, a small

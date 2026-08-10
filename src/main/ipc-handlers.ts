@@ -26,6 +26,10 @@ export interface AppContext {
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
+  /** the one way to move global mute — bell, tray, menu and accelerator all
+   *  land here so the pages, both menus' checkmarks and the shell agree;
+   *  late-bound in index.ts */
+  setGlobalMuted(muted: boolean): void;
 }
 
 function register(ctx: AppContext) {
@@ -60,6 +64,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('service:setMuted', ({ serviceId, muted }) => {
     const s = ctx.settings.get();
     ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
+    ctx.views.applyAudioMute(serviceId);
     ctx.broadcast();
   });
   on('service:reorder', ({ orderedIds }) => {
@@ -67,10 +72,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     buildAppMenu(ctx); // keep Cmd/Ctrl+1..9 aligned with the new order
     ctx.broadcast();
   });
-  on('global:setMuted', ({ muted }) => {
-    ctx.settings.update({ globalMuted: muted });
-    ctx.broadcast();
-  });
+  on('global:setMuted', ({ muted }) => ctx.setGlobalMuted(muted));
   on('switcher:setOpen', ({ open }) => {
     ctx.state.switcherOpen = open;
     if (open) ctx.views.hideActive();
@@ -147,7 +149,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   );
   on('unread:stale', ({ serviceId }) => ctx.state.setRuntime(serviceId, { stale: true }));
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
-  on('notification:fired', ({ serviceId, title, body }) => router.handle(serviceId, title, body));
+  on('notification:fired', (n) => router.handle(n));
   on('service:keepalive-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
   on('updates:check', () => void ctx.updates.check('manual'));
   on('updates:openDownload', () => {

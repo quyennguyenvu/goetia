@@ -17,13 +17,7 @@ export default function App() {
   // Windows taskbar overlay: drawn here (main has no canvas), applied in main.
   useEffect(() => {
     if (!state) return;
-    const { total } = aggregateBadges(
-      state.services.map((svc) => ({
-        ...state.runtime[svc.id].unread,
-        muted: state.muted[svc.id],
-      })),
-      state.globalMuted,
-    );
+    const { total } = aggregateBadges(state.services.map((svc) => state.runtime[svc.id].unread));
     window.goetia.send('badge:overlay', {
       dataUrl: total > 0 ? renderOverlayDataUrl(badgeLabel(total)) : null,
       count: total,

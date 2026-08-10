@@ -18,7 +18,7 @@ if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
 // the shim. Notifications surface as native OS notifications via main.
 
 installNotificationShim(window, (title, body) =>
-  ipcRenderer.send('notification:fired', { serviceId, title, body }),
+  ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: false }),
 );
 
 // --- Unread-count recipe ---------------------------------------------------
@@ -36,7 +36,8 @@ window.addEventListener('DOMContentLoaded', () => {
     (c) => ipcRenderer.send('unread:update', { serviceId, ...c }),
     () => ipcRenderer.send('unread:stale', { serviceId }),
     (pt) => ipcRenderer.send('service:keepalive-click', { serviceId, ...pt }),
-    ({ title, body }) => ipcRenderer.send('notification:fired', { serviceId, title, body }),
+    ({ title, body }) =>
+      ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: true }),
     // chat only: page-initiated navigation, no IPC surface needed
     () => window.location.assign(serviceById(serviceId).url),
   );

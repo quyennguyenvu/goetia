@@ -2,22 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { aggregateBadges, badgeLabel } from '../../src/shared/badges';
 
 describe('aggregateBadges', () => {
-  const e = (direct: number, indirect = 0, muted = false) => ({ direct, indirect, muted });
+  const e = (direct: number, indirect = 0) => ({ direct, indirect });
 
-  it('sums direct counts of unmuted services', () => {
-    expect(aggregateBadges([e(2), e(3), e(5, 0, true)], false)).toEqual({
-      total: 5,
-      indirectOnly: false,
-    });
+  it('sums direct counts', () => {
+    expect(aggregateBadges([e(2), e(3), e(5)])).toEqual({ total: 10, indirectOnly: false });
   });
   it('flags indirect-only when no direct but some indirect', () => {
-    expect(aggregateBadges([e(0, 4), e(0)], false)).toEqual({ total: 0, indirectOnly: true });
+    expect(aggregateBadges([e(0, 4), e(0)])).toEqual({ total: 0, indirectOnly: true });
   });
-  it('global mute zeroes everything', () => {
-    expect(aggregateBadges([e(9, 9)], true)).toEqual({ total: 0, indirectOnly: false });
-  });
-  it('muted services do not contribute indirect either', () => {
-    expect(aggregateBadges([e(0, 3, true)], false)).toEqual({ total: 0, indirectOnly: false });
+  it('is empty with nothing unread', () => {
+    expect(aggregateBadges([e(0), e(0)])).toEqual({ total: 0, indirectOnly: false });
   });
 });
 
