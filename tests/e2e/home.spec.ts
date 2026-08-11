@@ -130,6 +130,82 @@ test('home: Dispel abandons a staged edit without leaving the screen', async () 
   await app.close();
 });
 
+test('home: search filters unbound, and Escape clears it before leaving', async () => {
+  const { app, win } = await launch();
+  const welcome = win.locator('[data-testid="welcome"]');
+
+  await win.locator('[data-testid="home-btn"]').click();
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+  const tiles = unbound.locator('[data-testid="pick-tile"]');
+  await expect(tiles).toHaveCount(6);
+
+  const search = unbound.getByRole('textbox', { name: 'Search unbound services' });
+  await search.fill('sho');
+  await expect(tiles).toHaveCount(1);
+  await expect(unbound.getByRole('button', { name: 'Shopee' })).toBeVisible();
+
+  // substring, not fuzzy: "tg" is a subsequence of Instagram but not a substring
+  await search.fill('tg');
+  await expect(tiles).toHaveCount(0);
+  await expect(unbound).toContainText('No service matches');
+
+  // first Escape clears the query and stays on Home
+  await search.press('Escape');
+  await expect(tiles).toHaveCount(6);
+  await expect(welcome).toBeVisible();
+
+  // second Escape leaves
+  await win.keyboard.press('Escape');
+  await expect(welcome).toHaveCount(0);
+
+  await app.close();
+});
+
+test('home: ⌘/Ctrl+F focuses the unbound search', async () => {
+  const { app, win } = await launch();
+  const welcome = win.locator('[data-testid="welcome"]');
+
+  await win.locator('[data-testid="home-btn"]').click();
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+  const search = unbound.getByRole('textbox', { name: 'Search unbound services' });
+  await expect(search).not.toBeFocused();
+
+  await win.keyboard.press('ControlOrMeta+f');
+  await expect(search).toBeFocused();
+
+  // and it types straight into the filter
+  await win.keyboard.type('tele');
+  await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(1);
+
+  await app.close();
+});
+
+test('home: dragging a summoned tile reorders the rail immediately', async () => {
+  const { app, win } = await launch();
+  const railTiles = win.locator('[data-testid="service-tile"]');
+  const railOrder = () =>
+    railTiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+
+  // evaluateAll resolves against whatever matches right now, so wait for the
+  // rail to render before reading an order out of it
+  await expect(railTiles).toHaveCount(2);
+  expect(await railOrder()).toEqual(['Messenger', 'Zalo']);
+
+  await win.locator('[data-testid="home-btn"]').click();
+  const summoned = win.locator('[data-testid="welcome-section-summoned"]');
+  await summoned
+    .getByRole('button', { name: 'Zalo' })
+    .dragTo(summoned.getByRole('button', { name: 'Messenger' }));
+
+  // no confirm: a drop persists on its own, and the rail behind Home follows
+  await expect(async () => {
+    expect(await railOrder()).toEqual(['Zalo', 'Messenger']);
+  }).toPass();
+  await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
+
+  await app.close();
+});
+
 test('settings: composition is gone, Manage services… lands on home', async () => {
   const { app, win } = await launch();
 

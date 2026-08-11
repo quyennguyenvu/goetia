@@ -389,6 +389,7 @@ export default function SettingsView() {
                   <p className="py-1">⌘/Ctrl + 1…8 — jump to service</p>
                   <p className="py-1">⌘/Ctrl + K — quick switcher</p>
                   <p className="py-1">⌘/Ctrl + 0 — home / all services</p>
+                  <p className="py-1">⌘/Ctrl + F — find a service (on home)</p>
                   <p className="py-1">⌘/Ctrl + , — settings</p>
                   <p className="py-1">⌘/Ctrl + ⇧ + M — mute / unmute everything</p>
                   <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>

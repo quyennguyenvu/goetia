@@ -1,6 +1,7 @@
 import type { ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
 import Portal from './Portal';
+import { moveTo } from './reorder';
 import ServiceTile from './ServiceTile';
 import { updatePending } from './update-rules';
 
@@ -52,10 +53,11 @@ export default function Rail() {
   const updateReady = updatePending(state.update);
 
   const reorder = (fromId: string, toId: string) => {
-    const ids = state.services.map((s) => s.id);
-    const from = ids.indexOf(fromId as ServiceId);
-    const to = ids.indexOf(toId as ServiceId);
-    ids.splice(to, 0, ...ids.splice(from, 1));
+    const ids = moveTo(
+      state.services.map((s) => s.id),
+      fromId as ServiceId,
+      toId as ServiceId,
+    );
     window.goetia.send('service:reorder', { orderedIds: ids });
   };
 

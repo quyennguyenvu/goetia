@@ -13,7 +13,7 @@ describe('SettingsStore', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     const store = new SettingsStore(dir);
     expect(store.get().hibernationMinutes).toBe(30);
-    expect(store.get().order[0]).toBe('messenger');
+    expect(store.get().order[0]).toBe('discord');
   });
 
   it('persists partial updates across instances', () => {
@@ -53,17 +53,18 @@ describe('SettingsStore', () => {
       }),
     );
     const s = new SettingsStore(dir).get();
-    // new ids slot in at their catalog position (instagram beside messenger),
-    // not at the end of the rail
+    // an unseen id lands after its nearest catalog predecessor, so against a
+    // legacy order the new ids scatter. Harmless: they all arrive disabled, and
+    // summoning moves a service to the end of the rail regardless (summonOrder).
     expect(s.order).toEqual([
       'messenger',
-      'instagram',
+      'shopee',
       'telegram',
+      'tiktok',
       'zalo',
       'whatsapp',
       'discord',
-      'tiktok',
-      'shopee',
+      'instagram',
     ]);
     expect(s.muted.instagram).toBe(false);
     expect(s.disabled.instagram).toBe(true); // new service arrives disabled
@@ -85,20 +86,20 @@ describe('SettingsStore', () => {
     );
     const s = new SettingsStore(dir).get();
     expect(s.order).toEqual([
-      'messenger',
-      'instagram',
-      'telegram',
-      'zalo',
-      'whatsapp',
       'discord',
-      'tiktok',
+      'instagram',
+      'messenger',
       'shopee',
+      'telegram',
+      'tiktok',
+      'whatsapp',
+      'zalo',
     ]);
   });
 
-  it('keeps a user reordering while slotting new services after their predecessor', () => {
+  it('keeps a user reordering when a new service arrives', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
-    // user moved messenger to the end; instagram must follow it there
+    // user moved messenger to the end; that must survive, wherever instagram lands
     writeFileSync(
       join(dir, 'settings.json'),
       JSON.stringify({
@@ -111,10 +112,20 @@ describe('SettingsStore', () => {
       'zalo',
       'whatsapp',
       'discord',
+      'instagram',
       'tiktok',
       'shopee',
       'messenger',
-      'instagram',
+    ]);
+    // the property the user can actually see: their arrangement is intact
+    expect(s.order.filter((id) => id !== 'instagram')).toEqual([
+      'telegram',
+      'zalo',
+      'whatsapp',
+      'discord',
+      'tiktok',
+      'shopee',
+      'messenger',
     ]);
   });
 

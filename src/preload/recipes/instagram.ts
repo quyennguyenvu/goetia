@@ -76,6 +76,11 @@ const instagram: Recipe = {
     body:has(a[href^='/direct/']) a[href^='/']:not([href^='/direct']) {
       pointer-events: none !important;
     }
+    /* instagram pins html to overflow-y:scroll — an empty track beside the
+       inbox forever. The DM surface fills the view; only its panes scroll. */
+    html:has(a[href^='/direct/']), body:has(a[href^='/direct/']) {
+      overflow: hidden !important;
+    }
     body:has(a[href^='/direct/']) .x132t2bv {
       padding-inline-start: 0 !important;
     }

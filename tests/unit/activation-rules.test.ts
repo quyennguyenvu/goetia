@@ -43,7 +43,7 @@ describe('resolveActivation', () => {
   });
 
   it('falls to the first enabled service in rail order', () => {
-    // zalo precedes whatsapp in the default order
+    // whatsapp precedes zalo in the default order
     expect(
       resolveActivation({
         order,
@@ -51,6 +51,6 @@ describe('resolveActivation', () => {
         activeId: 'messenger',
         hasActiveView: false,
       }),
-    ).toBe('zalo');
+    ).toBe('whatsapp');
   });
 });

@@ -65,7 +65,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  order: ['messenger', 'instagram', 'telegram', 'zalo', 'whatsapp', 'discord', 'tiktok', 'shopee'],
+  order: ['discord', 'instagram', 'messenger', 'shopee', 'telegram', 'tiktok', 'whatsapp', 'zalo'],
   muted: {
     whatsapp: false,
     messenger: false,

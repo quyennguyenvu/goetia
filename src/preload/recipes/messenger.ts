@@ -20,6 +20,10 @@ const messenger: Recipe = {
   // chat only: hide facebook's global top nav. Layout offsets and heights are
   // driven by --header-height (56px), redefined at element level in places —
   // force it to 0 everywhere or the reclaimed space reappears as a footer gap.
+  // facebook also pins html to overflow-y:scroll, which paints an empty
+  // scrollbar track beside the chat forever (measured 2026-08-11) — the chat
+  // fills the view, so only its own panes scroll. Both rules are gated on the
+  // chat surface so login and checkpoint pages keep their scrollbar.
   // Off-chat in-page links (thread-header avatar/name → profile, shared
   // posts, marketplace panels) get pointer-events:none instead of a jarring
   // navigate-then-snapback; gated on the chat surface so login pages keep
@@ -28,6 +32,7 @@ const messenger: Recipe = {
   css: `
     [role="banner"] { display: none !important; }
     * { --header-height: 0px !important; }
+    html:has(a[href*='/t/']), body:has(a[href*='/t/']) { overflow: hidden !important; }
     body:has(a[href*='/t/'])
       a[href^='/']:not([href^='/messages']):not([href^='/messenger_media']) {
       pointer-events: none !important;

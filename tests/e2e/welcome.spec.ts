@@ -25,11 +25,11 @@ test('fresh install: welcome picker → summon → rail', async () => {
   const tiles = win.locator('[data-testid="service-tile"]');
   await expect(tiles).toHaveCount(0);
 
-  // nothing is summoned yet: that section is empty and all seven wait below
+  // nothing is summoned yet: the intro carries the screen and all eight wait below
   const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
-  await expect(summoned).toContainText('Nothing yet.');
-  await expect(unbound.getByRole('button')).toHaveCount(8);
+  await expect(welcome.locator('[data-testid="welcome-intro"]')).toBeVisible();
+  await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(8);
 
   // confirm is disabled until something is selected
   const summon = win.getByRole('button', { name: /^Summon/ });
@@ -60,4 +60,34 @@ test('fresh install: welcome picker → summon → rail', async () => {
   await expect(second.win.locator('[data-testid="service-tile"]')).toHaveCount(1);
   await expect(second.win.locator('[data-testid="welcome"]')).toHaveCount(0);
   await second.app.close();
+});
+
+test('summoning appends to the end of the rail, not to catalog position', async () => {
+  const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-'));
+  const { app, win } = await launch(profile);
+
+  const welcome = win.locator('[data-testid="welcome"]');
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+  const railTiles = win.locator('[data-testid="service-tile"]');
+  const railOrder = () =>
+    railTiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+
+  // two at once arrive in name order
+  await unbound.getByRole('button', { name: 'Telegram' }).click();
+  await unbound.getByRole('button', { name: 'Discord' }).click();
+  await win.getByRole('button', { name: 'Summon 2 services' }).click();
+  await expect(railTiles).toHaveCount(2);
+  expect(await railOrder()).toEqual(['Discord', 'Telegram']);
+
+  // a later arrival goes last even though it sorts first
+  await win.locator('[data-testid="home-btn"]').click();
+  await welcome
+    .locator('[data-testid="welcome-section-unbound"]')
+    .getByRole('button', { name: 'Instagram' })
+    .click();
+  await win.getByRole('button', { name: 'Summon 1 service' }).click();
+  await expect(railTiles).toHaveCount(3);
+  expect(await railOrder()).toEqual(['Discord', 'Telegram', 'Instagram']);
+
+  await app.close();
 });

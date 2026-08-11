@@ -5,17 +5,22 @@ import { DEFAULT_SETTINGS } from '../../src/shared/types';
 describe('service catalog', () => {
   it('has exactly the eight spec services, unique, https', () => {
     expect(SERVICES.map((s) => s.id)).toEqual([
-      'messenger',
-      'instagram',
-      'telegram',
-      'zalo',
-      'whatsapp',
       'discord',
-      'tiktok',
+      'instagram',
+      'messenger',
       'shopee',
+      'telegram',
+      'tiktok',
+      'whatsapp',
+      'zalo',
     ]);
     expect(new Set(SERVICES.map((s) => s.id)).size).toBe(8);
     for (const s of SERVICES) expect(s.url).toMatch(/^https:\/\//);
+  });
+
+  it('ships in display-name order, so the shipped default is predictable', () => {
+    const names = SERVICES.map((s) => s.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
   });
 
   it('serviceById resolves', () => {

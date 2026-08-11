@@ -31,6 +31,10 @@ const tiktok: Recipe = {
   // wide), and the body flexbox justifies space-between — so collapse the
   // rail, pin the drawer to 0, and grow main by the measured 72px.
   css: `
+    /* the DM surface fills the view; only its own panes scroll */
+    html:has([data-e2e="dm-new-chatbox"]), body:has([data-e2e="dm-new-chatbox"]) {
+      overflow: hidden !important;
+    }
     body:has([data-e2e="dm-new-chatbox"]) #app-header,
     body:has([data-e2e="dm-new-chatbox"])
       [class*="DivSideNavContainer"] > [class*="DivFixedContentContainer"],

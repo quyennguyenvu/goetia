@@ -28,7 +28,7 @@ describe('resolveStartupSurface', () => {
         lastActiveId: null,
         lastHomeOpen: false,
       }),
-    ).toEqual({ activeId: 'zalo', homeOpen: false });
+    ).toEqual({ activeId: 'whatsapp', homeOpen: false });
   });
 
   it('restores Home over the recorded service', () => {
@@ -77,7 +77,7 @@ describe('resolveStartupSurface', () => {
   });
 
   it('falls back in rail order, not catalog order', () => {
-    // zalo precedes whatsapp in the default order
+    // whatsapp precedes zalo in the default order
     expect(
       resolveStartupSurface({
         order,
@@ -85,6 +85,6 @@ describe('resolveStartupSurface', () => {
         lastActiveId: 'discord',
         lastHomeOpen: false,
       }).activeId,
-    ).toBe('zalo');
+    ).toBe('whatsapp');
   });
 });

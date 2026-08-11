@@ -27,6 +27,12 @@ const shopee: Recipe = {
   css: `
     body:has(#shopee-mini-chat-embedded > div > div:nth-child(2))
       #main { display: none !important; }
+    /* the widget is pinned to the viewport below, so the shopping page behind
+       it must not keep its own scrollbar */
+    html:has(#shopee-mini-chat-embedded > div > div:nth-child(2)),
+    body:has(#shopee-mini-chat-embedded > div > div:nth-child(2)) {
+      overflow: hidden !important;
+    }
     #shopee-mini-chat-embedded:has(> div > div:nth-child(2)) {
       position: fixed !important; inset: 0 !important;
       width: 100vw !important; height: 100vh !important;
