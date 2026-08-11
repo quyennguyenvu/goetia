@@ -1,45 +1,23 @@
 # Service Loading Screen ("Waking" Overlay) Implementation Plan
 
-<!-- markdownlint-configure-file { "MD013": { "code_blocks": false } } -->
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps
-> use checkbox (`- [ ]`) syntax for tracking.
+**Goal:** Cover every service load (cold start, hibernation wake, reload, crash retry) with an animated "waking" overlay until the chat UI is actually usable, with a 10 s reveal fallback.
 
-**Goal:** Cover every service load (cold start, hibernation wake, reload,
-crash retry) with an animated "waking" overlay until the chat UI is
-actually usable, with a 10 s reveal fallback.
+**Architecture:** A per-service `waking` runtime flag driven by load events, a per-recipe `ready(doc)` DOM check polled from the service preload, and one app-owned `WebContentsView` overlay stacked above the active service view. The service page stays visible and interactive underneath, so keep-alive trusted clicks still work (Shopee's readiness depends on one). Rail tiles breathe while their service is waking.
 
-**Architecture:** A per-service `waking` runtime flag driven by load
-events, a per-recipe `ready(doc)` DOM check polled from the service
-preload, and one app-owned `WebContentsView` overlay stacked above the
-active service view. The service page stays visible and interactive
-underneath, so keep-alive trusted clicks still work (Shopee's readiness
-depends on one). Rail tiles breathe while their service is waking.
-
-**Tech Stack:** Electron 43 (`WebContentsView`), electron-vite (multi-page
-renderer), TypeScript, Tailwind v4 tokens, vitest + happy-dom, Playwright.
+**Tech Stack:** Electron 43 (`WebContentsView`), electron-vite (multi-page renderer), TypeScript, Tailwind v4 tokens, vitest + happy-dom, Playwright.
 
 Spec: `docs/superpowers/specs/2026-08-06-service-loading-screen-design.md`
 
 ## Global Constraints
 
-- **Never run `git commit`.** At each commit checkpoint, stop and ask the
-  user to run `/grimoire-core:commit` with the suggested message. Writing
-  `GRIMOIRE_COMMIT_MSG.txt` yourself is forbidden.
-- Package manager is pnpm. Commands: `pnpm lint` (biome),
-  `pnpm typecheck`, `pnpm test` (vitest), `pnpm e2e` (build +
-  playwright), `pnpm build`.
-- Constants (exact values): `WAKE_TIMEOUT_MS = 10_000`,
-  `READY_POLL_INTERVAL_MS = 250`, ring spin `2s`, orb breathe `2.4s`,
-  tile breathe `1.6s`.
-- Copy: the overlay caption is `Waking {Service}…` (ellipsis character,
-  matching `ContentPlaceholder`).
-- Match surrounding code style: 2-space indent, single quotes, comments
-  explain *why* only. New Markdown must pass markdownlint.
-- The `prefers-reduced-motion` kill-switch already exists in `tokens.css`;
-  do not duplicate it.
+- **Never run `git commit`.** At each commit checkpoint, stop and ask the user to run `/grimoire-core:commit` with the suggested message. Writing `GRIMOIRE_COMMIT_MSG.txt` yourself is forbidden.
+- Package manager is pnpm. Commands: `pnpm lint` (biome), `pnpm typecheck`, `pnpm test` (vitest), `pnpm e2e` (build + playwright), `pnpm build`.
+- Constants (exact values): `WAKE_TIMEOUT_MS = 10_000`, `READY_POLL_INTERVAL_MS = 250`, ring spin `2s`, orb breathe `2.4s`, tile breathe `1.6s`.
+- Copy: the overlay caption is `Waking {Service}…` (ellipsis character, matching `ContentPlaceholder`).
+- Match surrounding code style: 2-space indent, single quotes, comments explain *why* only. New Markdown must pass markdownlint.
+- The `prefers-reduced-motion` kill-switch already exists in `tokens.css`; do not duplicate it.
 
 ---
 
@@ -54,16 +32,12 @@ Spec: `docs/superpowers/specs/2026-08-06-service-loading-screen-design.md`
 
 **Interfaces:**
 
-- Consumes: existing `Recipe` interface, existing fixtures
-  (`messenger.html`, `shopee.html`, `shopee-collapsed.html`, `blank.html`).
-- Produces: optional `ready?(doc: Document): boolean` on `Recipe`;
-  implementations on the `messenger` and `shopee` recipe objects. Task 3
-  polls this; Task 2's consistency test reflects over it.
+- Consumes: existing `Recipe` interface, existing fixtures (`messenger.html`, `shopee.html`, `shopee-collapsed.html`, `blank.html`).
+- Produces: optional `ready?(doc: Document): boolean` on `Recipe`; implementations on the `messenger` and `shopee` recipe objects. Task 3 polls this; Task 2's consistency test reflects over it.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/unit/recipes.test.ts` (uses the existing `load()`
-helper and `recipes` import in that file):
+Append to `tests/unit/recipes.test.ts` (uses the existing `load()` helper and `recipes` import in that file):
 
 ```ts
 describe('ready()', () => {
@@ -82,13 +56,11 @@ describe('ready()', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test tests/unit/recipes.test.ts`
-Expected: FAIL — `expected undefined to be true` (no `ready` defined yet).
+Run: `pnpm test tests/unit/recipes.test.ts` Expected: FAIL — `expected undefined to be true` (no `ready` defined yet).
 
 - [ ] **Step 3: Implement `ready()`**
 
-In `src/preload/recipes/types.ts`, add to the `Recipe` interface after
-`count`:
+In `src/preload/recipes/types.ts`, add to the `Recipe` interface after `count`:
 
 ```ts
   /** Chat UI is rendered and usable — ends the shell's waking cover
@@ -97,8 +69,7 @@ In `src/preload/recipes/types.ts`, add to the `Recipe` interface after
   ready?(doc: Document): boolean;
 ```
 
-In `src/preload/recipes/messenger.ts`, add to the `messenger` object
-after `css`:
+In `src/preload/recipes/messenger.ts`, add to the `messenger` object after `css`:
 
 ```ts
   // chat list rendered; the banner-hiding css applied long before this
@@ -107,8 +78,7 @@ after `css`:
   },
 ```
 
-In `src/preload/recipes/shopee.ts`, add to the `shopee` object after
-`css` (same structural check as `chatHeader()`):
+In `src/preload/recipes/shopee.ts`, add to the `shopee` object after `css` (same structural check as `chatHeader()`):
 
 ```ts
   // expanded mini-chat (header + body) — the keep-alive click landed
@@ -121,19 +91,15 @@ In `src/preload/recipes/shopee.ts`, add to the `shopee` object after
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test tests/unit/recipes.test.ts`
-Expected: PASS (all pre-existing cases still green).
+Run: `pnpm test tests/unit/recipes.test.ts` Expected: PASS (all pre-existing cases still green).
 
 - [ ] **Step 5: Lint and typecheck**
 
-Run: `pnpm lint && pnpm typecheck`
-Expected: no errors.
+Run: `pnpm lint && pnpm typecheck` Expected: no errors.
 
 - [ ] **Step 6: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(recipes): add ready() chat-usable checks for messenger and shopee`.
-Do not run `git commit` yourself.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(recipes): add ready() chat-usable checks for messenger and shopee`. Do not run `git commit` yourself.
 
 ---
 
@@ -150,17 +116,11 @@ Do not run `git commit` yourself.
 **Interfaces:**
 
 - Consumes: `Recipe.ready?` from Task 1.
-- Produces: `ServiceRuntime.waking: boolean` (default `false`);
-  `ServiceMeta.waitForReady?: boolean` (set on messenger + shopee);
-  renderer→main channel `'service:ready': { serviceId: ServiceId }`;
-  main→renderer channel
-  `'loading:state': { theme: 'light' | 'dark'; serviceName: string }`.
-  Tasks 4–7 rely on all of these names exactly.
+- Produces: `ServiceRuntime.waking: boolean` (default `false`); `ServiceMeta.waitForReady?: boolean` (set on messenger + shopee); renderer→main channel `'service:ready': { serviceId: ServiceId }`; main→renderer channel `'loading:state': { theme: 'light' | 'dark'; serviceName: string }`. Tasks 4–7 rely on all of these names exactly.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/unit/recipes.test.ts` (add
-`import { SERVICES } from '../../src/shared/services';` to its imports):
+Append to `tests/unit/recipes.test.ts` (add `import { SERVICES } from '../../src/shared/services';` to its imports):
 
 ```ts
 describe('waitForReady flag', () => {
@@ -174,8 +134,7 @@ describe('waitForReady flag', () => {
 });
 ```
 
-Append inside the `describe('MainState', ...)` block of
-`tests/unit/state.test.ts`:
+Append inside the `describe('MainState', ...)` block of `tests/unit/state.test.ts`:
 
 ```ts
   it('new runtimes start not waking', () => {
@@ -186,9 +145,7 @@ Append inside the `describe('MainState', ...)` block of
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test tests/unit/recipes.test.ts tests/unit/state.test.ts`
-Expected: FAIL — `expected false to be true` (messenger defines `ready()`
-but has no flag) and `expected undefined to be false`.
+Run: `pnpm test tests/unit/recipes.test.ts tests/unit/state.test.ts` Expected: FAIL — `expected false to be true` (messenger defines `ready()` but has no flag) and `expected undefined to be false`.
 
 - [ ] **Step 3: Implement the shared additions**
 
@@ -206,9 +163,7 @@ but has no flag) and `expected undefined to be false`.
   waking: boolean; // loading screen covers this service
 ```
 
-`src/shared/services.ts` — add `waitForReady: true` to the messenger
-and shopee entries. Keep the existing comments above both entries
-untouched; only the object literals change:
+`src/shared/services.ts` — add `waitForReady: true` to the messenger and shopee entries. Keep the existing comments above both entries untouched; only the object literals change:
 
 ```ts
   {
@@ -251,19 +206,15 @@ add `'service:ready',` to `R2M_CHANNELS`, and add to `MainToRenderer`:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test`
-Expected: PASS (full unit suite — nothing else asserts runtime shape
-exhaustively, but run everything to be sure).
+Run: `pnpm test` Expected: PASS (full unit suite — nothing else asserts runtime shape exhaustively, but run everything to be sure).
 
 - [ ] **Step 5: Lint and typecheck**
 
-Run: `pnpm lint && pnpm typecheck`
-Expected: no errors.
+Run: `pnpm lint && pnpm typecheck` Expected: no errors.
 
 - [ ] **Step 6: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(shared): add waking runtime flag, waitForReady meta, ready IPC`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(shared): add waking runtime flag, waitForReady meta, ready IPC`.
 
 ---
 
@@ -278,10 +229,7 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 **Interfaces:**
 
 - Consumes: `Recipe.ready?` (Task 1), `'service:ready'` channel (Task 2).
-- Produces:
-  `startReadyPoll(recipe, doc, report, setIntervalFn?, clearIntervalFn?)`
-  and `READY_POLL_INTERVAL_MS = 250`. Sends `service:ready` exactly once
-  per document.
+- Produces: `startReadyPoll(recipe, doc, report, setIntervalFn?, clearIntervalFn?)` and `READY_POLL_INTERVAL_MS = 250`. Sends `service:ready` exactly once per document.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -353,8 +301,7 @@ describe('startReadyPoll', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test tests/unit/ready-poll.test.ts`
-Expected: FAIL — cannot resolve `../../src/preload/recipes/ready`.
+Run: `pnpm test tests/unit/ready-poll.test.ts` Expected: FAIL — cannot resolve `../../src/preload/recipes/ready`.
 
 - [ ] **Step 3: Implement `startReadyPoll`**
 
@@ -393,8 +340,7 @@ export function startReadyPoll(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test tests/unit/ready-poll.test.ts`
-Expected: PASS.
+Run: `pnpm test tests/unit/ready-poll.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Wire it into the service preload**
 
@@ -404,8 +350,7 @@ In `src/preload/service.ts`, add the import:
 import { startReadyPoll } from './recipes/ready';
 ```
 
-and inside the existing `DOMContentLoaded` listener, after the
-`startRecipe(...)` call, add:
+and inside the existing `DOMContentLoaded` listener, after the `startRecipe(...)` call, add:
 
 ```ts
   startReadyPoll(recipe, document, () =>
@@ -415,13 +360,11 @@ and inside the existing `DOMContentLoaded` listener, after the
 
 - [ ] **Step 6: Full verification**
 
-Run: `pnpm test && pnpm lint && pnpm typecheck`
-Expected: all green.
+Run: `pnpm test && pnpm lint && pnpm typecheck` Expected: all green.
 
 - [ ] **Step 7: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(preload): poll recipe ready() and signal service:ready once`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(preload): poll recipe ready() and signal service:ready once`.
 
 ---
 
@@ -436,13 +379,8 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 
 **Interfaces:**
 
-- Consumes: `MainState` (`runtime`, `setRuntime`), `serviceById`,
-  `ServiceMeta.waitForReady` (Task 2).
-- Produces: `WAKE_TIMEOUT_MS = 10_000`; type
-  `WakeEnd = 'recipe-ready' | 'load-finished' | 'timeout' | 'crashed' |
-  'load-failed' | 'destroyed'`; `endsWake(event, meta): boolean`;
-  `class WakingTracker { begin(id): void; end(id, event): void }`.
-  Task 5 wires these exact names.
+- Consumes: `MainState` (`runtime`, `setRuntime`), `serviceById`, `ServiceMeta.waitForReady` (Task 2).
+- Produces: `WAKE_TIMEOUT_MS = 10_000`; type `WakeEnd = 'recipe-ready' | 'load-finished' | 'timeout' | 'crashed' | 'load-failed' | 'destroyed'`; `endsWake(event, meta): boolean`; `class WakingTracker { begin(id): void; end(id, event): void }`. Task 5 wires these exact names.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -485,8 +423,7 @@ describe('endsWake', () => {
 });
 ```
 
-Create `tests/unit/waking.test.ts` (messenger has `waitForReady`,
-telegram does not — set in Task 2):
+Create `tests/unit/waking.test.ts` (messenger has `waitForReady`, telegram does not — set in Task 2):
 
 ```ts
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -553,8 +490,7 @@ describe('WakingTracker', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm test tests/unit/waking-rules.test.ts tests/unit/waking.test.ts`
-Expected: FAIL — modules do not exist.
+Run: `pnpm test tests/unit/waking-rules.test.ts tests/unit/waking.test.ts` Expected: FAIL — modules do not exist.
 
 - [ ] **Step 3: Implement the rules module**
 
@@ -629,18 +565,15 @@ export class WakingTracker {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm test tests/unit/waking-rules.test.ts tests/unit/waking.test.ts`
-Expected: PASS.
+Run: `pnpm test tests/unit/waking-rules.test.ts tests/unit/waking.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Lint and typecheck**
 
-Run: `pnpm lint && pnpm typecheck`
-Expected: no errors.
+Run: `pnpm lint && pnpm typecheck` Expected: no errors.
 
 - [ ] **Step 6: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(main): add waking tracker with ready/timeout reveal rules`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(main): add waking tracker with ready/timeout reveal rules`.
 
 ---
 
@@ -655,8 +588,7 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 **Interfaces:**
 
 - Consumes: `WakingTracker` (Task 4), `'service:ready'` channel (Task 2).
-- Produces: `AppContext.waking: WakingTracker` — Task 7's overlay sync
-  reads `runtime(id).waking` maintained here.
+- Produces: `AppContext.waking: WakingTracker` — Task 7's overlay sync reads `runtime(id).waking` maintained here.
 
 - [ ] **Step 1: Create the tracker and drive it from view hooks**
 
@@ -672,8 +604,7 @@ After `const win = createWindow();` add:
     const waking = new WakingTracker(state);
 ```
 
-Replace the hooks object passed to `new ServiceViewManager(win, {...})`
-with:
+Replace the hooks object passed to `new ServiceViewManager(win, {...})` with:
 
 ```ts
       {
@@ -696,8 +627,7 @@ with:
       },
 ```
 
-(`did-start-loading` fires on the initial `loadURL` too, so view
-creation needs no separate begin hook.)
+(`did-start-loading` fires on the initial `loadURL` too, so view creation needs no separate begin hook.)
 
 Add `waking` to the `ctx` literal:
 
@@ -741,8 +671,7 @@ In `registerIpcHandlers`, add next to the other `service:*` handlers:
   on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));
 ```
 
-In the `settings:update` handler's disable loop, after
-`ctx.views.destroy(id);` add the end call and extend the reset patch:
+In the `settings:update` handler's disable loop, after `ctx.views.destroy(id);` add the end call and extend the reset patch:
 
 ```ts
         if (after.disabled[id] && ctx.views.has(id)) {
@@ -773,14 +702,11 @@ In `src/main/hibernation.ts`, extend the sweep's destroy branch:
 
 - [ ] **Step 4: Full verification**
 
-Run: `pnpm test && pnpm lint && pnpm typecheck`
-Expected: all green (no behavior change is observable in unit tests yet;
-this step catches wiring/type mistakes).
+Run: `pnpm test && pnpm lint && pnpm typecheck` Expected: all green (no behavior change is observable in unit tests yet; this step catches wiring/type mistakes).
 
 - [ ] **Step 5: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(main): drive waking flag from load, ready, crash, destroy events`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(main): drive waking flag from load, ready, crash, destroy events`.
 
 ---
 
@@ -797,11 +723,8 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 
 **Interfaces:**
 
-- Consumes: `MainToRenderer['loading:state']` (Task 2), `tokens.css`
-  theme variables and its reduced-motion rule.
-- Produces: `out/renderer/loading.html` and `out/preload/loading.cjs`
-  (paths Task 7 loads); `window.goetiaLoading.onState(cb)` bridge;
-  elements `.portal` (svg) and `#caption` (e2e hooks in Task 9).
+- Consumes: `MainToRenderer['loading:state']` (Task 2), `tokens.css` theme variables and its reduced-motion rule.
+- Produces: `out/renderer/loading.html` and `out/preload/loading.cjs` (paths Task 7 loads); `window.goetiaLoading.onState(cb)` bridge; elements `.portal` (svg) and `#caption` (e2e hooks in Task 9).
 
 - [ ] **Step 1: Create the overlay preload**
 
@@ -825,9 +748,7 @@ export type GoetiaLoadingApi = typeof api;
 
 - [ ] **Step 2: Create the overlay page**
 
-Create `src/renderer/loading.html` (the Ember Portal from
-`resources/icon.svg`, minus the squircle plate; the inner group already
-lives in a ~96×96 coordinate space centered on 48,48):
+Create `src/renderer/loading.html` (the Ember Portal from `resources/icon.svg`, minus the squircle plate; the inner group already lives in a ~96×96 coordinate space centered on 48,48):
 
 ```html
 <!doctype html>
@@ -930,9 +851,7 @@ lives in a ~96×96 coordinate space centered on 48,48):
 </html>
 ```
 
-Create `src/renderer/src/loading.css` (`tokens.css` already resets
-margins, sets `html, body` heights, and kills animations under
-`prefers-reduced-motion`):
+Create `src/renderer/src/loading.css` (`tokens.css` already resets margins, sets `html, body` heights, and kills animations under `prefers-reduced-motion`):
 
 ```css
 .stage {
@@ -1036,18 +955,15 @@ declare global {
 
 - [ ] **Step 4: Verify the build emits both artifacts**
 
-Run: `pnpm build && ls out/renderer/loading.html out/preload/loading.cjs`
-Expected: build succeeds; both paths listed.
+Run: `pnpm build && ls out/renderer/loading.html out/preload/loading.cjs` Expected: build succeeds; both paths listed.
 
 - [ ] **Step 5: Lint and typecheck**
 
-Run: `pnpm lint && pnpm typecheck`
-Expected: no errors.
+Run: `pnpm lint && pnpm typecheck` Expected: no errors.
 
 - [ ] **Step 6: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(renderer): add ember-portal loading page as second entry`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(renderer): add ember-portal loading page as second entry`.
 
 ---
 
@@ -1061,13 +977,8 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 
 **Interfaces:**
 
-- Consumes: `out/renderer/loading.html`, `out/preload/loading.cjs`
-  (Task 6), `runtime.waking` (Task 5), `viewBounds` shape.
-- Produces:
-  `class LoadingOverlay { setBounds(b); update(state); show(); hide() }`
-  where `state` is `MainToRenderer['loading:state']`. `show()` re-adds
-  the view at the top of the z-order every call — that is what keeps it
-  above a freshly re-activated service view.
+- Consumes: `out/renderer/loading.html`, `out/preload/loading.cjs` (Task 6), `runtime.waking` (Task 5), `viewBounds` shape.
+- Produces: `class LoadingOverlay { setBounds(b); update(state); show(); hide() }` where `state` is `MainToRenderer['loading:state']`. `show()` re-adds the view at the top of the z-order every call — that is what keeps it above a freshly re-activated service view.
 
 - [ ] **Step 1: Implement the overlay module**
 
@@ -1143,8 +1054,7 @@ export class LoadingOverlay {
 
 - [ ] **Step 2: Keep overlay bounds in sync with service views**
 
-In `src/main/views.ts`, extend the constructor with an optional overlay
-and sync it in `layout()`:
+In `src/main/views.ts`, extend the constructor with an optional overlay and sync it in `layout()`:
 
 ```ts
   constructor(
@@ -1177,9 +1087,7 @@ import { serviceById } from '../shared/services';
 import { LoadingOverlay } from './loading-overlay';
 ```
 
-Move the existing `effectiveTheme` declaration up so it sits right after
-`const win = createWindow();` (it only reads `settings`), then create
-the overlay and pass it to the view manager:
+Move the existing `effectiveTheme` declaration up so it sits right after `const win = createWindow();` (it only reads `settings`), then create the overlay and pass it to the view manager:
 
 ```ts
     const effectiveTheme = (): 'light' | 'dark' => {
@@ -1253,13 +1161,11 @@ Add the sync function and call it at the end of `broadcast()`:
 
 - [ ] **Step 4: Full verification**
 
-Run: `pnpm test && pnpm lint && pnpm typecheck && pnpm build`
-Expected: all green.
+Run: `pnpm test && pnpm lint && pnpm typecheck && pnpm build` Expected: all green.
 
 - [ ] **Step 5: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(main): cover waking services with the loading overlay view`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(main): cover waking services with the loading overlay view`.
 
 ---
 
@@ -1277,8 +1183,7 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 
 - [ ] **Step 1: Add the breathe animation to tokens.css**
 
-Append to `src/renderer/src/tokens.css`, before the
-`prefers-reduced-motion` block (which must stay last so it wins):
+Append to `src/renderer/src/tokens.css`, before the `prefers-reduced-motion` block (which must stay last so it wins):
 
 ```css
 .tile-breathe {
@@ -1297,16 +1202,13 @@ Append to `src/renderer/src/tokens.css`, before the
 
 - [ ] **Step 2: Apply it in ServiceTile**
 
-In `src/renderer/src/components/ServiceTile.tsx`, add above the
-`stateClasses` declaration:
+In `src/renderer/src/components/ServiceTile.tsx`, add above the `stateClasses` declaration:
 
 ```tsx
   const waking = runtime.waking && !runtime.crashed;
 ```
 
-and extend the button's `className` (the animation overrides the
-utility `opacity-*` classes while it runs, which is exactly the
-breathing effect):
+and extend the button's `className` (the animation overrides the utility `opacity-*` classes while it runs, which is exactly the breathing effect):
 
 ```tsx
       className={`relative flex h-8 w-8 items-center justify-center rounded-[11px] transition-all duration-150 ease-out outline-none
@@ -1316,13 +1218,11 @@ breathing effect):
 
 - [ ] **Step 3: Lint and typecheck**
 
-Run: `pnpm lint && pnpm typecheck`
-Expected: no errors.
+Run: `pnpm lint && pnpm typecheck` Expected: no errors.
 
 - [ ] **Step 4: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(rail): breathe service tiles while their service is waking`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(rail): breathe service tiles while their service is waking`.
 
 ---
 
@@ -1335,14 +1235,12 @@ Ask the user to run `/grimoire-core:commit`. Suggested message:
 
 **Interfaces:**
 
-- Consumes: `.tile-breathe` (Task 8), the overlay page's `.portal`
-  element (Task 6), `--goetia-user-data` isolation flag.
+- Consumes: `.tile-breathe` (Task 8), the overlay page's `.portal` element (Task 6), `--goetia-user-data` isolation flag.
 - Produces: nothing downstream; this is the acceptance gate.
 
 - [ ] **Step 1: Fix the shell predicate in smoke.spec.ts**
 
-The overlay page is a second `file://` webContents in the packaged
-build, so the existing predicate can pick the wrong page. Replace it:
+The overlay page is a second `file://` webContents in the packaged build, so the existing predicate can pick the wrong page. Replace it:
 
 ```ts
   const isShell = (p: { url(): string }) =>
@@ -1390,30 +1288,21 @@ test('waking cover: overlay page exists, tiles breathe, timeout reveals', async 
 
 - [ ] **Step 3: Run the e2e suite**
 
-Run: `pnpm e2e`
-Expected: PASS (both spec files; needs network access to load the
-logged-out service pages, same as the existing smoke test).
+Run: `pnpm e2e` Expected: PASS (both spec files; needs network access to load the logged-out service pages, same as the existing smoke test).
 
 - [ ] **Step 4: Full verification**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e`
-Expected: everything green.
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` Expected: everything green.
 
 - [ ] **Step 5: Manual checklist (run `pnpm dev`)**
 
-- Cold start: Messenger shows the ember portal (spinning ring,
-  breathing orb, "Waking Messenger…"), never the Facebook header flash.
-- Enable Shopee in Settings, activate it: no homepage flash; the cover
-  holds until the mini-chat is expanded (logged in) or reveals at ~10 s
-  (logged out / captcha).
+- Cold start: Messenger shows the ember portal (spinning ring, breathing orb, "Waking Messenger…"), never the Facebook header flash.
+- Enable Shopee in Settings, activate it: no homepage flash; the cover holds until the mini-chat is expanded (logged in) or reveals at ~10 s (logged out / captcha).
 - ⌘R / F5 on an open service: cover shows again, then reveals.
 - Toggle theme in Settings while a service is waking: overlay recolors.
-- Open Settings or the Quick Switcher mid-wake: overlay hides; closing
-  them brings it back if still waking.
-- Rail tiles breathe while waking (including background services during
-  startup), and stop once revealed.
+- Open Settings or the Quick Switcher mid-wake: overlay hides; closing them brings it back if still waking.
+- Rail tiles breathe while waking (including background services during startup), and stop once revealed.
 
 - [ ] **Step 6: Commit checkpoint**
 
-Ask the user to run `/grimoire-core:commit`. Suggested message:
-`test(e2e): cover the waking overlay and tile breathing`.
+Ask the user to run `/grimoire-core:commit`. Suggested message: `test(e2e): cover the waking overlay and tile breathing`.

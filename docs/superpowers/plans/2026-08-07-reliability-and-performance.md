@@ -1,33 +1,19 @@
 # Reliability & Performance Remediation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix the correctness and resource findings from the two code
-reviews: a window-lifecycle crash, a defeated crash-reload cap, unbounded
-background polling, a broadcast storm, resize thrash, a startup brick, and
-several smaller leaks and cleanups.
+**Goal:** Fix the correctness and resource findings from the two code reviews: a window-lifecycle crash, a defeated crash-reload cap, unbounded background polling, a broadcast storm, resize thrash, a startup brick, and several smaller leaks and cleanups.
 
-**Architecture:** Decision logic moves into pure helpers with vitest unit
-tests (resilience dwell, ready-poll bound, runner dedup/timeout,
-`setRuntime` no-op, `normalize` coercion, single-pass Messenger detection,
-shared badge label). Thin wiring in `index.ts`, `tray.ts`, and `views.ts`
-consumes them. No new dependencies.
+**Architecture:** Decision logic moves into pure helpers with vitest unit tests (resilience dwell, ready-poll bound, runner dedup/timeout, `setRuntime` no-op, `normalize` coercion, single-pass Messenger detection, shared badge label). Thin wiring in `index.ts`, `tray.ts`, and `views.ts` consumes them. No new dependencies.
 
-**Tech Stack:** Electron 43, React 19, TypeScript, vitest (happy-dom),
-Playwright e2e, zustand.
+**Tech Stack:** Electron 43, React 19, TypeScript, vitest (happy-dom), Playwright e2e, zustand.
 
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-08-07-hardening-and-remediation-design.md`
 - **No `git commit` anywhere** — the repo owner commits via `/commit`.
-- Verify code tasks with: `pnpm lint`, `pnpm typecheck`, `pnpm test`; wiring
-  tasks also with `pnpm e2e` (unset `ELECTRON_RUN_AS_NODE` first).
-- Preserve existing recipe count behaviour: the fixtures in `tests/fixtures`
-  are the oracle — Messenger must still count 3, and no recipe row in
-  `tests/unit/recipes.test.ts` may change its expected numbers.
+- Verify code tasks with: `pnpm lint`, `pnpm typecheck`, `pnpm test`; wiring tasks also with `pnpm e2e` (unset `ELECTRON_RUN_AS_NODE` first).
+- Preserve existing recipe count behaviour: the fixtures in `tests/fixtures` are the oracle — Messenger must still count 3, and no recipe row in `tests/unit/recipes.test.ts` may change its expected numbers.
 
 ---
 
@@ -40,13 +26,11 @@ Playwright e2e, zustand.
 
 **Interfaces:**
 
-- Produces: closing the window with `closeToTray === false` quits the app;
-  `broadcast()` is a no-op once the window is destroyed.
+- Produces: closing the window with `closeToTray === false` quits the app; `broadcast()` is a no-op once the window is destroyed.
 
 - [ ] **Step 1: Make the close handler quit when close-to-tray is off**
 
-In `src/main/tray.ts`, replace the `ctx.win.on('close', …)` block
-(`tray.ts:58-64`):
+In `src/main/tray.ts`, replace the `ctx.win.on('close', …)` block (`tray.ts:58-64`):
 
 ```ts
   ctx.win.on('close', (e) => {
@@ -66,8 +50,7 @@ In `src/main/tray.ts`, replace the `ctx.win.on('close', …)` block
 
 - [ ] **Step 2: Guard broadcast against a destroyed window**
 
-In `src/main/index.ts`, at the very top of the `broadcast` function
-(`index.ts:110`, first line inside the arrow):
+In `src/main/index.ts`, at the very top of the `broadcast` function (`index.ts:110`, first line inside the arrow):
 
 ```ts
     const broadcast = () => {
@@ -78,10 +61,7 @@ In `src/main/index.ts`, at the very top of the `broadcast` function
 
 - [ ] **Step 3: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e`
-Expected: PASS. Manual: toggle "Close to tray" off in Settings, press the
-window close button — the app quits cleanly (no lingering dock/tray, no
-console `Object has been destroyed`).
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` Expected: PASS. Manual: toggle "Close to tray" off in Settings, press the window close button — the app quits cleanly (no lingering dock/tray, no console `Object has been destroyed`).
 
 ---
 
@@ -95,9 +75,7 @@ console `Object has been destroyed`).
 **Interfaces:**
 
 - Consumes: `AppContext` (uses `ctx.state`, `ctx.views`).
-- Produces: `ResilienceManager` that only forgets the attempt count after
-  the page has stayed up for `DWELL_MS`; a crash within the dwell keeps the
-  count so `MAX_AUTO_RELOADS` is reached.
+- Produces: `ResilienceManager` that only forgets the attempt count after the page has stayed up for `DWELL_MS`; a crash within the dwell keeps the count so `MAX_AUTO_RELOADS` is reached.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -160,9 +138,7 @@ describe('ResilienceManager crash cap', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/resilience.test.ts`
-Expected: FAIL — current `noteRecovered` resets immediately, so the first
-test sees more than 5 reloads.
+Run: `pnpm vitest run tests/unit/resilience.test.ts` Expected: FAIL — current `noteRecovered` resets immediately, so the first test sees more than 5 reloads.
 
 - [ ] **Step 3: Implement the dwell**
 
@@ -226,13 +202,11 @@ export class ResilienceManager {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/resilience.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/resilience.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Verify the suite**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -245,9 +219,7 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Produces: `startReadyPoll(...)` stops after at most
-  `ceil(WAKE_TIMEOUT_MS / interval) + buffer` ticks even if `ready()` never
-  turns true, so a logged-out page cannot poll forever.
+- Produces: `startReadyPoll(...)` stops after at most `ceil(WAKE_TIMEOUT_MS / interval) + buffer` ticks even if `ready()` never turns true, so a logged-out page cannot poll forever.
 
 - [ ] **Step 1: Add the failing test**
 
@@ -267,13 +239,11 @@ Append to `tests/unit/ready-poll.test.ts` inside `describe('startReadyPoll')`:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/ready-poll.test.ts`
-Expected: FAIL — `t.cleared` stays empty (poll never stops).
+Run: `pnpm vitest run tests/unit/ready-poll.test.ts` Expected: FAIL — `t.cleared` stays empty (poll never stops).
 
 - [ ] **Step 3: Implement the cap**
 
-In `src/preload/recipes/ready.ts`, add the constant after
-`READY_POLL_INTERVAL_MS`:
+In `src/preload/recipes/ready.ts`, add the constant after `READY_POLL_INTERVAL_MS`:
 
 ```ts
 export const READY_POLL_INTERVAL_MS = 250;
@@ -307,13 +277,11 @@ Replace the interval body in `startReadyPoll`:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/ready-poll.test.ts`
-Expected: PASS (all cases, including the existing "reports once then stops").
+Run: `pnpm vitest run tests/unit/ready-poll.test.ts` Expected: PASS (all cases, including the existing "reports once then stops").
 
 - [ ] **Step 5: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -326,8 +294,7 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Produces: `reportStale()` is called only on the transition into stale;
-  a subsequent successful `report()` re-arms it.
+- Produces: `reportStale()` is called only on the transition into stale; a subsequent successful `report()` re-arms it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -383,8 +350,7 @@ describe('runner stale dedup', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/runner-stale.test.ts`
-Expected: FAIL — `reportStale` called 3 times on the first burst.
+Run: `pnpm vitest run tests/unit/runner-stale.test.ts` Expected: FAIL — `reportStale` called 3 times on the first burst.
 
 - [ ] **Step 3: Implement the dedup**
 
@@ -396,8 +362,7 @@ In `src/preload/recipes/runner.ts`, add a flag beside `last`:
   let busy = false;
 ```
 
-In the success branch, after `report(counts)` re-arms staleness — replace
-the `try` body's tail and the `catch`:
+In the success branch, after `report(counts)` re-arms staleness — replace the `try` body's tail and the `catch`:
 
 ```ts
     try {
@@ -433,14 +398,11 @@ the `try` body's tail and the `catch`:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/runner-stale.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/runner-stale.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Verify (existing runner tests unaffected)**
 
-Run: `pnpm vitest run tests/unit/runner-synth.test.ts tests/unit/runner-keepalive.test.ts`
-Then: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/runner-synth.test.ts tests/unit/runner-keepalive.test.ts` Then: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -453,8 +415,7 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Produces: `setRuntime` calls `touch()` only when the patch actually
-  changes a field (so a repeated `{ stale: true }` no longer broadcasts).
+- Produces: `setRuntime` calls `touch()` only when the patch actually changes a field (so a repeated `{ stale: true }` no longer broadcasts).
 
 - [ ] **Step 1: Add the failing test**
 
@@ -475,8 +436,7 @@ Append to `tests/unit/state.test.ts` inside `describe('MainState')`:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/state.test.ts`
-Expected: FAIL — `cb` fires on the identical patch.
+Run: `pnpm vitest run tests/unit/state.test.ts` Expected: FAIL — `cb` fires on the identical patch.
 
 - [ ] **Step 3: Implement the no-op guard**
 
@@ -514,13 +474,11 @@ In `src/main/state.ts`, replace `setRuntime` (`state.ts:29-32`):
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/state.test.ts`
-Expected: PASS (including the existing "notifies subscribers on mutation").
+Run: `pnpm vitest run tests/unit/state.test.ts` Expected: PASS (including the existing "notifies subscribers on mutation").
 
 - [ ] **Step 5: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -532,13 +490,11 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Produces: rapid resize events trigger at most one `layout()` per animation
-  tick instead of one per event.
+- Produces: rapid resize events trigger at most one `layout()` per animation tick instead of one per event.
 
 - [ ] **Step 1: Debounce the resize handler**
 
-In `src/main/views.ts`, add a field and a scheduler to `ServiceViewManager`
-and change the constructor listener. Add the field near `activeId`:
+In `src/main/views.ts`, add a field and a scheduler to `ServiceViewManager` and change the constructor listener. Add the field near `activeId`:
 
 ```ts
   private layoutScheduled = false;
@@ -566,9 +522,7 @@ Add the method next to `layout()`:
 
 - [ ] **Step 2: Verify build and e2e**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e`
-Expected: PASS. Manual: drag-resize the window with several services live —
-views track the frame without per-pixel jitter, main-process CPU stays low.
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` Expected: PASS. Manual: drag-resize the window with several services live — views track the frame without per-pixel jitter, main-process CPU stays low.
 
 ---
 
@@ -580,18 +534,15 @@ views track the frame without per-pixel jitter, main-process CPU stays low.
 
 **Interfaces:**
 
-- Produces: `isUnreadRow` computes `getComputedStyle` once per element
-  (was twice for spans), preserving the fixture result of 3.
+- Produces: `isUnreadRow` computes `getComputedStyle` once per element (was twice for spans), preserving the fixture result of 3.
 
 - [ ] **Step 1: Confirm the current expectation is green**
 
-Run: `pnpm vitest run tests/unit/recipes.test.ts -t messenger`
-Expected: PASS — the messenger row counts 3. This number must not change.
+Run: `pnpm vitest run tests/unit/recipes.test.ts -t messenger` Expected: PASS — the messenger row counts 3. This number must not change.
 
 - [ ] **Step 2: Rewrite `isUnreadRow` as a single traversal**
 
-In `src/preload/recipes/messenger.ts`, replace `isUnreadRow`
-(`messenger.ts:12-32`):
+In `src/preload/recipes/messenger.ts`, replace `isUnreadRow` (`messenger.ts:12-32`):
 
 ```ts
 function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
@@ -620,14 +571,11 @@ function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
 
 - [ ] **Step 3: Run the recipe tests to confirm the count is unchanged**
 
-Run: `pnpm vitest run tests/unit/recipes.test.ts`
-Expected: PASS — messenger still 3, blank still 0, and the `ready()` and
-`synthNotification` cases (which call `isUnreadRow`) still pass.
+Run: `pnpm vitest run tests/unit/recipes.test.ts` Expected: PASS — messenger still 3, blank still 0, and the `ready()` and `synthNotification` cases (which call `isUnreadRow`) still pass.
 
 - [ ] **Step 4: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -640,16 +588,11 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Produces: `normalize` coerces a non-array `order` and non-object record
-  fields back to defaults instead of throwing, so a corrupt file can't brick
-  startup.
+- Produces: `normalize` coerces a non-array `order` and non-object record fields back to defaults instead of throwing, so a corrupt file can't brick startup.
 
 - [ ] **Step 1: Add the failing test**
 
-Append to `tests/unit/settings.test.ts` (a test that feeds a corrupt shape
-through `normalize` via the store — match the file's existing setup for
-constructing a `SettingsStore`; if it writes a temp file, write the corrupt
-JSON there first). Minimal shape-level test:
+Append to `tests/unit/settings.test.ts` (a test that feeds a corrupt shape through `normalize` via the store — match the file's existing setup for constructing a `SettingsStore`; if it writes a temp file, write the corrupt JSON there first). Minimal shape-level test:
 
 ```ts
 it('coerces a corrupt order back to defaults instead of throwing', () => {
@@ -660,16 +603,11 @@ it('coerces a corrupt order back to defaults instead of throwing', () => {
 });
 ```
 
-Export `normalize` for the test by renaming it to an exported
-`normalizeForTest` alias — add at the bottom of `settings.ts`:
-`export { normalize as normalizeForTest };` and import it in the test:
-`import { normalizeForTest } from '../../src/main/settings';` alongside the
-existing imports (`DEFAULT_SETTINGS`, `Settings`).
+Export `normalize` for the test by renaming it to an exported `normalizeForTest` alias — add at the bottom of `settings.ts`: `export { normalize as normalizeForTest };` and import it in the test: `import { normalizeForTest } from '../../src/main/settings';` alongside the existing imports (`DEFAULT_SETTINGS`, `Settings`).
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/settings.test.ts`
-Expected: FAIL — `raw.order.filter` throws on a string.
+Run: `pnpm vitest run tests/unit/settings.test.ts` Expected: FAIL — `raw.order.filter` throws on a string.
 
 - [ ] **Step 3: Implement per-field coercion**
 
@@ -709,13 +647,11 @@ export { normalize as normalizeForTest };
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/settings.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/settings.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -745,17 +681,11 @@ export function connectShell(): () => void {
 
 - [ ] **Step 2: Confirm the effect wiring is unchanged**
 
-`src/renderer/src/App.tsx:13` already reads
-`useEffect(() => connectShell(), [])`. Because `connectShell` now returns the
-unsubscribe, that arrow returns it too, so React registers it as the effect
-cleanup automatically — no edit to `App.tsx` is required. Verify the file
-still contains exactly that line and nothing else needs touching.
+`src/renderer/src/App.tsx:13` already reads `useEffect(() => connectShell(), [])`. Because `connectShell` now returns the unsubscribe, that arrow returns it too, so React registers it as the effect cleanup automatically — no edit to `App.tsx` is required. Verify the file still contains exactly that line and nothing else needs touching.
 
 - [ ] **Step 3: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e`
-Expected: PASS. Manual (dev): reload the shell twice; the `shell:state`
-handler runs once per broadcast, not twice.
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` Expected: PASS. Manual (dev): reload the shell twice; the `shell:state` handler runs once per broadcast, not twice.
 
 ---
 
@@ -763,13 +693,11 @@ handler runs once per broadcast, not twice.
 
 **Files:**
 
-- Modify: `src/main/views.ts:103-117` (`trustedClick`), `destroy()` at
-  `views.ts:159-166`
+- Modify: `src/main/views.ts:103-117` (`trustedClick`), `destroy()` at `views.ts:159-166`
 
 **Interfaces:**
 
-- Produces: the 300 ms `setVisible(false)` never runs against a destroyed
-  view; `destroy()` cancels any pending toggle.
+- Produces: the 300 ms `setVisible(false)` never runs against a destroyed view; `destroy()` cancels any pending toggle.
 
 - [ ] **Step 1: Track and guard the deferred toggle**
 
@@ -817,10 +745,7 @@ In `destroy()` (`views.ts:159`), after the null check:
 
 - [ ] **Step 3: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e`
-Expected: PASS. Manual: with a keep-alive-clicking service (Shopee/Zalo)
-hidden, disable it in Settings within the click window — no
-`Object has been destroyed` in the console.
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` Expected: PASS. Manual: with a keep-alive-clicking service (Shopee/Zalo) hidden, disable it in Settings within the click window — no `Object has been destroyed` in the console.
 
 ---
 
@@ -833,8 +758,7 @@ hidden, disable it in Settings within the click window — no
 
 **Interfaces:**
 
-- Produces: a `count()` that never settles no longer wedges `busy`; the tick
-  clears `busy` and reports stale after `COUNT_TIMEOUT_MS`.
+- Produces: a `count()` that never settles no longer wedges `busy`; the tick clears `busy` and reports stale after `COUNT_TIMEOUT_MS`.
 
 - [ ] **Step 1: Add the failing test**
 
@@ -871,9 +795,7 @@ it('recovers from a hung count() via timeout', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/runner-stale.test.ts`
-Expected: FAIL — the second tick early-returns on `busy`, `reportStale`
-never fires.
+Run: `pnpm vitest run tests/unit/runner-stale.test.ts` Expected: FAIL — the second tick early-returns on `busy`, `reportStale` never fires.
 
 - [ ] **Step 3: Implement the timeout race**
 
@@ -894,23 +816,17 @@ Replace `const counts = await recipe.count(doc);` with a race:
       ]);
 ```
 
-The existing `catch` now handles the timeout (reports stale via Task 4's
-dedup), and `finally { busy = false }` releases the guard.
+The existing `catch` now handles the timeout (reports stale via Task 4's dedup), and `finally { busy = false }` releases the guard.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/runner-stale.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/runner-stale.test.ts` Expected: PASS.
 
-> **Note:** this test uses real timers; keep `COUNT_TIMEOUT_MS` overridable
-> if the test proves slow — inject it the same way `setIntervalFn`/`nowFn`
-> are injected. If you add the parameter, thread it through
-> `src/preload/service.ts`'s `startRecipe` call with its default.
+> **Note:** this test uses real timers; keep `COUNT_TIMEOUT_MS` overridable if the test proves slow — inject it the same way `setIntervalFn`/`nowFn` are injected. If you add the parameter, thread it through `src/preload/service.ts`'s `startRecipe` call with its default.
 
 - [ ] **Step 5: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -925,8 +841,7 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Produces: one `badgeLabel(count)` with a single `99+` threshold used by the
-  rail tile, quick switcher, and taskbar overlay.
+- Produces: one `badgeLabel(count)` with a single `99+` threshold used by the rail tile, quick switcher, and taskbar overlay.
 
 - [ ] **Step 1: Update the badge-label test to the unified threshold**
 
@@ -942,8 +857,7 @@ it('caps the badge label at 99+', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/badges.test.ts`
-Expected: FAIL — current `badgeLabel` caps at `9+`.
+Run: `pnpm vitest run tests/unit/badges.test.ts` Expected: FAIL — current `badgeLabel` caps at `9+`.
 
 - [ ] **Step 3: Raise the shared threshold**
 
@@ -957,10 +871,7 @@ export function badgeLabel(count: number): string {
 
 - [ ] **Step 4: Point `ServiceTile` at the shared label**
 
-In `src/renderer/src/components/ServiceTile.tsx`, delete the local
-`badgeText` (`ServiceTile.tsx:20-22`) and import + use `badgeLabel` from
-`../../../shared/badges`, replacing every `badgeText(...)` call site with
-`badgeLabel(...)`.
+In `src/renderer/src/components/ServiceTile.tsx`, delete the local `badgeText` (`ServiceTile.tsx:20-22`) and import + use `badgeLabel` from `../../../shared/badges`, replacing every `badgeText(...)` call site with `badgeLabel(...)`.
 
 - [ ] **Step 5: Remove the dead `isQuitting` export**
 
@@ -976,23 +887,12 @@ Keep the module-local `let quitting = false;` — it is still used internally.
 
 - [ ] **Step 6: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS. `pnpm typecheck` confirms nothing imported `isQuitting`.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS. `pnpm typecheck` confirms nothing imported `isQuitting`.
 
 ---
 
 ## Self-review notes
 
-- Spec §2.2 coverage: close-to-tray→T1, crash cap→T2, ready poll→T3, stale
-  storm→T4+T5, resize→T6, Messenger sweep→T7, settings normalize→T8,
-  connectShell→T9, trustedClick→T10, runner wedge→T11, badge label + dead
-  export→T12. The two "Accept" items (async overlay show, neverHibernate
-  defaults) are intentionally not tasks.
-- Type/name consistency: `DWELL_MS`/`MAX_AUTO_RELOADS` (T2),
-  `READY_POLL_MAX_ATTEMPTS` (T3), `stale` flag (T4) reused by the timeout
-  path (T11), `isNoOp` (T5), `scheduleLayout`/`layoutScheduled` (T6),
-  `clickHideTimers` (T10), `COUNT_TIMEOUT_MS` (T11), `badgeLabel` (T12) are
-  each defined once and referenced consistently.
-- T4 must land before T11 (the timeout path relies on the stale dedup);
-  execute in listed order. T7 is behaviour-preserving — the fixture count of
-  3 is the guard.
+- Spec §2.2 coverage: close-to-tray→T1, crash cap→T2, ready poll→T3, stale storm→T4+T5, resize→T6, Messenger sweep→T7, settings normalize→T8, connectShell→T9, trustedClick→T10, runner wedge→T11, badge label + dead export→T12. The two "Accept" items (async overlay show, neverHibernate defaults) are intentionally not tasks.
+- Type/name consistency: `DWELL_MS`/`MAX_AUTO_RELOADS` (T2), `READY_POLL_MAX_ATTEMPTS` (T3), `stale` flag (T4) reused by the timeout path (T11), `isNoOp` (T5), `scheduleLayout`/`layoutScheduled` (T6), `clickHideTimers` (T10), `COUNT_TIMEOUT_MS` (T11), `badgeLabel` (T12) are each defined once and referenced consistently.
+- T4 must land before T11 (the timeout path relies on the stale dedup); execute in listed order. T7 is behaviour-preserving — the fixture count of 3 is the guard.

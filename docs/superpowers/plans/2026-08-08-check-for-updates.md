@@ -1,49 +1,26 @@
 # Check for updates Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Goetia notices when a newer release exists on GitHub, announces it
-with a toast that dismisses itself, and links to the download page.
+**Goal:** Goetia notices when a newer release exists on GitHub, announces it with a toast that dismisses itself, and links to the download page.
 
-**Architecture:** A main-process `UpdateChecker` polls the GitHub Releases
-API on a timer, delegates every decision to a pure `lib/update-check.ts`, and
-writes a small `update` slice into `MainState`. That slice rides the existing
-`shell:state` broadcast to the renderer, which renders a self-expiring toast,
-a dot on the settings gear, and an Updates section in Settings. The renderer
-never handles a URL — main builds it from a version it validated itself.
+**Architecture:** A main-process `UpdateChecker` polls the GitHub Releases API on a timer, delegates every decision to a pure `lib/update-check.ts`, and writes a small `update` slice into `MainState`. That slice rides the existing `shell:state` broadcast to the renderer, which renders a self-expiring toast, a dot on the settings gear, and an Updates section in Settings. The renderer never handles a URL — main builds it from a version it validated itself.
 
-**Tech Stack:** Electron 43 (Node 22 global `fetch`), TypeScript, React 19,
-zustand, Tailwind v4, vitest (node environment), Playwright.
+**Tech Stack:** Electron 43 (Node 22 global `fetch`), TypeScript, React 19, zustand, Tailwind v4, vitest (node environment), Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-08-08-check-for-updates-design.md`
 
 ## Global Constraints
 
-- **Never run `git commit`.** This repo's owner commits only via the
-  `/grimoire-core:commit` command after reviewing the message. Where a task
-  says "Checkpoint", stop and tell the user the task is ready to commit. Do
-  not write `GRIMOIRE_COMMIT_MSG.txt`. Do not use `git commit --amend`.
-- **Definition of done for every task:** `corepack pnpm lint`, `corepack pnpm
-  typecheck`, and `corepack pnpm test` pass. Tasks 5–8 additionally require
-  `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e` (VS Code shells export
-  `ELECTRON_RUN_AS_NODE`, which breaks Playwright's Electron launch).
-- **Repo constant:** `REPO = 'quyennguyenvu/goetia'`. Hardcoded — never read a
-  URL out of an API payload.
-- **Timings, exact:** first automatic check `10_000` ms after launch, interval
-  `86_400_000` ms, request timeout `10_000` ms, toast lifetime `8_000` ms.
+- **Never run `git commit`.** This repo's owner commits only via the `/grimoire-core:commit` command after reviewing the message. Where a task says "Checkpoint", stop and tell the user the task is ready to commit. Do not write `GRIMOIRE_COMMIT_MSG.txt`. Do not use `git commit --amend`.
+- **Definition of done for every task:** `corepack pnpm lint`, `corepack pnpm typecheck`, and `corepack pnpm test` pass. Tasks 5–8 additionally require `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e` (VS Code shells export `ELECTRON_RUN_AS_NODE`, which breaks Playwright's Electron launch).
+- **Repo constant:** `REPO = 'quyennguyenvu/goetia'`. Hardcoded — never read a URL out of an API payload.
+- **Timings, exact:** first automatic check `10_000` ms after launch, interval `86_400_000` ms, request timeout `10_000` ms, toast lifetime `8_000` ms.
 - **`src/shared/**` stays process-agnostic** — no `electron`, no DOM imports.
-- **Every new IPC channel** is registered through the `register()` wrapper in
-  `ipc-handlers.ts` and listed in both `R2M_CHANNELS` and
-  `SHELL_ONLY_CHANNELS` in `src/shared/ipc.ts`.
-- **Automatic failures are silent.** Only `check('manual')` may set
-  `status: 'error'`.
+- **Every new IPC channel** is registered through the `register()` wrapper in `ipc-handlers.ts` and listed in both `R2M_CHANNELS` and `SHELL_ONLY_CHANNELS` in `src/shared/ipc.ts`.
+- **Automatic failures are silent.** Only `check('manual')` may set `status: 'error'`.
 - **`shell.openExternal` is only ever called behind `isSafeExternalUrl`.**
-- **Biome formats at 100 columns**, single quotes, 2-space indent. Run
-  `corepack pnpm exec biome check --write .` if `lint` complains about
-  formatting.
+- **Biome formats at 100 columns**, single quotes, 2-space indent. Run `corepack pnpm exec biome check --write .` if `lint` complains about formatting.
 
 ---
 
@@ -51,20 +28,15 @@ zustand, Tailwind v4, vitest (node environment), Playwright.
 
 **Created:**
 
-- `src/main/lib/update-check.ts` — pure: validate a release payload, compare
-  versions, build the release URL. No I/O, no electron.
-- `src/main/updates.ts` — `UpdateChecker`: timers, one in-flight fetch, the
-  announce gate. Dependencies injected as plain functions, no electron import.
-- `src/renderer/src/components/toast-rules.ts` — `TOAST_MS` and the one-line
-  dedup rule, kept pure so it can be unit tested.
+- `src/main/lib/update-check.ts` — pure: validate a release payload, compare versions, build the release URL. No I/O, no electron.
+- `src/main/updates.ts` — `UpdateChecker`: timers, one in-flight fetch, the announce gate. Dependencies injected as plain functions, no electron import.
+- `src/renderer/src/components/toast-rules.ts` — `TOAST_MS` and the one-line dedup rule, kept pure so it can be unit tested.
 - `src/renderer/src/components/UpdateToast.tsx` — the toast.
-- `tests/unit/update-check.test.ts`, `tests/unit/updates.test.ts`,
-  `tests/unit/toast-rules.test.ts`, `tests/e2e/updates.spec.ts`.
+- `tests/unit/update-check.test.ts`, `tests/unit/updates.test.ts`, `tests/unit/toast-rules.test.ts`, `tests/e2e/updates.spec.ts`.
 
 **Modified:**
 
-- `src/shared/types.ts` — `UpdateStatus`, `UpdateState`, two `Settings`
-  fields, `ShellState.update`.
+- `src/shared/types.ts` — `UpdateStatus`, `UpdateState`, two `Settings` fields, `ShellState.update`.
 - `src/shared/ipc.ts` — two shell-only channels.
 - `src/main/state.ts` — the `update` slice with a no-op guard.
 - `src/main/ipc-handlers.ts` — two handlers, `updates` on `AppContext`.
@@ -87,12 +59,8 @@ zustand, Tailwind v4, vitest (node environment), Playwright.
 
 **Interfaces:**
 
-- Consumes: `isSafeExternalUrl` from `src/main/lib/external-url.ts` (test
-  only).
-- Produces: `REPO`, `LATEST_RELEASE_API`, `parseLatestRelease(json: unknown):
-  string | null`, `compareVersions(a: string, b: string): number`,
-  `isNewer(current: string, latest: string): boolean`,
-  `releaseUrl(version: string): string`.
+- Consumes: `isSafeExternalUrl` from `src/main/lib/external-url.ts` (test only).
+- Produces: `REPO`, `LATEST_RELEASE_API`, `parseLatestRelease(json: unknown): string | null`, `compareVersions(a: string, b: string): number`, `isNewer(current: string, latest: string): boolean`, `releaseUrl(version: string): string`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -255,8 +223,7 @@ Expected: all three exit 0.
 
 - [ ] **Step 6: Checkpoint**
 
-Stop. Tell the user Task 1 is ready and ask them to run
-`/grimoire-core:commit`. Do not commit.
+Stop. Tell the user Task 1 is ready and ask them to run `/grimoire-core:commit`. Do not commit.
 
 ---
 
@@ -266,21 +233,16 @@ Stop. Tell the user Task 1 is ready and ask them to run
 
 - Modify: `src/shared/types.ts`
 - Modify: `src/main/state.ts`
-- Test: `tests/unit/state.test.ts` (append), `tests/unit/settings.test.ts`
-  (append)
+- Test: `tests/unit/state.test.ts` (append), `tests/unit/settings.test.ts` (append)
 
 **Interfaces:**
 
 - Consumes: nothing from Task 1.
-- Produces: `UpdateStatus`, `UpdateState { status; latest; announce }`,
-  `Settings.checkForUpdates: boolean`, `Settings.lastNotifiedVersion: string |
-  null`, `ShellState.update: UpdateState`, `MainState.update` (getter) and
-  `MainState.setUpdate(patch: Partial<UpdateState>): void`.
+- Produces: `UpdateStatus`, `UpdateState { status; latest; announce }`, `Settings.checkForUpdates: boolean`, `Settings.lastNotifiedVersion: string | null`, `ShellState.update: UpdateState`, `MainState.update` (getter) and `MainState.setUpdate(patch: Partial<UpdateState>): void`.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/unit/state.test.ts`, inside the existing
-`describe('MainState', ...)` block:
+Append to `tests/unit/state.test.ts`, inside the existing `describe('MainState', ...)` block:
 
 ```ts
   it('does not notify when an update patch changes nothing', () => {
@@ -307,8 +269,7 @@ Append to `tests/unit/state.test.ts`, inside the existing
   });
 ```
 
-Append to `tests/unit/settings.test.ts`, inside
-`describe('SettingsStore', ...)`:
+Append to `tests/unit/settings.test.ts`, inside `describe('SettingsStore', ...)`:
 
 ```ts
   it('defaults automatic update checks on, with nothing announced yet', () => {
@@ -336,11 +297,9 @@ Append to `tests/unit/settings.test.ts`, inside
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run:
-`corepack pnpm exec vitest run tests/unit/state.test.ts tests/unit/settings.test.ts`
+Run: `corepack pnpm exec vitest run tests/unit/state.test.ts tests/unit/settings.test.ts`
 
-Expected: FAIL — `s.setUpdate is not a function`, and
-`Property 'checkForUpdates' does not exist`.
+Expected: FAIL — `s.setUpdate is not a function`, and `Property 'checkForUpdates' does not exist`.
 
 - [ ] **Step 3: Add the types**
 
@@ -381,8 +340,7 @@ Add one field to `ShellState`, after `version: string;`:
 
 - [ ] **Step 4: Add the state slice**
 
-In `src/main/state.ts`, extend the type import on line 2 to include
-`UpdateState`:
+In `src/main/state.ts`, extend the type import on line 2 to include `UpdateState`:
 
 ```ts
 import type { ServiceId, ServiceRuntime, Settings, ShellState, UpdateState } from '../shared/types';
@@ -421,8 +379,7 @@ In `snapshot()`, add to the returned object after `version,`:
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run:
-`corepack pnpm exec vitest run tests/unit/state.test.ts tests/unit/settings.test.ts`
+Run: `corepack pnpm exec vitest run tests/unit/state.test.ts tests/unit/settings.test.ts`
 
 Expected: PASS.
 
@@ -430,8 +387,7 @@ Expected: PASS.
 
 Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test`
 
-Expected: all three exit 0. `typecheck` will flag nothing yet because
-`ShellState.update` is only read in later tasks.
+Expected: all three exit 0. `typecheck` will flag nothing yet because `ShellState.update` is only read in later tasks.
 
 - [ ] **Step 7: Checkpoint**
 
@@ -448,12 +404,8 @@ Stop and ask the user to run `/grimoire-core:commit`.
 
 **Interfaces:**
 
-- Consumes: `LATEST_RELEASE_API`, `parseLatestRelease`, `isNewer` (Task 1);
-  `MainState.setUpdate` (Task 2).
-- Produces: `FIRST_CHECK_MS`, `CHECK_INTERVAL_MS`, `REQUEST_TIMEOUT_MS`,
-  `UpdateCheckerDeps`, and `class UpdateChecker` with
-  `check(reason: 'auto' | 'manual'): Promise<void>`, `start(): void`,
-  `dispose(): void`, `flushAnnounce(): void`.
+- Consumes: `LATEST_RELEASE_API`, `parseLatestRelease`, `isNewer` (Task 1); `MainState.setUpdate` (Task 2).
+- Produces: `FIRST_CHECK_MS`, `CHECK_INTERVAL_MS`, `REQUEST_TIMEOUT_MS`, `UpdateCheckerDeps`, and `class UpdateChecker` with `check(reason: 'auto' | 'manual'): Promise<void>`, `start(): void`, `dispose(): void`, `flushAnnounce(): void`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -799,16 +751,12 @@ Stop and ask the user to run `/grimoire-core:commit`.
 
 **Interfaces:**
 
-- Consumes: `UpdateChecker` and its constructor deps (Task 3), `releaseUrl`
-  (Task 1), `MainState.update` (Task 2).
-- Produces: IPC channels `updates:check` and `updates:openDownload`;
-  `AppContext.updates: UpdateChecker`; the `--goetia-e2e-update` launch flag
-  that Task 8 drives.
+- Consumes: `UpdateChecker` and its constructor deps (Task 3), `releaseUrl` (Task 1), `MainState.update` (Task 2).
+- Produces: IPC channels `updates:check` and `updates:openDownload`; `AppContext.updates: UpdateChecker`; the `--goetia-e2e-update` launch flag that Task 8 drives.
 
 - [ ] **Step 1: Add the channels**
 
-In `src/shared/ipc.ts`, add to the `RendererToMain` interface, after
-`'service:ready'`:
+In `src/shared/ipc.ts`, add to the `RendererToMain` interface, after `'service:ready'`:
 
 ```ts
   'updates:check': Record<string, never>;
@@ -822,8 +770,7 @@ Add both to `R2M_CHANNELS`, after `'service:ready',`:
   'updates:openDownload',
 ```
 
-Add both to `SHELL_ONLY_CHANNELS`, after `'badge:overlay',` — they carry no
-`serviceId`, so only the shell frame may send them:
+Add both to `SHELL_ONLY_CHANNELS`, after `'badge:overlay',` — they carry no `serviceId`, so only the shell frame may send them:
 
 ```ts
   'updates:check',
@@ -857,8 +804,7 @@ Add the type import for it near the other type imports:
 import type { UpdateChecker } from './updates';
 ```
 
-Register the two handlers at the end of `registerIpcHandlers`, after the
-`service:keepalive-click` line:
+Register the two handlers at the end of `registerIpcHandlers`, after the `service:keepalive-click` line:
 
 ```ts
   on('updates:check', () => void ctx.updates.check('manual'));
@@ -874,8 +820,7 @@ Register the two handlers at the end of `registerIpcHandlers`, after the
 
 - [ ] **Step 3: Add the menu item**
 
-In `src/main/menu.ts`, add below the `settingsItem` declaration inside
-`buildAppMenu`:
+In `src/main/menu.ts`, add below the `settingsItem` declaration inside `buildAppMenu`:
 
 ```ts
   const checkUpdatesItem: Electron.MenuItemConstructorOptions = {
@@ -916,8 +861,7 @@ In `src/main/index.ts`, add the import next to the other `./` imports:
 import { UpdateChecker } from './updates';
 ```
 
-Insert after the `const views = new ServiceViewManager(...)` block and before
-`const syncOverlay = ...`:
+Insert after the `const views = new ServiceViewManager(...)` block and before `const syncOverlay = ...`:
 
 ```ts
     const updates = new UpdateChecker({
@@ -954,8 +898,7 @@ Add after `buildAppMenu(ctx);`:
     app.on('before-quit', () => updates.dispose());
 ```
 
-Finally, add the e2e seed below the existing `--goetia-e2e` block. It is a
-separate flag so the existing specs are untouched by a toast:
+Finally, add the e2e seed below the existing `--goetia-e2e` block. It is a separate flag so the existing specs are untouched by a toast:
 
 ```ts
     if (process.argv.includes('--goetia-e2e-update')) {
@@ -969,17 +912,13 @@ separate flag so the existing specs are untouched by a toast:
 
 Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test`
 
-Expected: all three exit 0. `typecheck` proves every `AppContext` construction
-site now supplies `updates`.
+Expected: all three exit 0. `typecheck` proves every `AppContext` construction site now supplies `updates`.
 
 - [ ] **Step 6: Verify the app still launches**
 
 Run: `corepack pnpm dev`
 
-Expected: the window opens as before. Open the menu and confirm
-**Check for Updates…** is present (macOS: under Goetia, right after About).
-Clicking it opens Settings; the Updates section does not exist yet, so
-nothing else changes. Quit with Cmd/Ctrl+Q.
+Expected: the window opens as before. Open the menu and confirm **Check for Updates…** is present (macOS: under Goetia, right after About). Clicking it opens Settings; the Updates section does not exist yet, so nothing else changes. Quit with Cmd/Ctrl+Q.
 
 - [ ] **Step 7: Checkpoint**
 
@@ -997,9 +936,7 @@ Stop and ask the user to run `/grimoire-core:commit`.
 **Interfaces:**
 
 - Consumes: `ShellState.update` (Task 2).
-- Produces: `useShell` gains `focusSection: 'updates' | null` and
-  `setFocusSection(s: 'updates' | null): void`; the DOM gains
-  `[data-testid="gear-dot"]`, which Task 8 asserts on.
+- Produces: `useShell` gains `focusSection: 'updates' | null` and `setFocusSection(s: 'updates' | null): void`; the DOM gains `[data-testid="gear-dot"]`, which Task 8 asserts on.
 
 - [ ] **Step 1: Add the store flag**
 
@@ -1034,8 +971,7 @@ export function connectShell(): () => void {
 
 - [ ] **Step 2: Add the dot to the gear**
 
-In `src/renderer/src/components/Rail.tsx`, add below the
-`const visible = ...` line:
+In `src/renderer/src/components/Rail.tsx`, add below the `const visible = ...` line:
 
 ```ts
   const updateReady = state.update.status === 'available';
@@ -1071,8 +1007,7 @@ Replace the whole settings `<button>` element with:
         </button>
 ```
 
-Note the added `relative` in the class list — the dot is positioned against
-this button.
+Note the added `relative` in the class list — the dot is positioned against this button.
 
 - [ ] **Step 3: Verify the whole gate**
 
@@ -1084,9 +1019,7 @@ Expected: all three exit 0.
 
 Run: `corepack pnpm dev`
 
-Expected: no dot (nothing has reported an update). In the running app open
-DevTools for the shell window and confirm the gear renders without a dot;
-Task 8's e2e run is what proves the dot appears. Quit.
+Expected: no dot (nothing has reported an update). In the running app open DevTools for the shell window and confirm the gear renders without a dot; Task 8's e2e run is what proves the dot appears. Quit.
 
 - [ ] **Step 5: Checkpoint**
 
@@ -1106,11 +1039,8 @@ Stop and ask the user to run `/grimoire-core:commit`.
 
 **Interfaces:**
 
-- Consumes: `ShellState.update.announce` (Task 2), the `updates:openDownload`
-  channel (Task 4).
-- Produces: `TOAST_MS = 8000`,
-  `shouldToast(announce: string | null, lastToasted: string | null): boolean`,
-  default export `UpdateToast`, and `[data-testid="update-toast"]` in the DOM.
+- Consumes: `ShellState.update.announce` (Task 2), the `updates:openDownload` channel (Task 4).
+- Produces: `TOAST_MS = 8000`, `shouldToast(announce: string | null, lastToasted: string | null): boolean`, default export `UpdateToast`, and `[data-testid="update-toast"]` in the DOM.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1173,9 +1103,7 @@ Expected: PASS — 4 tests.
 
 - [ ] **Step 5: Add the keyframes**
 
-In `src/renderer/src/tokens.css`, add after the `.tile-breathe` block and
-**before** the `@media (prefers-reduced-motion: reduce)` block, so the
-existing override still disables them:
+In `src/renderer/src/tokens.css`, add after the `.tile-breathe` block and **before** the `@media (prefers-reduced-motion: reduce)` block, so the existing override still disables them:
 
 ```css
 .toast-in {
@@ -1307,15 +1235,13 @@ export default function UpdateToast() {
 
 - [ ] **Step 7: Mount it**
 
-In `src/renderer/src/App.tsx`, add the import next to the other component
-imports:
+In `src/renderer/src/App.tsx`, add the import next to the other component imports:
 
 ```tsx
 import UpdateToast from './components/UpdateToast';
 ```
 
-Replace the content region so the toast is positioned inside it — the rail
-may sit on any edge, and the toast must stay clear of it:
+Replace the content region so the toast is positioned inside it — the rail may sit on any edge, and the toast must stay clear of it:
 
 ```tsx
       <div className="relative flex min-h-0 min-w-0 flex-1">
@@ -1344,15 +1270,12 @@ Stop and ask the user to run `/grimoire-core:commit`.
 
 **Interfaces:**
 
-- Consumes: `ShellState.update` (Task 2), `updates:check` and
-  `updates:openDownload` (Task 4), `useShell().focusSection` (Task 5).
-- Produces: `[data-testid="update-action"]` in the DOM, which Task 8 asserts
-  on.
+- Consumes: `ShellState.update` (Task 2), `updates:check` and `updates:openDownload` (Task 4), `useShell().focusSection` (Task 5).
+- Produces: `[data-testid="update-action"]` in the DOM, which Task 8 asserts on.
 
 - [ ] **Step 1: Add the imports and the status helper**
 
-In `src/renderer/src/components/SettingsView.tsx`, replace the first three
-import lines with:
+In `src/renderer/src/components/SettingsView.tsx`, replace the first three import lines with:
 
 ```tsx
 import type React from 'react';
@@ -1392,9 +1315,7 @@ Inside `SettingsView`, add below `const open = state?.settingsOpen ?? false;`:
   const updateStatus = state?.update.status;
 ```
 
-Add a second `useEffect` immediately after the existing Escape-key effect —
-it must sit **above** the `if (!state?.settingsOpen) return null;` line, since
-hooks cannot run conditionally:
+Add a second `useEffect` immediately after the existing Escape-key effect — it must sit **above** the `if (!state?.settingsOpen) return null;` line, since hooks cannot run conditionally:
 
 ```tsx
   // arriving from the gear dot or from Check for Updates… lands the user on
@@ -1477,17 +1398,10 @@ Run: `corepack pnpm dev`
 
 Expected, in order:
 
-1. Open Settings (⌘/Ctrl+,). The Updates section shows
-   `Version 0.2.0` / `Personal multi-service chat client` and a
-   **Check for updates** button.
-2. Click **Check for updates**. The button disables and the sub-line reads
-   `Checking…`, then settles on `Goetia is up to date` — 0.2.0 is the newest
-   published release at the time of writing. If a newer release exists the row
-   flips to `Version X available` with a **Download** button.
-3. Toggle **Automatic updates** off and on. No error, and the checkbox state
-   survives closing and reopening Settings.
-4. Pick **Check for Updates…** from the app menu with Settings closed:
-   Settings opens and scrolls to Updates with a brief highlight.
+1. Open Settings (⌘/Ctrl+,). The Updates section shows `Version 0.2.0` / `Personal multi-service chat client` and a **Check for updates** button.
+2. Click **Check for updates**. The button disables and the sub-line reads `Checking…`, then settles on `Goetia is up to date` — 0.2.0 is the newest published release at the time of writing. If a newer release exists the row flips to `Version X available` with a **Download** button.
+3. Toggle **Automatic updates** off and on. No error, and the checkbox state survives closing and reopening Settings.
+4. Pick **Check for Updates…** from the app menu with Settings closed: Settings opens and scrolls to Updates with a brief highlight.
 
 Quit with Cmd/Ctrl+Q.
 
@@ -1507,9 +1421,7 @@ Stop and ask the user to run `/grimoire-core:commit`.
 
 **Interfaces:**
 
-- Consumes: `--goetia-e2e-update` (Task 4), `[data-testid="update-toast"]`
-  (Task 6), `[data-testid="gear-dot"]` (Task 5),
-  `[data-testid="update-action"]` (Task 7).
+- Consumes: `--goetia-e2e-update` (Task 4), `[data-testid="update-toast"]` (Task 6), `[data-testid="gear-dot"]` (Task 5), `[data-testid="update-action"]` (Task 7).
 - Produces: nothing downstream.
 
 - [ ] **Step 1: Write the failing e2e spec**
@@ -1572,24 +1484,19 @@ test('update toast expires on its own and leaves a dot that opens Updates', asyn
 
 - [ ] **Step 2: Run the spec to verify it fails**
 
-Run:
-`env -u ELECTRON_RUN_AS_NODE corepack pnpm exec playwright test tests/e2e/updates.spec.ts`
+Run: `env -u ELECTRON_RUN_AS_NODE corepack pnpm exec playwright test tests/e2e/updates.spec.ts`
 
-Expected: FAIL — `out/main/index.js` is stale until the build runs. If it
-fails on a missing build, run `corepack pnpm build` first and re-run.
+Expected: FAIL — `out/main/index.js` is stale until the build runs. If it fails on a missing build, run `corepack pnpm build` first and re-run.
 
 - [ ] **Step 3: Run the full e2e suite**
 
 Run: `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
 
-Expected: PASS — the new spec plus the existing `smoke`, `welcome`, and
-`loading` specs. The existing specs must be untouched; the update seed is
-behind its own `--goetia-e2e-update` flag.
+Expected: PASS — the new spec plus the existing `smoke`, `welcome`, and `loading` specs. The existing specs must be untouched; the update seed is behind its own `--goetia-e2e-update` flag.
 
 - [ ] **Step 4: Document it for users**
 
-In `README.md`, add a bullet to the **Handy to know** list, after the
-notifications bullet:
+In `README.md`, add a bullet to the **Handy to know** list, after the notifications bullet:
 
 ```markdown
 - **Updates check themselves**: when a newer version is published, a small
@@ -1601,8 +1508,7 @@ notifications bullet:
 
 - [ ] **Step 5: Document it for maintainers**
 
-In `docs/FEATURES.md`, add to the **Settings & persistence** list, after the
-corrupt-file bullet:
+In `docs/FEATURES.md`, add to the **Settings & persistence** list, after the corrupt-file bullet:
 
 ```markdown
 - **Update check** — GitHub Releases polled 10s after launch and every 24h,
@@ -1642,36 +1548,14 @@ Stop and ask the user to run `/grimoire-core:commit`.
 
 These cannot be automated and are the last gate:
 
-- [ ] **A real update is found.** Temporarily set `"version": "0.0.1"` in
-  `package.json`, run `corepack pnpm dev`, open Settings → Updates, click
-  **Check for updates**. Expect `Version 0.2.0 available` and a **Download**
-  button. Click it and confirm the browser opens
-  `https://github.com/quyennguyenvu/goetia/releases/tag/v0.2.0`. **Revert
-  `package.json` afterwards.**
-- [ ] **Offline is silent.** Turn off networking, restart with the version
-  still at `0.0.1`, wait past the first check, and confirm no toast and no
-  error text appear anywhere. Then click **Check for updates** and confirm
-  `Couldn't reach GitHub. Try again.` appears — only for the manual check.
-- [ ] **The toast waits for a visible window.** With `closeToTray` on, hide
-  the window before the first check fires, wait, then reopen from the tray.
-  The toast should appear on reopen, not have been lost.
-- [ ] **Reduced motion still dismisses.** macOS: System Settings →
-  Accessibility → Display → Reduce motion. Trigger the toast and confirm it
-  still disappears after ~8 seconds with no animation.
+- [ ] **A real update is found.** Temporarily set `"version": "0.0.1"` in `package.json`, run `corepack pnpm dev`, open Settings → Updates, click **Check for updates**. Expect `Version 0.2.0 available` and a **Download** button. Click it and confirm the browser opens `https://github.com/quyennguyenvu/goetia/releases/tag/v0.2.0`. **Revert `package.json` afterwards.**
+- [ ] **Offline is silent.** Turn off networking, restart with the version still at `0.0.1`, wait past the first check, and confirm no toast and no error text appear anywhere. Then click **Check for updates** and confirm `Couldn't reach GitHub. Try again.` appears — only for the manual check.
+- [ ] **The toast waits for a visible window.** With `closeToTray` on, hide the window before the first check fires, wait, then reopen from the tray. The toast should appear on reopen, not have been lost.
+- [ ] **Reduced motion still dismisses.** macOS: System Settings → Accessibility → Display → Reduce motion. Trigger the toast and confirm it still disappears after ~8 seconds with no animation.
 
 ## Notes for the implementer
 
-- **Why the fetch is in main:** the shell renderer's CSP is
-  `default-src 'self'` (`src/renderer/index.html`). A renderer-side fetch to
-  `api.github.com` would be blocked, and the CSP must not be widened.
-- **Why the URL is never taken from the payload:** `html_url` in the GitHub
-  response is attacker-influenced if the API or DNS is ever compromised.
-  Building the URL from a regex-validated version means the worst a bad
-  payload can do is show a wrong number.
-- **Why `announce` is separate from `latest`:** `latest` is what exists and
-  drives durable surfaces; `announce` is the transient "toast this now"
-  signal, which must be withheld while the window is hidden.
-- **Why dismissal is a `setTimeout` and not `animationend`:** `tokens.css`
-  sets `animation: none !important` under `prefers-reduced-motion: reduce`,
-  so an animation-driven dismissal would strand the toast on screen for those
-  users.
+- **Why the fetch is in main:** the shell renderer's CSP is `default-src 'self'` (`src/renderer/index.html`). A renderer-side fetch to `api.github.com` would be blocked, and the CSP must not be widened.
+- **Why the URL is never taken from the payload:** `html_url` in the GitHub response is attacker-influenced if the API or DNS is ever compromised. Building the URL from a regex-validated version means the worst a bad payload can do is show a wrong number.
+- **Why `announce` is separate from `latest`:** `latest` is what exists and drives durable surfaces; `announce` is the transient "toast this now" signal, which must be withheld while the window is hidden.
+- **Why dismissal is a `setTimeout` and not `animationend`:** `tokens.css` sets `animation: none !important` under `prefers-reduced-motion: reduce`, so an animation-driven dismissal would strand the toast on screen for those users.

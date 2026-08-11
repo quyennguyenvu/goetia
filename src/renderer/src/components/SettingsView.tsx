@@ -386,7 +386,7 @@ export default function SettingsView() {
             {active === 'shortcuts' && (
               <Pane title="Shortcuts">
                 <div className="py-2 text-text-2">
-                  <p className="py-1">⌘/Ctrl + 1…6 — jump to service</p>
+                  <p className="py-1">⌘/Ctrl + 1…8 — jump to service</p>
                   <p className="py-1">⌘/Ctrl + K — quick switcher</p>
                   <p className="py-1">⌘/Ctrl + 0 — home / all services</p>
                   <p className="py-1">⌘/Ctrl + , — settings</p>

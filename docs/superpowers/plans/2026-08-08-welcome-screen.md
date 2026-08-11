@@ -1,52 +1,28 @@
 # Welcome Screen Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fresh installs open on a single-screen welcome (walkthrough + service
-picker + confirm); the screen shows whenever every service is disabled.
+**Goal:** Fresh installs open on a single-screen welcome (walkthrough + service picker + confirm); the screen shows whenever every service is disabled.
 
-**Architecture:** Welcome visibility is derived in the renderer from existing
-`ShellState` (`every service disabled`) — no new flag, no new IPC channel.
-`DEFAULT_SETTINGS.disabled` flips to all-true. Two main-process paths that
-today create a view for a disabled service when nothing is enabled get a pure,
-unit-tested activation rule. Confirm reuses the existing `settings:update`
-channel. Spec: `docs/superpowers/specs/2026-08-08-welcome-screen-design.md`.
+**Architecture:** Welcome visibility is derived in the renderer from existing `ShellState` (`every service disabled`) — no new flag, no new IPC channel. `DEFAULT_SETTINGS.disabled` flips to all-true. Two main-process paths that today create a view for a disabled service when nothing is enabled get a pure, unit-tested activation rule. Confirm reuses the existing `settings:update` channel. Spec: `docs/superpowers/specs/2026-08-08-welcome-screen-design.md`.
 
-**Tech Stack:** Electron, React 19, Zustand, Tailwind v4 tokens
-(`tokens.css`), vitest (`tests/unit`), Playwright e2e (`tests/e2e`), Biome.
+**Tech Stack:** Electron, React 19, Zustand, Tailwind v4 tokens (`tokens.css`), vitest (`tests/unit`), Playwright e2e (`tests/e2e`), Biome.
 
 ## Global Constraints
 
-- **Never run `git commit`.** At every "Commit" step, STOP and ask the user
-  to run `/grimoire-core:commit`, quoting the suggested message. Do not write
-  `GRIMOIRE_COMMIT_MSG.txt`. Do not auto-commit to keep the workflow moving.
-- Definition of done per task: `corepack pnpm lint`, `corepack pnpm
-  typecheck`, `corepack pnpm test` all green. E2E (Task 7/8) runs as
-  `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e` (VS Code shells export
-  `ELECTRON_RUN_AS_NODE`, which breaks Electron launch).
-- `disabled` means **no tile, no view, no network**. Zero enabled services
-  must mean zero service views — never create a view for a disabled service.
+- **Never run `git commit`.** At every "Commit" step, STOP and ask the user to run `/grimoire-core:commit`, quoting the suggested message. Do not write `GRIMOIRE_COMMIT_MSG.txt`. Do not auto-commit to keep the workflow moving.
+- Definition of done per task: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test` all green. E2E (Task 7/8) runs as `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e` (VS Code shells export `ELECTRON_RUN_AS_NODE`, which breaks Electron launch).
+- `disabled` means **no tile, no view, no network**. Zero enabled services must mean zero service views — never create a view for a disabled service.
 - `src/shared/**` stays process-agnostic: no `electron`, no DOM imports.
-- No new IPC channels. The welcome screen only sends the existing
-  `settings:update` (already shell-only validated).
-- Copy is fixed by the spec: title "Welcome to Goetia", tagline "All your
-  chats. Nothing else.", hint "Pick at least one — you can change this
-  anytime in Settings.", confirm "Summon N services" pluralized ("Summon 1
-  service"), shortcut prefix written literally as `⌘/Ctrl` (matches
-  SettingsView).
-- Formatting: Biome, 100-col line width, single quotes. If `corepack pnpm
-  lint` complains, run `corepack pnpm exec biome check --write .`.
+- No new IPC channels. The welcome screen only sends the existing `settings:update` (already shell-only validated).
+- Copy is fixed by the spec: title "Welcome to Goetia", tagline "All your chats. Nothing else.", hint "Pick at least one — you can change this anytime in Settings.", confirm "Summon N services" pluralized ("Summon 1 service"), shortcut prefix written literally as `⌘/Ctrl` (matches SettingsView).
+- Formatting: Biome, 100-col line width, single quotes. If `corepack pnpm lint` complains, run `corepack pnpm exec biome check --write .`.
 
 ---
 
 ### Task 1: `resolveActivation` rule
 
-Pure decision logic for "which service (if any) to activate after the
-disabled set changes", per the repo rule that decision logic lives in
-`src/main/lib/` with a vitest unit test.
+Pure decision logic for "which service (if any) to activate after the disabled set changes", per the repo rule that decision logic lives in `src/main/lib/` with a vitest unit test.
 
 **Files:**
 
@@ -56,10 +32,7 @@ disabled set changes", per the repo rule that decision logic lives in
 **Interfaces:**
 
 - Consumes: `ServiceId`, `Settings` from `src/shared/types.ts`.
-- Produces: `resolveActivation(input: { order: ServiceId[]; disabled:
-  Settings['disabled']; activeId: ServiceId; hasActiveView: boolean }):
-  ServiceId | null` — Task 2 calls this from `ipc-handlers.ts`. `null`
-  means "activate nothing".
+- Produces: `resolveActivation(input: { order: ServiceId[]; disabled: Settings['disabled']; activeId: ServiceId; hasActiveView: boolean }): ServiceId | null` — Task 2 calls this from `ipc-handlers.ts`. `null` means "activate nothing".
 
 - [ ] **Step 1: Write the failing test**
 
@@ -130,8 +103,7 @@ describe('resolveActivation', () => {
 
 Run: `corepack pnpm vitest run tests/unit/activation-rules.test.ts`
 
-Expected: FAIL — cannot find module
-`../../src/main/lib/activation-rules`.
+Expected: FAIL — cannot find module `../../src/main/lib/activation-rules`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -170,16 +142,13 @@ Expected: all green.
 
 - [ ] **Step 6: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(main): add activation rule for disabled-set changes`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(main): add activation rule for disabled-set changes`.
 
 ---
 
 ### Task 2: guard the two view-creating fallbacks
 
-Startup and the `settings:update` handler currently fall back to
-`order[0]` and create a view even when that service is disabled. Wire in
-`resolveActivation` and the startup guard so all-disabled means zero views.
+Startup and the `settings:update` handler currently fall back to `order[0]` and create a view even when that service is disabled. Wire in `resolveActivation` and the startup guard so all-disabled means zero views.
 
 **Files:**
 
@@ -189,9 +158,7 @@ Startup and the `settings:update` handler currently fall back to
 **Interfaces:**
 
 - Consumes: `resolveActivation` from Task 1.
-- Produces: no new exports; behavior only. With every service disabled the
-  app starts with no service views and `state.activeId === order[0]`
-  (harmless placeholder; nothing renders it).
+- Produces: no new exports; behavior only. With every service disabled the app starts with no service views and `state.activeId === order[0]` (harmless placeholder; nothing renders it).
 
 - [ ] **Step 1: Replace the `settings:update` activation fallback**
 
@@ -229,10 +196,7 @@ with:
       }
 ```
 
-(Note: the old code only reacted when the active service became disabled.
-The new code also activates when the active service just became enabled but
-has no view yet — the welcome-confirm case — and activates nothing when
-everything is disabled.)
+(Note: the old code only reacted when the active service became disabled. The new code also activates when the active service just became enabled but has no view yet — the welcome-confirm case — and activates nothing when everything is disabled.)
 
 - [ ] **Step 2: Guard startup activation**
 
@@ -263,20 +227,17 @@ with:
 
 Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test`
 
-Expected: all green (behavior is unchanged while defaults still enable
-messenger and zalo; the all-disabled path gets e2e coverage in Task 7).
+Expected: all green (behavior is unchanged while defaults still enable messenger and zalo; the all-disabled path gets e2e coverage in Task 7).
 
 - [ ] **Step 4: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`fix(main): never create a service view when every service is disabled`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `fix(main): never create a service view when every service is disabled`.
 
 ---
 
 ### Task 3: `buildDisabledPatch` helper
 
-The welcome confirm needs a full `disabled` record (conf persists whole
-top-level objects, so partial records are not safe).
+The welcome confirm needs a full `disabled` record (conf persists whole top-level objects, so partial records are not safe).
 
 **Files:**
 
@@ -286,10 +247,7 @@ top-level objects, so partial records are not safe).
 **Interfaces:**
 
 - Consumes: `ServiceId`, `Settings` from `src/shared/types.ts`.
-- Produces: `buildDisabledPatch(order: ServiceId[], selected:
-  ReadonlySet<ServiceId>): Settings['disabled']` — Task 5's Welcome
-  component calls this. Selected ids map to `false` (enabled), everything
-  else `true`.
+- Produces: `buildDisabledPatch(order: ServiceId[], selected: ReadonlySet<ServiceId>): Settings['disabled']` — Task 5's Welcome component calls this. Selected ids map to `false` (enabled), everything else `true`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -358,17 +316,13 @@ Expected: all green.
 
 - [ ] **Step 6: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(shared): add buildDisabledPatch welcome helper`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(shared): add buildDisabledPatch welcome helper`.
 
 ---
 
 ### Task 4: extract the ember portal for reuse
 
-The welcome hero reuses the loading screen's portal. Move its animation CSS
-into a shared stylesheet and add a React component. `loading.html` keeps its
-inline critical-CSS copy untouched (guarded by
-`tests/unit/loading-critical-css.test.ts`).
+The welcome hero reuses the loading screen's portal. Move its animation CSS into a shared stylesheet and add a React component. `loading.html` keeps its inline critical-CSS copy untouched (guarded by `tests/unit/loading-critical-css.test.ts`).
 
 **Files:**
 
@@ -379,11 +333,7 @@ inline critical-CSS copy untouched (guarded by
 
 **Interfaces:**
 
-- Produces: `Portal({ className }: { className: string })` default export —
-  Task 5 renders `<Portal className="h-24 w-24" />`. CSS classes `ring`,
-  `core`, `ember`, `ember-2`, `ember-3` and their keyframes come from
-  `portal.css` (imported by `Portal.tsx`, so consumers need no extra
-  import).
+- Produces: `Portal({ className }: { className: string })` default export — Task 5 renders `<Portal className="h-24 w-24" />`. CSS classes `ring`, `core`, `ember`, `ember-2`, `ember-3` and their keyframes come from `portal.css` (imported by `Portal.tsx`, so consumers need no extra import).
 
 - [ ] **Step 1: Create `src/renderer/src/portal.css`**
 
@@ -475,9 +425,7 @@ import './portal.css';
 
 - [ ] **Step 4: Create `src/renderer/src/components/Portal.tsx`**
 
-JSX translation of the SVG in `loading.html` (same ids, same geometry —
-attribute names camelCased). Keep the two copies in sync when either
-changes:
+JSX translation of the SVG in `loading.html` (same ids, same geometry — attribute names camelCased). Keep the two copies in sync when either changes:
 
 ```tsx
 import '../portal.css';
@@ -596,14 +544,11 @@ export default function Portal({ className }: { className: string }) {
 
 Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test`
 
-Expected: all green — `loading-critical-css.test.ts` still passes because
-`loading.html` is untouched. (`Portal.tsx` is not yet imported anywhere;
-that is fine.)
+Expected: all green — `loading-critical-css.test.ts` still passes because `loading.html` is untouched. (`Portal.tsx` is not yet imported anywhere; that is fine.)
 
 - [ ] **Step 6: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`refactor(renderer): extract ember portal into a shared component`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `refactor(renderer): extract ember portal into a shared component`.
 
 ---
 
@@ -616,12 +561,8 @@ STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
 
 **Interfaces:**
 
-- Consumes: `buildDisabledPatch` (Task 3), `Portal` (Task 4), `useShell`
-  store, `window.goetia.send('settings:update', …)`.
-- Produces: `Welcome()` default export; root element carries
-  `data-testid="welcome"`; picker tiles are buttons named by service
-  (`aria-pressed` reflects selection); confirm button text is
-  `Summon N service(s)` — Task 7's e2e relies on all three.
+- Consumes: `buildDisabledPatch` (Task 3), `Portal` (Task 4), `useShell` store, `window.goetia.send('settings:update', …)`.
+- Produces: `Welcome()` default export; root element carries `data-testid="welcome"`; picker tiles are buttons named by service (`aria-pressed` reflects selection); confirm button text is `Summon N service(s)` — Task 7's e2e relies on all three.
 
 - [ ] **Step 1: Create `src/renderer/src/components/Welcome.tsx`**
 
@@ -872,21 +813,17 @@ with:
 
 Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test`
 
-Expected: all green. (The screen is not yet reachable with default
-settings; e2e coverage lands with the defaults flip in Task 7.)
+Expected: all green. (The screen is not yet reachable with default settings; e2e coverage lands with the defaults flip in Task 7.)
 
 - [ ] **Step 4: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(renderer): welcome screen shown when every service is disabled`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(renderer): welcome screen shown when every service is disabled`.
 
 ---
 
 ### Task 6: allow disabling every service in Settings
 
-The welcome screen is the supported zero-enabled state, and disabling
-everything is the way back to it. Drop the "last enabled service" checkbox
-guard.
+The welcome screen is the supported zero-enabled state, and disabling everything is the way back to it. Drop the "last enabled service" checkbox guard.
 
 **Files:**
 
@@ -895,9 +832,7 @@ guard.
 **Interfaces:**
 
 - Consumes: nothing new.
-- Produces: behavior only — unchecking the final enabled service is now
-  allowed; main destroys all views (existing handler loop) and the derived
-  welcome condition becomes true.
+- Produces: behavior only — unchecking the final enabled service is now allowed; main destroys all views (existing handler loop) and the derived welcome condition becomes true.
 
 - [ ] **Step 1: Remove the guard**
 
@@ -929,8 +864,7 @@ with:
 />
 ```
 
-(Whitespace may differ from the file after Biome formatting — the change is
-solely deleting the `disabled={…}` prop.)
+(Whitespace may differ from the file after Biome formatting — the change is solely deleting the `disabled={…}` prop.)
 
 - [ ] **Step 2: Verify the gate**
 
@@ -940,15 +874,13 @@ Expected: all green.
 
 - [ ] **Step 3: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(settings): allow disabling every service`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(settings): allow disabling every service`.
 
 ---
 
 ### Task 7: all-disabled defaults + e2e coverage
 
-Flip the fresh-install defaults, seed the existing e2e profiles so their
-assertions keep holding, and add the welcome e2e.
+Flip the fresh-install defaults, seed the existing e2e profiles so their assertions keep holding, and add the welcome e2e.
 
 **Files:**
 
@@ -961,13 +893,11 @@ assertions keep holding, and add the welcome e2e.
 **Interfaces:**
 
 - Consumes: everything from Tasks 1–6.
-- Produces: `DEFAULT_SETTINGS.disabled` all `true`; e2e specs
-  self-contained.
+- Produces: `DEFAULT_SETTINGS.disabled` all `true`; e2e specs self-contained.
 
 - [ ] **Step 1: Flip the defaults**
 
-In `src/shared/types.ts`, replace the `disabled` record of
-`DEFAULT_SETTINGS`:
+In `src/shared/types.ts`, replace the `disabled` record of `DEFAULT_SETTINGS`:
 
 ```ts
   disabled: {
@@ -1000,9 +930,7 @@ with:
 
 Run: `corepack pnpm test`
 
-Expected: all green (`settings.test.ts` is default-value-agnostic; if
-anything fails on the new defaults, fix the test's seeded expectations, not
-the defaults).
+Expected: all green (`settings.test.ts` is default-value-agnostic; if anything fails on the new defaults, fix the test's seeded expectations, not the defaults).
 
 - [ ] **Step 3: Seed the existing e2e profiles**
 
@@ -1035,9 +963,7 @@ Immediately after the `const profile = mkdtempSync(…)` line, add:
   );
 ```
 
-In `smoke.spec.ts`, update the stale comment
-`// only messenger and zalo are enabled by default` to
-`// the seeded profile enables only messenger and zalo`.
+In `smoke.spec.ts`, update the stale comment `// only messenger and zalo are enabled by default` to `// the seeded profile enables only messenger and zalo`.
 
 - [ ] **Step 4: Create `tests/e2e/welcome.spec.ts`**
 
@@ -1123,8 +1049,7 @@ Expected: all green.
 
 - [ ] **Step 8: Commit**
 
-STOP. Ask the user to run `/grimoire-core:commit`. Suggested message:
-`feat(app): welcome screen for fresh installs (all services start disabled)`.
+STOP. Ask the user to run `/grimoire-core:commit`. Suggested message: `feat(app): welcome screen for fresh installs (all services start disabled)`.
 
 ---
 
@@ -1154,5 +1079,4 @@ Run `corepack pnpm dev` and check, in a scratch profile if available:
 - Settings → disable every service → welcome returns; re-enable works.
 - Dark and light themes both render correctly (Settings → Theme).
 
-Report results to the user; do not claim success without having run the
-commands.
+Report results to the user; do not claim success without having run the commands.

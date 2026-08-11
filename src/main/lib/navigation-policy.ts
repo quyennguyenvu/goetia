@@ -6,6 +6,14 @@ import type { ServiceId } from '../../shared/types';
  *  VERIFY LIVE per service before enforcing — auth hosts change. */
 const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   messenger: ['www.facebook.com', 'm.facebook.com', 'facebook.com', 'messenger.com'],
+  // facebook hosts for the Log-in-with-Facebook bounce
+  instagram: [
+    'www.instagram.com',
+    'instagram.com',
+    'accounts.instagram.com',
+    'www.facebook.com',
+    'facebook.com',
+  ],
   telegram: ['web.telegram.org'],
   zalo: ['chat.zalo.me', 'id.zalo.me', 'zalo.me'],
   whatsapp: ['web.whatsapp.com'],

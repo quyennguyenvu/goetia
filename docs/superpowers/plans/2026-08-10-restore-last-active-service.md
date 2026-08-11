@@ -1,43 +1,24 @@
 # Restore the last active service implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Quitting on Discord and reopening lands on Discord — the app records
-the surface you left (a service, or Home) and restores it on the next launch.
+**Goal:** Quitting on Discord and reopening lands on Discord — the app records the surface you left (a service, or Home) and restores it on the next launch.
 
-**Architecture:** Two new `Settings` fields written the moment the surface
-changes, plus one pure resolver that turns them into a startup decision.
-`index.ts` stays thin wiring; all branching lives in
-`src/main/lib/startup-surface.ts` with a unit test, matching how
-`activation-rules.ts` already works.
+**Architecture:** Two new `Settings` fields written the moment the surface changes, plus one pure resolver that turns them into a startup decision. `index.ts` stays thin wiring; all branching lives in `src/main/lib/startup-surface.ts` with a unit test, matching how `activation-rules.ts` already works.
 
-**Tech Stack:** Electron 43, TypeScript, `conf` (via `SettingsStore`), vitest
-for units, Playwright (`_electron`) for e2e.
+**Tech Stack:** Electron 43, TypeScript, `conf` (via `SettingsStore`), vitest for units, Playwright (`_electron`) for e2e.
 
 Spec: `docs/superpowers/specs/2026-08-10-restore-last-active-service-design.md`
 
 ## Global Constraints
 
-- Definition of done for every task: `corepack pnpm lint`, `corepack pnpm
-  typecheck`, and `corepack pnpm test` green. Tasks 3 and 4 also need
-  `corepack pnpm e2e`.
-- Run e2e as `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`. A VS Code
-  integrated shell exports `ELECTRON_RUN_AS_NODE`, which makes Playwright's
-  Electron launch start Node instead of the app.
-- **Never run `git commit` yourself.** Every task ends by stopping and asking
-  the user to run `/grimoire-core:commit`, per their global instructions.
-- `src/shared/**` stays process-agnostic — no `electron` and no DOM imports.
-  Task 1 touches `src/shared/types.ts` and must keep it import-free.
-- No new IPC channel is introduced, so nothing is added to
-  `SHELL_ONLY_CHANNELS`. If a task seems to need one, stop — the design is
-  wrong, not the constraint.
-- No code path may make a service view visible while a shell surface is open.
-  Task 4's startup call must pass `{ show: false }` when Home is restored.
-- Comments explain *why*, not *what*, and match the density of the file being
-  edited. Do not add section banners or "added X" notes.
+- Definition of done for every task: `corepack pnpm lint`, `corepack pnpm typecheck`, and `corepack pnpm test` green. Tasks 3 and 4 also need `corepack pnpm e2e`.
+- Run e2e as `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`. A VS Code integrated shell exports `ELECTRON_RUN_AS_NODE`, which makes Playwright's Electron launch start Node instead of the app.
+- **Never run `git commit` yourself.** Every task ends by stopping and asking the user to run `/grimoire-core:commit`, per their global instructions.
+- `src/shared/**` stays process-agnostic — no `electron` and no DOM imports. Task 1 touches `src/shared/types.ts` and must keep it import-free.
+- No new IPC channel is introduced, so nothing is added to `SHELL_ONLY_CHANNELS`. If a task seems to need one, stop — the design is wrong, not the constraint.
+- No code path may make a service view visible while a shell surface is open. Task 4's startup call must pass `{ show: false }` when Home is restored.
+- Comments explain *why*, not *what*, and match the density of the file being edited. Do not add section banners or "added X" notes.
 
 ## File Structure
 
@@ -58,8 +39,7 @@ Spec: `docs/superpowers/specs/2026-08-10-restore-last-active-service-design.md`
 
 ### Task 1: Persist the two fields
 
-`Settings` gains the record. Nothing reads it yet — this task only proves it
-survives a store round trip and that `normalize()` leaves it alone.
+`Settings` gains the record. Nothing reads it yet — this task only proves it survives a store round trip and that `normalize()` leaves it alone.
 
 **Files:**
 
@@ -69,15 +49,11 @@ survives a store round trip and that `normalize()` leaves it alone.
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `Settings['lastActiveId']` (`ServiceId | null`, default `null`) and
-  `Settings['lastHomeOpen']` (`boolean`, default `false`). Tasks 2, 3, and 4
-  all read or write these exact names.
+- Produces: `Settings['lastActiveId']` (`ServiceId | null`, default `null`) and `Settings['lastHomeOpen']` (`boolean`, default `false`). Tasks 2, 3, and 4 all read or write these exact names.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append these three cases inside the existing `describe('SettingsStore', …)` in
-`tests/unit/settings.test.ts`, after the `persists the last announced version`
-case:
+Append these three cases inside the existing `describe('SettingsStore', …)` in `tests/unit/settings.test.ts`, after the `persists the last announced version` case:
 
 ```ts
   it('starts with no remembered surface', () => {
@@ -105,9 +81,7 @@ case:
   });
 ```
 
-The `as string` cast is deliberate: `'skype'` is not a `ServiceId`, and the
-cast is what lets the test assert the un-scrubbed value without widening the
-production type.
+The `as string` cast is deliberate: `'skype'` is not a `ServiceId`, and the cast is what lets the test assert the un-scrubbed value without widening the production type.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -115,14 +89,11 @@ production type.
 corepack pnpm vitest run tests/unit/settings.test.ts
 ```
 
-Expected: the three new cases FAIL. `starts with no remembered surface` fails
-on `undefined` rather than `null`; the other two fail typecheck-adjacent at
-runtime because the keys do not exist yet.
+Expected: the three new cases FAIL. `starts with no remembered surface` fails on `undefined` rather than `null`; the other two fail typecheck-adjacent at runtime because the keys do not exist yet.
 
 - [ ] **Step 3: Add the fields**
 
-In `src/shared/types.ts`, inside `interface Settings`, immediately after the
-`lastNotifiedVersion: string | null;` line:
+In `src/shared/types.ts`, inside `interface Settings`, immediately after the `lastNotifiedVersion: string | null;` line:
 
 ```ts
   /** service focused when the app last closed; null until first recorded */
@@ -138,8 +109,7 @@ And in `DEFAULT_SETTINGS`, immediately after `lastNotifiedVersion: null,`:
   lastHomeOpen: false,
 ```
 
-Do not touch `normalize()` in `src/main/settings.ts`. Leaving an unknown
-`lastActiveId` intact is what the third test pins down.
+Do not touch `normalize()` in `src/main/settings.ts`. Leaving an unknown `lastActiveId` intact is what the third test pins down.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -155,14 +125,11 @@ Expected: PASS, all cases.
 corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test
 ```
 
-Expected: all green. `DEFAULT_SETTINGS` is exhaustively typed, so a missed
-default surfaces here as a typecheck error.
+Expected: all green. `DEFAULT_SETTINGS` is exhaustively typed, so a missed default surfaces here as a typecheck error.
 
 - [ ] **Step 6: Stop and request a commit**
 
-Do not run `git commit`. Stop and ask the user to run
-`/grimoire-core:commit`, suggesting:
-`feat(settings): record the last active service and home state`
+Do not run `git commit`. Stop and ask the user to run `/grimoire-core:commit`, suggesting: `feat(settings): record the last active service and home state`
 
 ---
 
@@ -177,18 +144,12 @@ The whole launch decision, as one pure function with no Electron imports.
 
 **Interfaces:**
 
-- Consumes: `Settings['lastActiveId']` and `Settings['lastHomeOpen']` from
-  Task 1.
-- Produces: `resolveStartupSurface(input): StartupSurface` where
-  `StartupSurface = { activeId: ServiceId | null; homeOpen: boolean }` and
-  `input = { order: ServiceId[]; disabled: Settings['disabled']; lastActiveId:
-  ServiceId | null; lastHomeOpen: boolean }`. Task 4 calls exactly this.
+- Consumes: `Settings['lastActiveId']` and `Settings['lastHomeOpen']` from Task 1.
+- Produces: `resolveStartupSurface(input): StartupSurface` where `StartupSurface = { activeId: ServiceId | null; homeOpen: boolean }` and `input = { order: ServiceId[]; disabled: Settings['disabled']; lastActiveId: ServiceId | null; lastHomeOpen: boolean }`. Task 4 calls exactly this.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `tests/unit/startup-surface.test.ts`. The `rec` helper mirrors
-`tests/unit/activation-rules.test.ts` — it takes the **enabled** ids and
-returns the inverted `disabled` record.
+Create `tests/unit/startup-surface.test.ts`. The `rec` helper mirrors `tests/unit/activation-rules.test.ts` — it takes the **enabled** ids and returns the inverted `disabled` record.
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -344,17 +305,13 @@ Expected: all green.
 
 - [ ] **Step 6: Stop and request a commit**
 
-Do not run `git commit`. Stop and ask the user to run
-`/grimoire-core:commit`, suggesting:
-`feat(main): resolve the launch surface from the remembered service`
+Do not run `git commit`. Stop and ask the user to run `/grimoire-core:commit`, suggesting: `feat(main): resolve the launch surface from the remembered service`
 
 ---
 
 ### Task 3: Record the surface on every change
 
-Three writers of `activeId`/`homeOpen` become one recorded path. Note the
-fourth writer this task exists to catch: `toggleHome` in `menu.ts` mutates
-`ctx.state.homeOpen` directly for `⌘/Ctrl 0`, bypassing the IPC handler.
+Three writers of `activeId`/`homeOpen` become one recorded path. Note the fourth writer this task exists to catch: `toggleHome` in `menu.ts` mutates `ctx.state.homeOpen` directly for `⌘/Ctrl 0`, bypassing the IPC handler.
 
 **Files:**
 
@@ -366,14 +323,11 @@ fourth writer this task exists to catch: `toggleHome` in `menu.ts` mutates
 **Interfaces:**
 
 - Consumes: `Settings['lastActiveId']` / `lastHomeOpen` from Task 1.
-- Produces: `rememberSurface(ctx: AppContext): void` and
-  `setHomeOpen(ctx: AppContext, open: boolean): void`, both exported from
-  `src/main/activate.ts`. `setHomeOpen` does **not** move focus — callers do.
+- Produces: `rememberSurface(ctx: AppContext): void` and `setHomeOpen(ctx: AppContext, open: boolean): void`, both exported from `src/main/activate.ts`. `setHomeOpen` does **not** move focus — callers do.
 
 - [ ] **Step 1: Write the failing test**
 
-Replace the whole of `tests/unit/activate.test.ts`. `makeCtx` now returns the
-ctx plus the spies the assertions need, so no test reaches into a cast object:
+Replace the whole of `tests/unit/activate.test.ts`. `makeCtx` now returns the ctx plus the spies the assertions need, so no test reaches into a cast object:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -552,9 +506,7 @@ Replace the `home:setOpen` handler (currently lines 86-93) with:
 
 - [ ] **Step 6: Record after a composition change re-homes the selection**
 
-Still in `src/main/ipc-handlers.ts`, in the `if (patch.disabled)` branch, add
-`rememberSurface(ctx);` between the closing brace of `if (next) { … }` and the
-`buildAppMenu(ctx);` call, so the block reads:
+Still in `src/main/ipc-handlers.ts`, in the `if (patch.disabled)` branch, add `rememberSurface(ctx);` between the closing brace of `if (next) { … }` and the `buildAppMenu(ctx);` call, so the block reads:
 
 ```ts
       if (next) {
@@ -588,8 +540,7 @@ function toggleHome(ctx: AppContext): void {
 }
 ```
 
-Keep the unconditional focus. The IPC path focuses only when opening; making
-these identical is a behavior change outside this plan's scope.
+Keep the unconditional focus. The IPC path focuses only when opening; making these identical is a behavior change outside this plan's scope.
 
 - [ ] **Step 8: Full check**
 
@@ -598,21 +549,17 @@ corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test
 env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e
 ```
 
-Expected: all green. `home.spec.ts` exercises the sigil and the banish path
-that Steps 5 and 6 touched — if it regresses, the cause is here, not Task 4.
+Expected: all green. `home.spec.ts` exercises the sigil and the banish path that Steps 5 and 6 touched — if it regresses, the cause is here, not Task 4.
 
 - [ ] **Step 9: Stop and request a commit**
 
-Do not run `git commit`. Stop and ask the user to run
-`/grimoire-core:commit`, suggesting:
-`feat(main): record the active surface whenever it changes`
+Do not run `git commit`. Stop and ask the user to run `/grimoire-core:commit`, suggesting: `feat(main): record the active surface whenever it changes`
 
 ---
 
 ### Task 4: Restore it at launch
 
-The payoff task: startup reads the record, and an e2e proves the actual
-quit-and-reopen loop.
+The payoff task: startup reads the record, and an e2e proves the actual quit-and-reopen loop.
 
 **Files:**
 
@@ -626,9 +573,7 @@ quit-and-reopen loop.
 
 - [ ] **Step 1: Write the failing e2e**
 
-Create `tests/e2e/restart.spec.ts`. Every test launches twice against the
-**same** profile directory — that reuse is the whole point, so do not call
-`mkdtempSync` inside `launch`:
+Create `tests/e2e/restart.spec.ts`. Every test launches twice against the **same** profile directory — that reuse is the whole point, so do not call `mkdtempSync` inside `launch`:
 
 ```ts
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -719,20 +664,17 @@ test('restart: a recorded service that is now disabled opens Home', async () => 
 env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e tests/e2e/restart.spec.ts
 ```
 
-Expected: all three FAIL. The first reopens on Messenger instead of Telegram;
-the other two find no `welcome` element.
+Expected: all three FAIL. The first reopens on Messenger instead of Telegram; the other two find no `welcome` element.
 
 - [ ] **Step 3: Wire the resolver into startup**
 
-In `src/main/index.ts`, add to the imports (keeping them alphabetical among
-the `./lib/` group, after `./lib/ua`):
+In `src/main/index.ts`, add to the imports (keeping them alphabetical among the `./lib/` group, after `./lib/ua`):
 
 ```ts
 import { resolveStartupSurface } from './lib/startup-surface';
 ```
 
-Replace lines 188-196 — the `const s0` through the `if (first) { … }` block —
-with:
+Replace lines 188-196 — the `const s0` through the `if (first) { … }` block — with:
 
 ```ts
     const s0 = settings.get();
@@ -753,9 +695,7 @@ with:
     }
 ```
 
-Leave the `views.ensure(id)` loop that follows untouched — it still warms every
-enabled never-hibernate service, so restoring a different service costs no
-extra view.
+Leave the `views.ensure(id)` loop that follows untouched — it still warms every enabled never-hibernate service, so restoring a different service costs no extra view.
 
 - [ ] **Step 4: Run the e2e to verify it passes**
 
@@ -774,10 +714,7 @@ env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e
 
 Expected: all green. Watch two in particular:
 
-- `welcome.spec.ts` relaunches after summoning Zalo and asserts the welcome
-  screen is gone. That still holds: a fresh install shows welcome via
-  `allDisabled` with `homeOpen` false, so the confirm records
-  `{ lastActiveId: 'zalo', lastHomeOpen: false }`.
+- `welcome.spec.ts` relaunches after summoning Zalo and asserts the welcome screen is gone. That still holds: a fresh install shows welcome via `allDisabled` with `homeOpen` false, so the confirm records `{ lastActiveId: 'zalo', lastHomeOpen: false }`.
 - `home.spec.ts` drives the sigil and the banish path.
 
 - [ ] **Step 6: Verify by hand in the real app**
@@ -786,17 +723,11 @@ Expected: all green. Watch two in particular:
 corepack pnpm dev
 ```
 
-Enable two services, click the second, quit with `⌘Q`, relaunch: it opens on
-the second. Then press `⌘0` for Home, quit, relaunch: it opens on Home, and
-pressing `Escape` reveals the service underneath rather than a blank pane.
-That `Escape` check is the one thing no test covers directly — it is the
-`{ show: false }` invariant paying off.
+Enable two services, click the second, quit with `⌘Q`, relaunch: it opens on the second. Then press `⌘0` for Home, quit, relaunch: it opens on Home, and pressing `Escape` reveals the service underneath rather than a blank pane. That `Escape` check is the one thing no test covers directly — it is the `{ show: false }` invariant paying off.
 
 - [ ] **Step 7: Stop and request a commit**
 
-Do not run `git commit`. Stop and ask the user to run
-`/grimoire-core:commit`, suggesting:
-`feat(app): reopen on the last active service or Home`
+Do not run `git commit`. Stop and ask the user to run `/grimoire-core:commit`, suggesting: `feat(app): reopen on the last active service or Home`
 
 ---
 
@@ -805,11 +736,8 @@ Do not run `git commit`. Stop and ask the user to run
 Do not add any of these, even if a task seems to invite it:
 
 - Persisting Settings or the quick switcher. Only Home is a destination.
-- Persisting hibernation, unread counts, scroll position, or per-service
-  navigation. A restored service loads its `SERVICES[].url` chat entry point.
+- Persisting hibernation, unread counts, scroll position, or per-service navigation. A restored service loads its `SERVICES[].url` chat entry point.
 - Window bounds, position, or maximized state.
-- Changes to `resolveActivation`, which keeps owning the *runtime* re-homing
-  after a composition change. `resolveStartupSurface` owns launch only.
-- A migration step. A `settings.json` without the fields reads as
-  `null` / `false` through `DEFAULT_SETTINGS`.
+- Changes to `resolveActivation`, which keeps owning the *runtime* re-homing after a composition change. `resolveStartupSurface` owns launch only.
+- A migration step. A `settings.json` without the fields reads as `null` / `false` through `DEFAULT_SETTINGS`.
 - Unifying the focus behavior of `toggleHome` and the `home:setOpen` handler.

@@ -96,7 +96,7 @@ describe('welcomeSections', () => {
   it('splits a mixed set', () => {
     expect(welcomeSections(order, set('messenger', 'zalo'))).toEqual({
       summoned: ['messenger', 'zalo'],
-      unbound: ['telegram', 'whatsapp', 'discord', 'tiktok', 'shopee'],
+      unbound: ['instagram', 'telegram', 'whatsapp', 'discord', 'tiktok', 'shopee'],
     });
   });
 

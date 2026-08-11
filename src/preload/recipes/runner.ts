@@ -46,6 +46,16 @@ export function startRecipe(
         snapBack();
       }
     }
+    if (recipe.hideChrome) {
+      try {
+        for (const el of recipe.hideChrome(doc)) {
+          const style = (el as HTMLElement).style;
+          if (style && style.display !== 'none') style.display = 'none';
+        }
+      } catch {
+        // chrome hiding is cosmetic; counting below still decides staleness
+      }
+    }
     if (reportKeepAlive && recipe.keepAlive) {
       try {
         const pt = recipe.keepAlive(doc);

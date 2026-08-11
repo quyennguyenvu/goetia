@@ -1,11 +1,10 @@
 {
-  // Prose wraps at 80. Fenced code is exempt: specs and plans embed real
-  // source, and a Tailwind className string cannot be reflowed.
-  // No "globs" on purpose — pass files explicitly, so a bare run never
-  // sweeps legacy docs written before this config existed.
+  // Prose is never hard-wrapped: one line per paragraph or bullet, however
+  // long (MD013 off — user rule; every tracked doc reflowed 2026-08-11).
+  // No "globs" on purpose — pass files explicitly.
   "config": {
     "default": true,
-    "MD013": { "line_length": 80, "code_blocks": false, "tables": false },
+    "MD013": false,
     // The README is a showcase: centered banner, theme-aware screenshots via
     // <picture>, folded troubleshooting. Nothing wider than this list.
     // h1 is here so the page can open with the banner and still satisfy

@@ -29,7 +29,7 @@ test('fresh install: welcome picker → summon → rail', async () => {
   const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   await expect(summoned).toContainText('Nothing yet.');
-  await expect(unbound.getByRole('button')).toHaveCount(7);
+  await expect(unbound.getByRole('button')).toHaveCount(8);
 
   // confirm is disabled until something is selected
   const summon = win.getByRole('button', { name: /^Summon/ });

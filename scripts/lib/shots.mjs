@@ -6,6 +6,7 @@
 /** Must match SERVICES in src/shared/services.ts (locked by a unit test). */
 export const ALL_SERVICE_IDS = [
   'messenger',
+  'instagram',
   'telegram',
   'zalo',
   'whatsapp',

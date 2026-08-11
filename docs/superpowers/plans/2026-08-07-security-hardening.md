@@ -1,35 +1,20 @@
 # Security Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Harden Goetia against local malware (threat A), hostile service
-pages (threat B), and a tampered supply chain (threat C), per the
-remediation design.
+**Goal:** Harden Goetia against local malware (threat A), hostile service pages (threat B), and a tampered supply chain (threat C), per the remediation design.
 
-**Architecture:** Electron fuses lock down the packaged binary and encrypt
-session cookies at rest. Service-view creation gains a scheme allowlist for
-external opens, an origin-checked permission handler, and per-service
-navigation containment. The IPC layer gains a sender-origin policy and the
-notification router a per-service rate limit. The release workflow pins
-actions by SHA and attests build provenance. Pure decision logic lives in
-small helpers with unit tests; only thin wiring touches Electron objects.
+**Architecture:** Electron fuses lock down the packaged binary and encrypt session cookies at rest. Service-view creation gains a scheme allowlist for external opens, an origin-checked permission handler, and per-service navigation containment. The IPC layer gains a sender-origin policy and the notification router a per-service rate limit. The release workflow pins actions by SHA and attests build provenance. Pure decision logic lives in small helpers with unit tests; only thin wiring touches Electron objects.
 
-**Tech Stack:** Electron 43, electron-builder 26, TypeScript, vitest
-(happy-dom), GitHub Actions.
+**Tech Stack:** Electron 43, electron-builder 26, TypeScript, vitest (happy-dom), GitHub Actions.
 
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-08-07-hardening-and-remediation-design.md`
 - **No `git commit` anywhere** — the repo owner commits via `/commit`.
-- Verify code tasks with: `pnpm lint`, `pnpm typecheck`, `pnpm test`; wiring
-  tasks also with `pnpm e2e` (unset `ELECTRON_RUN_AS_NODE` first).
+- Verify code tasks with: `pnpm lint`, `pnpm typecheck`, `pnpm test`; wiring tasks also with `pnpm e2e` (unset `ELECTRON_RUN_AS_NODE` first).
 - Never weaken the shell window's `contextIsolation: true` / `sandbox: true`.
-- Service views keep `contextIsolation: false` / `sandbox: false` (required
-  by the recipe workarounds) — hardening works *around* that, not by
-  flipping it.
+- Service views keep `contextIsolation: false` / `sandbox: false` (required by the recipe workarounds) — hardening works *around* that, not by flipping it.
 
 ---
 
@@ -41,9 +26,7 @@ small helpers with unit tests; only thin wiring touches Electron objects.
 
 **Interfaces:**
 
-- Produces: a packaged binary with run-as-node / node-options / cli-inspect
-  disabled and cookie-encryption + asar-integrity + load-only-from-asar
-  enabled.
+- Produces: a packaged binary with run-as-node / node-options / cli-inspect disabled and cookie-encryption + asar-integrity + load-only-from-asar enabled.
 
 - [ ] **Step 1: Add the fuses block**
 
@@ -65,17 +48,11 @@ electronFuses:
   resetAdHocDarwinSignature: true
 ```
 
-> **Note:** keys are validated against electron-builder's schema —
-> `enableRunAsNode` is NOT valid (only `runAsNode`); including it fails the
-> whole config with "configuration.electronFuses should be one of these:
-> null". `resetAdHocDarwinSignature: true` keeps the binary ad-hoc signed
-> after fuse-flipping, which this app's notifications depend on.
+> **Note:** keys are validated against electron-builder's schema — `enableRunAsNode` is NOT valid (only `runAsNode`); including it fails the whole config with "configuration.electronFuses should be one of these: null". `resetAdHocDarwinSignature: true` keeps the binary ad-hoc signed after fuse-flipping, which this app's notifications depend on.
 
 - [ ] **Step 2: Confirm the fuses dependency resolves**
 
-Run: `pnpm why @electron/fuses`
-Expected: present (transitive via electron-builder). If absent, add it:
-`pnpm add -D @electron/fuses`.
+Run: `pnpm why @electron/fuses` Expected: present (transitive via electron-builder). If absent, add it: `pnpm add -D @electron/fuses`.
 
 - [ ] **Step 3: Build and read back the fuses**
 
@@ -86,16 +63,11 @@ pnpm package:mac
 npx @electron/fuses read --app 'dist/mac-arm64/Goetia.app'
 ```
 
-Expected: `RunAsNode` off, `EnableNodeOptionsEnvironmentVariable` off,
-`EnableNodeCliInspectArguments` off, `EnableCookieEncryption` on,
-`EnableEmbeddedAsarIntegrityValidation` on, `OnlyLoadAppFromAsar` on.
+Expected: `RunAsNode` off, `EnableNodeOptionsEnvironmentVariable` off, `EnableNodeCliInspectArguments` off, `EnableCookieEncryption` on, `EnableEmbeddedAsarIntegrityValidation` on, `OnlyLoadAppFromAsar` on.
 
 - [ ] **Step 4: Manual smoke — app still launches and notifies**
 
-Launch the built app, confirm it opens and a service loads. Cookie
-encryption changes the at-rest format; existing dev `persist:` data is
-unaffected because dev is unpackaged. Note in the PR that the first packaged
-launch re-encrypts cookies.
+Launch the built app, confirm it opens and a service loads. Cookie encryption changes the at-rest format; existing dev `persist:` data is unaffected because dev is unpackaged. Note in the PR that the first packaged launch re-encrypts cookies.
 
 ---
 
@@ -109,8 +81,7 @@ launch re-encrypts cookies.
 
 **Interfaces:**
 
-- Produces: `isSafeExternalUrl(url: string): boolean` — true only for
-  `http:`/`https:`.
+- Produces: `isSafeExternalUrl(url: string): boolean` — true only for `http:`/`https:`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -139,8 +110,7 @@ describe('isSafeExternalUrl', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/external-url.test.ts`
-Expected: FAIL — cannot find module `external-url`.
+Run: `pnpm vitest run tests/unit/external-url.test.ts` Expected: FAIL — cannot find module `external-url`.
 
 - [ ] **Step 3: Implement the helper**
 
@@ -161,8 +131,7 @@ export function isSafeExternalUrl(url: string): boolean {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/external-url.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/external-url.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Wire it into the window-open handler**
 
@@ -185,8 +154,7 @@ Replace the handler at `views.ts:72-76`:
 
 - [ ] **Step 6: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -201,10 +169,7 @@ Expected: PASS.
 **Interfaces:**
 
 - Consumes: `serviceById` from `src/shared/services.ts`, `ServiceId`.
-- Produces: `permissionAllowed(opts): boolean` where
-  `opts = { permission: string; requestingUrl: string; serviceUrl: string }`
-  — grants only `notifications`/`media`, and only when the requesting
-  origin equals the service's own origin.
+- Produces: `permissionAllowed(opts): boolean` where `opts = { permission: string; requestingUrl: string; serviceUrl: string }` — grants only `notifications`/`media`, and only when the requesting origin equals the service's own origin.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -258,8 +223,7 @@ describe('permissionAllowed', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/permission-policy.test.ts`
-Expected: FAIL — cannot find module `permission-policy`.
+Run: `pnpm vitest run tests/unit/permission-policy.test.ts` Expected: FAIL — cannot find module `permission-policy`.
 
 - [ ] **Step 3: Implement the helper**
 
@@ -286,8 +250,7 @@ export function permissionAllowed(opts: {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/permission-policy.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/permission-policy.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Wire it into the session handlers**
 
@@ -329,10 +292,7 @@ Replace `configureSession` (`views.ts:38-48`):
 
 - [ ] **Step 6: Verify (and manual media check)**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS. Manual: notifications still fire for an enabled service.
-Media is only exercised if a service starts a call; note in the PR that
-call-capable services (none by default) would need their permission kept.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS. Manual: notifications still fire for an enabled service. Media is only exercised if a service starts a call; note in the PR that call-capable services (none by default) would need their permission kept.
 
 ---
 
@@ -342,15 +302,13 @@ call-capable services (none by default) would need their permission kept.
 
 - Create: `src/main/lib/ipc-sender-policy.ts`
 - Test: `tests/unit/ipc-sender-policy.test.ts`
-- Modify: `src/main/views.ts` (add `serviceIdForFrame`), `src/shared/ipc.ts`
-  (export channel classification), `src/main/ipc-handlers.ts:23-28`
+- Modify: `src/main/views.ts` (add `serviceIdForFrame`), `src/shared/ipc.ts` (export channel classification), `src/main/ipc-handlers.ts:23-28`
 
 **Interfaces:**
 
 - Consumes: `R2M_CHANNELS`, `RendererToMain` from `src/shared/ipc.ts`.
 - Produces:
-  - `SHELL_ONLY_CHANNELS: ReadonlySet<keyof RendererToMain>` in
-    `src/shared/ipc.ts`.
+  - `SHELL_ONLY_CHANNELS: ReadonlySet<keyof RendererToMain>` in `src/shared/ipc.ts`.
   - `ServiceViewManager.serviceIdForFrameUrl(url: string): ServiceId | null`.
   - `ipcSenderAllowed(opts): boolean` in `ipc-sender-policy.ts`.
 
@@ -438,8 +396,7 @@ describe('ipcSenderAllowed', () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/ipc-sender-policy.test.ts`
-Expected: FAIL — cannot find module `ipc-sender-policy`.
+Run: `pnpm vitest run tests/unit/ipc-sender-policy.test.ts` Expected: FAIL — cannot find module `ipc-sender-policy`.
 
 - [ ] **Step 4: Implement the policy**
 
@@ -466,13 +423,11 @@ export function ipcSenderAllowed(opts: {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/ipc-sender-policy.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/ipc-sender-policy.test.ts` Expected: PASS.
 
 - [ ] **Step 6: Add frame→service lookup on the view manager**
 
-In `src/main/views.ts`, add a public method to `ServiceViewManager`
-(after `has`):
+In `src/main/views.ts`, add a public method to `ServiceViewManager` (after `has`):
 
 ```ts
   /** The service whose view owns this webContents id, or null. */
@@ -486,8 +441,7 @@ In `src/main/views.ts`, add a public method to `ServiceViewManager`
 
 - [ ] **Step 7: Enforce the policy in the IPC dispatcher**
 
-In `src/main/ipc-handlers.ts`, change the `on` wrapper (`ipc-handlers.ts:23`)
-to validate the sender. Replace lines 23-28:
+In `src/main/ipc-handlers.ts`, change the `on` wrapper (`ipc-handlers.ts:23`) to validate the sender. Replace lines 23-28:
 
 ```ts
 function register(ctx: AppContext): <C extends keyof RendererToMain>(
@@ -521,8 +475,7 @@ Add imports at the top of `ipc-handlers.ts`:
 import { ipcSenderAllowed } from './lib/ipc-sender-policy';
 ```
 
-Then in `registerIpcHandlers`, bind the closure once at the top and keep
-every existing `on(...)` call unchanged:
+Then in `registerIpcHandlers`, bind the closure once at the top and keep every existing `on(...)` call unchanged:
 
 ```ts
 export function registerIpcHandlers(
@@ -536,10 +489,7 @@ export function registerIpcHandlers(
 
 - [ ] **Step 8: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e`
-Expected: PASS. The e2e drives real service + shell frames, so a broken
-policy (dropping legitimate `unread:update` / `service:activate`) fails the
-smoke test.
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm e2e` Expected: PASS. The e2e drives real service + shell frames, so a broken policy (dropping legitimate `unread:update` / `service:activate`) fails the smoke test.
 
 ---
 
@@ -553,8 +503,7 @@ smoke test.
 
 **Interfaces:**
 
-- Produces: `NotificationThrottle` class with
-  `allow(id: ServiceId, now: number): boolean`, min interval 800 ms.
+- Produces: `NotificationThrottle` class with `allow(id: ServiceId, now: number): boolean`, min interval 800 ms.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -581,8 +530,7 @@ describe('NotificationThrottle', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/notification-throttle.test.ts`
-Expected: FAIL — cannot find module `notification-throttle`.
+Run: `pnpm vitest run tests/unit/notification-throttle.test.ts` Expected: FAIL — cannot find module `notification-throttle`.
 
 - [ ] **Step 3: Implement the throttle**
 
@@ -609,13 +557,11 @@ export class NotificationThrottle {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/notification-throttle.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/notification-throttle.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Wire it into the router**
 
-In `src/main/notifications.ts`, add the import and a field, and gate
-`handle`. Add near the other imports:
+In `src/main/notifications.ts`, add the import and a field, and gate `handle`. Add near the other imports:
 
 ```ts
 import { NotificationThrottle } from './lib/notification-throttle';
@@ -635,8 +581,7 @@ At the top of `handle`, after the `shouldNotify` guard:
 
 - [ ] **Step 6: Verify**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 ---
 
@@ -651,15 +596,9 @@ Expected: PASS.
 **Interfaces:**
 
 - Consumes: `ServiceId`.
-- Produces: `isNavigationAllowed(id: ServiceId, url: string): boolean` —
-  true when the destination host is in the service's allowlist.
+- Produces: `isNavigationAllowed(id: ServiceId, url: string): boolean` — true when the destination host is in the service's allowlist.
 
-> **Live-verification requirement:** the allowlist below is a starting set
-> derived from each service's login flow. Before merging, log in to every
-> enabled service and confirm sign-in completes with no blocked navigation
-> (watch the main-process console for the `[nav] blocked` line added in
-> Step 5). Add any missing auth host to `ALLOWED_HOSTS` and re-test. Do NOT
-> ship this task until every service's login is verified live.
+> **Live-verification requirement:** the allowlist below is a starting set derived from each service's login flow. Before merging, log in to every enabled service and confirm sign-in completes with no blocked navigation (watch the main-process console for the `[nav] blocked` line added in Step 5). Add any missing auth host to `ALLOWED_HOSTS` and re-test. Do NOT ship this task until every service's login is verified live.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -688,8 +627,7 @@ describe('isNavigationAllowed', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm vitest run tests/unit/navigation-policy.test.ts`
-Expected: FAIL — cannot find module `navigation-policy`.
+Run: `pnpm vitest run tests/unit/navigation-policy.test.ts` Expected: FAIL — cannot find module `navigation-policy`.
 
 - [ ] **Step 3: Implement the allowlist**
 
@@ -724,8 +662,7 @@ export function isNavigationAllowed(id: ServiceId, url: string): boolean {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pnpm vitest run tests/unit/navigation-policy.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/navigation-policy.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Wire the guard into view creation**
 
@@ -735,8 +672,7 @@ In `src/main/views.ts`, add the import:
 import { isNavigationAllowed } from './lib/navigation-policy';
 ```
 
-In `create()`, after the `setWindowOpenHandler` block (around `views.ts:76`),
-add:
+In `create()`, after the `setWindowOpenHandler` block (around `views.ts:76`), add:
 
 ```ts
     const navGuard = (e: Electron.Event, url: string) => {
@@ -753,15 +689,11 @@ add:
 
 - [ ] **Step 6: Verify unit + typecheck**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: PASS.
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: PASS.
 
 - [ ] **Step 7: Live login verification (required)**
 
-For each of messenger, telegram, zalo, whatsapp, discord, shopee: enable
-the service, complete a full login, and confirm no `[nav] blocked` line
-appears for a legitimate step. Add any missing host to `ALLOWED_HOSTS`,
-re-run `pnpm test`, and repeat until every login is clean.
+For each of messenger, telegram, zalo, whatsapp, discord, shopee: enable the service, complete a full login, and confirm no `[nav] blocked` line appears for a legitimate step. Add any missing host to `ALLOWED_HOSTS`, re-run `pnpm test`, and repeat until every login is clean.
 
 ---
 
@@ -773,8 +705,7 @@ re-run `pnpm test`, and repeat until every login is clean.
 
 **Interfaces:**
 
-- Produces: a release workflow with immutable action refs and a provenance
-  attestation on the built installers.
+- Produces: a release workflow with immutable action refs and a provenance attestation on the built installers.
 
 - [ ] **Step 1: Resolve each action tag to a commit SHA**
 
@@ -794,21 +725,17 @@ Expected: one `owner/action@vX -> <40-char sha>` line each. Note the SHAs.
 
 - [ ] **Step 2: Replace each `uses:` tag with `sha # vX`**
 
-In `.github/workflows/release.yml`, rewrite every `uses:` to the pinned
-form, keeping the human-readable tag as a trailing comment, e.g.:
+In `.github/workflows/release.yml`, rewrite every `uses:` to the pinned form, keeping the human-readable tag as a trailing comment, e.g.:
 
 ```yaml
       - uses: actions/checkout@<sha>  # v7
 ```
 
-Apply to all of: `actions/checkout`, `pnpm/action-setup`,
-`actions/setup-node`, `actions/upload-artifact`, `actions/download-artifact`,
-`softprops/action-gh-release`.
+Apply to all of: `actions/checkout`, `pnpm/action-setup`, `actions/setup-node`, `actions/upload-artifact`, `actions/download-artifact`, `softprops/action-gh-release`.
 
 - [ ] **Step 3: Add provenance attestation to the build job**
 
-Grant the job the needed permissions (add under the existing top-level
-`permissions:`):
+Grant the job the needed permissions (add under the existing top-level `permissions:`):
 
 ```yaml
 permissions:
@@ -829,9 +756,7 @@ In the `build` job, after the "Build and package" step, add:
 
 - [ ] **Step 4: Validate the workflow syntax**
 
-Run: `gh workflow view Release` (after pushing the branch) or lint locally
-with `actionlint .github/workflows/release.yml` if available.
-Expected: no syntax errors; the next tag build emits an attestation.
+Run: `gh workflow view Release` (after pushing the branch) or lint locally with `actionlint .github/workflows/release.yml` if available. Expected: no syntax errors; the next tag build emits an attestation.
 
 ---
 
@@ -843,13 +768,11 @@ Expected: no syntax errors; the next tag build emits an attestation.
 
 **Interfaces:**
 
-- Produces: both privileged renderer pages deny plugins, base-tag hijack,
-  and framing.
+- Produces: both privileged renderer pages deny plugins, base-tag hijack, and framing.
 
 - [ ] **Step 1: Extend the CSP meta on both pages**
 
-In `src/renderer/index.html` and `src/renderer/loading.html`, append to the
-existing `Content-Security-Policy` content string:
+In `src/renderer/index.html` and `src/renderer/loading.html`, append to the existing `Content-Security-Policy` content string:
 
 ```text
 ; object-src 'none'; base-uri 'self'; frame-src 'none'
@@ -857,20 +780,12 @@ existing `Content-Security-Policy` content string:
 
 - [ ] **Step 2: Verify the app still renders**
 
-Run: `pnpm e2e`
-Expected: PASS (the shell and loading pages load only first-party assets, so
-the tighter policy changes nothing functional).
+Run: `pnpm e2e` Expected: PASS (the shell and loading pages load only first-party assets, so the tighter policy changes nothing functional).
 
 ---
 
 ## Self-review notes
 
-- Every spec §2.1 security finding maps to a task: Critical→T1, openExternal→
-  T2, permission→T3, IPC sender→T4, notification spam→T5, navigation→T6,
-  supply chain→T7, CSP→T8. `deleteAppDataOnUninstall` and the accepted
-  residual risks are intentionally not tasks (documented in the spec).
-- Helper names are consistent across tasks: `isSafeExternalUrl` (T2) is
-  reused by T6's `navGuard`; `permissionAllowed` (T3), `ipcSenderAllowed`
-  (T4), `isNavigationAllowed` (T6) are each defined once.
-- T6 is explicitly gated on live login verification — the one task that must
-  not ship on unit tests alone.
+- Every spec §2.1 security finding maps to a task: Critical→T1, openExternal→ T2, permission→T3, IPC sender→T4, notification spam→T5, navigation→T6, supply chain→T7, CSP→T8. `deleteAppDataOnUninstall` and the accepted residual risks are intentionally not tasks (documented in the spec).
+- Helper names are consistent across tasks: `isSafeExternalUrl` (T2) is reused by T6's `navGuard`; `permissionAllowed` (T3), `ipcSenderAllowed` (T4), `isNavigationAllowed` (T6) are each defined once.
+- T6 is explicitly gated on live login verification — the one task that must not ship on unit tests alone.

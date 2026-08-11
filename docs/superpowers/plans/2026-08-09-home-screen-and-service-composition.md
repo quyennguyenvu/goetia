@@ -1,52 +1,27 @@
 # Home screen and service composition implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the welcome screen a reachable Home surface that owns service
-composition, reached by a rail sigil and `⌘/Ctrl 0`, and stop any code path
-from showing a service view while a shell surface is on screen.
+**Goal:** Make the welcome screen a reachable Home surface that owns service composition, reached by a rail sigil and `⌘/Ctrl 0`, and stop any code path from showing a service view while a shell surface is on screen.
 
-**Architecture:** `homeOpen` joins `switcherOpen` and `settingsOpen` as a
-session-only boolean on `MainState`, broadcast in `ShellState`; the renderer
-derives `showWelcome = homeOpen || allDisabled`. A pure `anyOverlayOpen()`
-predicate gates the one call that makes a view visible, so activation
-resolution and view presentation stop being the same action. Service
-enable/disable moves out of the Settings modal into Welcome, whose picker
-seeds from live state and whose confirm button names the delta.
+**Architecture:** `homeOpen` joins `switcherOpen` and `settingsOpen` as a session-only boolean on `MainState`, broadcast in `ShellState`; the renderer derives `showWelcome = homeOpen || allDisabled`. A pure `anyOverlayOpen()` predicate gates the one call that makes a view visible, so activation resolution and view presentation stop being the same action. Service enable/disable moves out of the Settings modal into Welcome, whose picker seeds from live state and whose confirm button names the delta.
 
-**Tech Stack:** Electron 43, TypeScript, React 19 + Zustand, Tailwind v4,
-vitest (unit), Playwright (e2e), Biome (lint).
+**Tech Stack:** Electron 43, TypeScript, React 19 + Zustand, Tailwind v4, vitest (unit), Playwright (e2e), Biome (lint).
 
 Spec: `docs/superpowers/specs/2026-08-09-home-screen-and-service-composition-design.md`
 
 ## Global Constraints
 
-- Shell window keeps `contextIsolation: true` + `sandbox: true`; service views
-  keep `contextIsolation: false` + `sandbox: false`. Never change either.
+- Shell window keeps `contextIsolation: true` + `sandbox: true`; service views keep `contextIsolation: false` + `sandbox: false`. Never change either.
 - `src/shared/**` stays process-agnostic: no `electron` import, no DOM import.
-- Every new IPC channel is registered through the `register()` wrapper in
-  `ipc-handlers.ts` and MUST be classified. `home:setOpen` carries no
-  `serviceId`, so it goes in `SHELL_ONLY_CHANNELS` in `src/shared/ipc.ts`.
-- Pure decision logic lives in a `lib/` helper with a vitest unit test;
-  `views.ts` / `index.ts` / `ipc-handlers.ts` stay thin wiring.
-- No `innerHTML` / `dangerouslySetInnerHTML` in the shell; renderer CSP is
-  unchanged.
-- Exact copy strings, used verbatim: `Summon N services`, `Summon 1 service`,
-  `Banish N services`, `Banish 1 service`, `Summon N · Banish M` (middle dot
-  U+00B7), `No changes`, `Summon 0 services`, `Home — all services (⌘0)`,
-  `Manage services…`, `Pick at least one — come back here anytime with ⌘/Ctrl 0.`
-- Accelerator is `CmdOrCtrl+0`, registered as an app-menu accelerator. Never
-  `globalShortcut`.
+- Every new IPC channel is registered through the `register()` wrapper in `ipc-handlers.ts` and MUST be classified. `home:setOpen` carries no `serviceId`, so it goes in `SHELL_ONLY_CHANNELS` in `src/shared/ipc.ts`.
+- Pure decision logic lives in a `lib/` helper with a vitest unit test; `views.ts` / `index.ts` / `ipc-handlers.ts` stay thin wiring.
+- No `innerHTML` / `dangerouslySetInnerHTML` in the shell; renderer CSP is unchanged.
+- Exact copy strings, used verbatim: `Summon N services`, `Summon 1 service`, `Banish N services`, `Banish 1 service`, `Summon N · Banish M` (middle dot U+00B7), `No changes`, `Summon 0 services`, `Home — all services (⌘0)`, `Manage services…`, `Pick at least one — come back here anytime with ⌘/Ctrl 0.`
+- Accelerator is `CmdOrCtrl+0`, registered as an app-menu accelerator. Never `globalShortcut`.
 - `homeOpen` is never persisted to `settings.json`.
-- Definition of done for the whole plan: `corepack pnpm lint`, `corepack pnpm
-  typecheck`, `corepack pnpm test`, and `env -u ELECTRON_RUN_AS_NODE corepack
-  pnpm e2e` all green.
-- **Commits:** this repository's owner commits only through the `/commit`
-  command after confirming the message. At every "Checkpoint" step, stop and
-  ask the user to run `/commit`. Never run `git commit` yourself.
+- Definition of done for the whole plan: `corepack pnpm lint`, `corepack pnpm typecheck`, `corepack pnpm test`, and `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e` all green.
+- **Commits:** this repository's owner commits only through the `/commit` command after confirming the message. At every "Checkpoint" step, stop and ask the user to run `/commit`. Never run `git commit` yourself.
 
 ---
 
@@ -82,8 +57,7 @@ Spec: `docs/superpowers/specs/2026-08-09-home-screen-and-service-composition-des
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `anyOverlayOpen(s: { settingsOpen: boolean; switcherOpen: boolean;
-  homeOpen: boolean }): boolean` — used by Task 3.
+- Produces: `anyOverlayOpen(s: { settingsOpen: boolean; switcherOpen: boolean; homeOpen: boolean }): boolean` — used by Task 3.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -127,8 +101,7 @@ describe('anyOverlayOpen', () => {
 
 Run: `corepack pnpm vitest run tests/unit/overlay-rules.test.ts`
 
-Expected: FAIL — `Failed to resolve import
-"../../src/main/lib/overlay-rules"`.
+Expected: FAIL — `Failed to resolve import "../../src/main/lib/overlay-rules"`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -155,8 +128,7 @@ Expected: PASS — 5 passed.
 
 - [ ] **Step 5: Checkpoint**
 
-Stop. Report the passing test and ask the user to run `/commit`. Suggested
-subject: `feat(main): add anyOverlayOpen predicate`.
+Stop. Report the passing test and ask the user to run `/commit`. Suggested subject: `feat(main): add anyOverlayOpen predicate`.
 
 ---
 
@@ -175,14 +147,11 @@ subject: `feat(main): add anyOverlayOpen predicate`.
 **Interfaces:**
 
 - Consumes: nothing from Task 1.
-- Produces: `MainState.homeOpen: boolean`; `ShellState.homeOpen: boolean`;
-  IPC channel `'home:setOpen': { open: boolean }`. Tasks 3, 5, 6, 7, 8 read
-  these.
+- Produces: `MainState.homeOpen: boolean`; `ShellState.homeOpen: boolean`; IPC channel `'home:setOpen': { open: boolean }`. Tasks 3, 5, 6, 7, 8 read these.
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/unit/activate.test.ts` inside the existing
-`describe('activateService', …)` block:
+Append to `tests/unit/activate.test.ts` inside the existing `describe('activateService', …)` block:
 
 ```ts
   it('leaves home when a service is activated', () => {
@@ -201,9 +170,7 @@ Append to `tests/unit/activate.test.ts` inside the existing
 
 Run: `corepack pnpm vitest run tests/unit/activate.test.ts`
 
-Expected: FAIL — `expected true to be false` on the `homeOpen` assertion.
-(vitest transpiles without typechecking, so the unknown property assignment
-runs fine; it is `activateService` not clearing the flag that fails.)
+Expected: FAIL — `expected true to be false` on the `homeOpen` assertion. (vitest transpiles without typechecking, so the unknown property assignment runs fine; it is `activateService` not clearing the flag that fails.)
 
 - [ ] **Step 3: Add the state field and the snapshot entry**
 
@@ -277,8 +244,7 @@ and add to `SHELL_ONLY_CHANNELS` after `'settings:setOpen'`:
 
 - [ ] **Step 7: Add the handler**
 
-In `src/main/ipc-handlers.ts`, immediately after the `settings:setOpen`
-handler:
+In `src/main/ipc-handlers.ts`, immediately after the `settings:setOpen` handler:
 
 ```ts
   on('home:setOpen', ({ open }) => {
@@ -316,8 +282,7 @@ Expected: typecheck clean; all vitest files pass.
 
 - [ ] **Step 10: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`feat(main): add homeOpen shell surface state and channel`.
+Stop and ask the user to run `/commit`. Suggested subject: `feat(main): add homeOpen shell surface state and channel`.
 
 ---
 
@@ -332,8 +297,7 @@ Stop and ask the user to run `/commit`. Suggested subject:
 **Interfaces:**
 
 - Consumes: `anyOverlayOpen` (Task 1); `MainState.homeOpen` (Task 2).
-- Produces: `ServiceViewManager.activate(id: ServiceId, opts?: { show?:
-  boolean }): void`, `show` defaulting to `true`. No other call site changes.
+- Produces: `ServiceViewManager.activate(id: ServiceId, opts?: { show?: boolean }): void`, `show` defaulting to `true`. No other call site changes.
 
 - [ ] **Step 1: Add the visibility argument**
 
@@ -363,8 +327,7 @@ In `src/main/views.ts`, replace the `activate` method:
 
 - [ ] **Step 2: Gate the disabled-patch activation**
 
-In `src/main/ipc-handlers.ts`, add the import beside the existing
-`resolveActivation` import:
+In `src/main/ipc-handlers.ts`, add the import beside the existing `resolveActivation` import:
 
 ```ts
 import { resolveActivation } from './lib/activation-rules';
@@ -389,22 +352,17 @@ then replace the activation block inside the `patch.disabled` branch:
 
 Run: `corepack pnpm typecheck && corepack pnpm test`
 
-Expected: typecheck clean; all tests pass, including
-`tests/unit/activate.test.ts` whose `expect(activate).toHaveBeenCalledWith(
-'telegram')` still holds because `activate.ts` passes no options.
+Expected: typecheck clean; all tests pass, including `tests/unit/activate.test.ts` whose `expect(activate).toHaveBeenCalledWith( 'telegram')` still holds because `activate.ts` passes no options.
 
 - [ ] **Step 4: Verify the bug is actually dead**
 
 Run: `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
 
-Expected: all existing specs pass. (The user-visible proof arrives with the
-Home e2e spec in Task 9; this run is a regression guard for the signature
-change.)
+Expected: all existing specs pass. (The user-visible proof arrives with the Home e2e spec in Task 9; this run is a regression guard for the signature change.)
 
 - [ ] **Step 5: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`fix(main): never reveal a service view over a shell surface`.
+Stop and ask the user to run `/commit`. Suggested subject: `fix(main): never reveal a service view over a shell surface`.
 
 ---
 
@@ -435,8 +393,7 @@ summonLabel(
 
 - [ ] **Step 1: Write the failing test**
 
-Create `tests/unit/welcome.test.ts` (if the file already exists, append the
-two `describe` blocks below):
+Create `tests/unit/welcome.test.ts` (if the file already exists, append the two `describe` blocks below):
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -574,8 +531,7 @@ Expected: PASS — 10 passed.
 
 - [ ] **Step 5: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`feat(shared): add summonDelta and the delta-named confirm label`.
+Stop and ask the user to run `/commit`. Suggested subject: `feat(shared): add summonDelta and the delta-named confirm label`.
 
 ---
 
@@ -592,14 +548,11 @@ Stop and ask the user to run `/commit`. Suggested subject:
 **Interfaces:**
 
 - Consumes: `ShellState.homeOpen` and channel `home:setOpen` (Task 2).
-- Produces: DOM contract for Task 9 — `[data-testid="home-btn"]` in the rail,
-  `[data-testid="service-tile"]` on every service tile.
+- Produces: DOM contract for Task 9 — `[data-testid="home-btn"]` in the rail, `[data-testid="service-tile"]` on every service tile.
 
 - [ ] **Step 1: Tag service tiles so counting them stays unambiguous**
 
-The sigil is a rail button and would otherwise be counted by the existing
-`button[aria-label]` selectors. In `src/renderer/src/components/ServiceTile.tsx`,
-add one attribute to the `<button>`:
+The sigil is a rail button and would otherwise be counted by the existing `button[aria-label]` selectors. In `src/renderer/src/components/ServiceTile.tsx`, add one attribute to the `<button>`:
 
 ```tsx
     <button
@@ -637,9 +590,7 @@ add one attribute to the `<button>`:
   await expect(second.win.locator('[data-testid="service-tile"]')).toHaveCount(1);
 ```
 
-`tests/e2e/smoke.spec.ts` line 63 and 68 use `rail.locator('button[aria-current
-="page"]')`; the sigil only carries `aria-current` while Home is open, and that
-spec never opens Home, so leave those two lines alone.
+`tests/e2e/smoke.spec.ts` line 63 and 68 use `rail.locator('button[aria-current ="page"]')`; the sigil only carries `aria-current` while Home is open, and that spec never opens Home, so leave those two lines alone.
 
 - [ ] **Step 3: Add the sigil to the rail**
 
@@ -700,16 +651,13 @@ In `src/renderer/src/App.tsx`, replace the `allDisabled` derivation and its use:
 
 - [ ] **Step 6: Verify**
 
-Run: `corepack pnpm lint && corepack pnpm typecheck && env -u
-ELECTRON_RUN_AS_NODE corepack pnpm e2e`
+Run: `corepack pnpm lint && corepack pnpm typecheck && env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
 
-Expected: lint and typecheck clean; `smoke`, `welcome`, `loading`, and
-`updates` specs all pass with the retargeted selectors.
+Expected: lint and typecheck clean; `smoke`, `welcome`, `loading`, and `updates` specs all pass with the retargeted selectors.
 
 - [ ] **Step 7: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`feat(renderer): add the home sigil to the rail`.
+Stop and ask the user to run `/commit`. Suggested subject: `feat(renderer): add the home sigil to the rail`.
 
 ---
 
@@ -757,14 +705,11 @@ then make it the head of the `Go` submenu, before the service items:
         ...order.map((id, i) => ({
 ```
 
-Leave the rest of the submenu unchanged. A plain item, not a checkbox:
-`buildAppMenu` rebuilds only on order and disabled changes, so a checkmark
-would go stale.
+Leave the rest of the submenu unchanged. A plain item, not a checkbox: `buildAppMenu` rebuilds only on order and disabled changes, so a checkmark would go stale.
 
 - [ ] **Step 2: Document it in the Shortcuts pane**
 
-In `src/renderer/src/components/SettingsView.tsx`, inside the `shortcuts`
-pane, after the `⌘/Ctrl + K` line:
+In `src/renderer/src/components/SettingsView.tsx`, inside the `shortcuts` pane, after the `⌘/Ctrl + K` line:
 
 ```tsx
                   <p className="py-1">⌘/Ctrl + 0 — home / all services</p>
@@ -776,8 +721,7 @@ Run: `corepack pnpm dev`
 
 Check, in order:
 
-1. `⌘0` from inside a service view shows the welcome screen and the service
-   view disappears (not merely covered — the rail is fully interactive).
+1. `⌘0` from inside a service view shows the welcome screen and the service view disappears (not merely covered — the rail is fully interactive).
 2. `⌘0` again returns to the same service.
 3. `Go → Home` shows the accelerator `⌘0` next to the label.
 4. `⌘1` from Home lands on the first service and leaves Home.
@@ -790,8 +734,7 @@ Expected: all clean.
 
 - [ ] **Step 5: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`feat(main): add the Home menu item and ⌘0 accelerator`.
+Stop and ask the user to run `/commit`. Suggested subject: `feat(main): add the Home menu item and ⌘0 accelerator`.
 
 ---
 
@@ -803,14 +746,12 @@ Stop and ask the user to run `/commit`. Suggested subject:
 
 **Interfaces:**
 
-- Consumes: `summonDelta`, `summonLabel` (Task 4); `buildDisabledPatch`
-  (existing); `ShellState.homeOpen` (Task 2).
+- Consumes: `summonDelta`, `summonLabel` (Task 4); `buildDisabledPatch` (existing); `ShellState.homeOpen` (Task 2).
 - Produces: nothing consumed by later tasks.
 
 - [ ] **Step 1: Seed the picker from the enabled set**
 
-In `src/renderer/src/components/Welcome.tsx`, replace the imports and the
-component's state setup:
+In `src/renderer/src/components/Welcome.tsx`, replace the imports and the component's state setup:
 
 ```tsx
 import type React from 'react';
@@ -844,9 +785,7 @@ export default function Welcome() {
 
 - [ ] **Step 2: Let Escape leave Home**
 
-Add a second effect directly below the seeding effect and **above** the
-`if (!state) return null;` guard — an early return between hooks would break
-the rules of hooks:
+Add a second effect directly below the seeding effect and **above** the `if (!state) return null;` guard — an early return between hooks would break the rules of hooks:
 
 ```tsx
   // Home is a place, not a modal — but Escape is the reflex. Guarded the way
@@ -867,8 +806,7 @@ the rules of hooks:
 
 - [ ] **Step 3: Wire the delta-named confirm**
 
-Replace the `summon` function, the `n` constant, the hint line, and the
-button:
+Replace the `summon` function, the `n` constant, the hint line, and the button:
 
 ```tsx
   const enabled = new Set<ServiceId>(
@@ -919,30 +857,21 @@ Run: `corepack pnpm dev`
 
 Check, in order:
 
-1. `⌘0` with three services enabled shows three lit tiles and a disabled
-   `No changes` button.
-2. Lighting two more reads `Summon 2 services`; confirming applies, the rail
-   grows two tiles, and the button falls back to `No changes` while Welcome
-   stays on screen.
-3. Dimming the **active** service reads `Banish 1 service`; confirming removes
-   its tile and **no service view appears over Welcome**.
+1. `⌘0` with three services enabled shows three lit tiles and a disabled `No changes` button.
+2. Lighting two more reads `Summon 2 services`; confirming applies, the rail grows two tiles, and the button falls back to `No changes` while Welcome stays on screen.
+3. Dimming the **active** service reads `Banish 1 service`; confirming removes its tile and **no service view appears over Welcome**.
 4. A mixed edit reads `Summon 2 · Banish 1`.
-5. Staging a change then pressing `Escape` leaves Home; reopening shows the
-   live set again, not the discarded edit.
+5. Staging a change then pressing `Escape` leaves Home; reopening shows the live set again, not the discarded edit.
 
 - [ ] **Step 6: Verify the suite**
 
-Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test &&
-env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
+Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
 
-Expected: all clean. `tests/e2e/welcome.spec.ts` still passes — on a fresh
-profile the enabled set is empty, so the seeded selection is empty and the
-button still reads `Summon 1 service` after picking Zalo.
+Expected: all clean. `tests/e2e/welcome.spec.ts` still passes — on a fresh profile the enabled set is empty, so the seeded selection is empty and the button still reads `Summon 1 service` after picking Zalo.
 
 - [ ] **Step 7: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`feat(renderer): seed the welcome picker and name its delta`.
+Stop and ask the user to run `/commit`. Suggested subject: `feat(renderer): seed the welcome picker and name its delta`.
 
 ---
 
@@ -959,8 +888,7 @@ Stop and ask the user to run `/commit`. Suggested subject:
 
 - [ ] **Step 1: Rework the Services pane**
 
-In `src/renderer/src/components/SettingsView.tsx`, replace the whole
-`{active === 'services' && (…)}` block:
+In `src/renderer/src/components/SettingsView.tsx`, replace the whole `{active === 'services' && (…)}` block:
 
 ```tsx
             {active === 'services' && (
@@ -1049,8 +977,7 @@ Expected: all clean.
 
 - [ ] **Step 4: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`refactor(renderer): move service composition out of Settings`.
+Stop and ask the user to run `/commit`. Suggested subject: `refactor(renderer): move service composition out of Settings`.
 
 ---
 
@@ -1062,9 +989,7 @@ Stop and ask the user to run `/commit`. Suggested subject:
 
 **Interfaces:**
 
-- Consumes: `[data-testid="home-btn"]`, `[data-testid="service-tile"]`
-  (Task 5), `[data-testid="manage-services"]` (Task 8),
-  `[data-testid="welcome"]` and `[data-testid="settings"]` (existing).
+- Consumes: `[data-testid="home-btn"]`, `[data-testid="service-tile"]` (Task 5), `[data-testid="manage-services"]` (Task 8), `[data-testid="welcome"]` and `[data-testid="settings"]` (existing).
 - Produces: nothing.
 
 - [ ] **Step 1: Write the failing spec**
@@ -1177,20 +1102,17 @@ test('settings: composition is gone, Manage services… lands on home', async ()
 
 Run: `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e home.spec.ts`
 
-Expected: 3 passed. If a Playwright run reports `ELECTRON_RUN_AS_NODE` errors,
-the `env -u` prefix was dropped — VS Code shells export that variable.
+Expected: 3 passed. If a Playwright run reports `ELECTRON_RUN_AS_NODE` errors, the `env -u` prefix was dropped — VS Code shells export that variable.
 
 - [ ] **Step 3: Run everything**
 
-Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test &&
-env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
+Run: `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
 
 Expected: all four green.
 
 - [ ] **Step 4: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`test(e2e): cover the home surface and settings composition move`.
+Stop and ask the user to run `/commit`. Suggested subject: `test(e2e): cover the home surface and settings composition move`.
 
 ---
 
@@ -1236,5 +1158,4 @@ Expected: `0 issues`.
 
 - [ ] **Step 4: Checkpoint**
 
-Stop and ask the user to run `/commit`. Suggested subject:
-`docs(claude): record the overlay and composition invariants`.
+Stop and ask the user to run `/commit`. Suggested subject: `docs(claude): record the overlay and composition invariants`.

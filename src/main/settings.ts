@@ -4,8 +4,11 @@ import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../shared/types
 
 /** settings.json written before a service existed persists whole top-level
  *  objects — a shallow merge with defaults never surfaces new ServiceIds.
- *  Reconcile against the catalog: append missing ids to order (in catalog
- *  order), drop unknown ids, fill missing record keys from defaults. */
+ *  Reconcile against the catalog: slot missing ids into order at their
+ *  catalog position (right after the nearest catalog predecessor the user
+ *  already has, so e.g. instagram lands beside messenger even in a
+ *  reordered rail), drop unknown ids, fill missing record keys from
+ *  defaults. */
 function normalize(raw: Settings): Settings {
   const ids = SERVICES.map((s) => s.id);
   const known = new Set<ServiceId>(ids);
@@ -16,10 +19,23 @@ function normalize(raw: Settings): Settings {
       boolean
     >;
   };
-  const order = Array.isArray(raw.order) ? raw.order : DEFAULT_SETTINGS.order;
+  const persisted = Array.isArray(raw.order) ? raw.order : DEFAULT_SETTINGS.order;
+  const order = persisted.filter((id) => known.has(id));
+  for (const [idx, id] of ids.entries()) {
+    if (order.includes(id)) continue;
+    let at = 0;
+    for (let i = idx - 1; i >= 0; i--) {
+      const pos = order.indexOf(ids[i]);
+      if (pos !== -1) {
+        at = pos + 1;
+        break;
+      }
+    }
+    order.splice(at, 0, id);
+  }
   return {
     ...raw,
-    order: [...order.filter((id) => known.has(id)), ...ids.filter((id) => !order.includes(id))],
+    order,
     muted: fill(raw.muted, DEFAULT_SETTINGS.muted),
     disabled: fill(raw.disabled, DEFAULT_SETTINGS.disabled),
     neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),

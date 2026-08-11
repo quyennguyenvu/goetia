@@ -1,43 +1,24 @@
 # Notification service icons implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Show a brand-coloured service tile in every OS notification banner so
-Zalo, Telegram and the rest are distinguishable without reading the text.
+**Goal:** Show a brand-coloured service tile in every OS notification banner so Zalo, Telegram and the rest are distinguishable without reading the text.
 
-**Architecture:** A build-time script rasterises one tile per service into
-committed PNGs. At runtime the main process resolves those files to paths once
-at startup and hands a path to Electron's `Notification` — no image is ever
-decoded into or retained by the app. Pure helpers live in `src/main/lib/` and
-carry the unit tests; `notifications.ts` stays a thin wiring layer.
+**Architecture:** A build-time script rasterises one tile per service into committed PNGs. At runtime the main process resolves those files to paths once at startup and hands a path to Electron's `Notification` — no image is ever decoded into or retained by the app. Pure helpers live in `src/main/lib/` and carry the unit tests; `notifications.ts` stays a thin wiring layer.
 
-**Tech Stack:** Electron 43, TypeScript, Vitest, Biome, electron-builder,
-`@resvg/resvg-js` (devDependency only).
+**Tech Stack:** Electron 43, TypeScript, Vitest, Biome, electron-builder, `@resvg/resvg-js` (devDependency only).
 
 **Spec:** `docs/superpowers/specs/2026-08-06-notification-service-icons-design.md`
 
 ## Global Constraints
 
-- **Never run `git commit`.** This repo's owner commits via their own
-  `/commit` command after reviewing a drafted message. Where this plan says
-  "stop and request a commit", stop and say so — do not commit, do not write
-  `GRIMOIRE_COMMIT_MSG.txt`, do not `git add` and proceed.
-- Asset canvas is **128 px** square; corner radius ratio **0.34**; glyph ratio
-  **0.56**; macOS inset ratio **28 / 38**. Derive pixels from these constants,
-  never hardcode them.
-- Two variants per service: `<id>.png` (full-bleed, Windows) and
-  `<id>-mac.png` (inset, macOS).
-- `@resvg/resvg-js` is a **devDependency**. Nothing new may enter the runtime
-  or packaging dependency graph.
+- **Never run `git commit`.** This repo's owner commits via their own `/commit` command after reviewing a drafted message. Where this plan says "stop and request a commit", stop and say so — do not commit, do not write `GRIMOIRE_COMMIT_MSG.txt`, do not `git add` and proceed.
+- Asset canvas is **128 px** square; corner radius ratio **0.34**; glyph ratio **0.56**; macOS inset ratio **28 / 38**. Derive pixels from these constants, never hardcode them.
+- Two variants per service: `<id>.png` (full-bleed, Windows) and `<id>-mac.png` (inset, macOS).
+- `@resvg/resvg-js` is a **devDependency**. Nothing new may enter the runtime or packaging dependency graph.
 - The `shouldNotify` mute gate stays first in `handle`, ahead of any icon work.
-- Biome is configured with `lineWidth: 100`. Code in this plan is wrapped
-  narrower to fit the document; running `pnpm lint` will reflow it. That is
-  expected — do not fight it.
-- Node 26 imports TypeScript directly, so build scripts import
-  `src/shared/services.ts` rather than duplicating the service table.
+- Biome is configured with `lineWidth: 100`. Code in this plan is wrapped narrower to fit the document; running `pnpm lint` will reflow it. That is expected — do not fight it.
+- Node 26 imports TypeScript directly, so build scripts import `src/shared/services.ts` rather than duplicating the service table.
 
 ## File Structure
 
@@ -65,10 +46,8 @@ carry the unit tests; `notifications.ts` stays a thin wiring layer.
 
 **Interfaces:**
 
-- Consumes: `SERVICES` from `src/shared/services.ts` — each entry has `id`
-  (`ServiceId`) and `color` (hex string).
-- Produces: `resources/notification-icons/<id>.png` and
-  `resources/notification-icons/<id>-mac.png`, each a 128×128 PNG.
+- Consumes: `SERVICES` from `src/shared/services.ts` — each entry has `id` (`ServiceId`) and `color` (hex string).
+- Produces: `resources/notification-icons/<id>.png` and `resources/notification-icons/<id>-mac.png`, each a 128×128 PNG.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -111,16 +90,13 @@ describe('notification icon assets', () => {
 
 Run: `pnpm vitest run tests/unit/notification-icons.test.ts`
 
-Expected: FAIL — `ENOENT: no such file or directory` for
-`resources/notification-icons/messenger.png`.
+Expected: FAIL — `ENOENT: no such file or directory` for `resources/notification-icons/messenger.png`.
 
 - [ ] **Step 3: Add the rasteriser as a devDependency**
 
 Run: `pnpm add -D @resvg/resvg-js`
 
-If pnpm warns that build scripts were ignored for this package, add it to
-`allowBuilds` in `pnpm-workspace.yaml` alongside the existing entries and
-re-run `pnpm install`.
+If pnpm warns that build scripts were ignored for this package, add it to `allowBuilds` in `pnpm-workspace.yaml` alongside the existing entries and re-run `pnpm install`.
 
 - [ ] **Step 4: Write the generator**
 
@@ -188,12 +164,9 @@ In `package.json`, add to `"scripts"`:
 
 Run: `pnpm run icons`
 
-Expected: five lines, `messenger: full-bleed + macOS inset` through
-`discord: full-bleed + macOS inset`, and ten files in
-`resources/notification-icons/`.
+Expected: five lines, `messenger: full-bleed + macOS inset` through `discord: full-bleed + macOS inset`, and ten files in `resources/notification-icons/`.
 
-If `@resvg/resvg-js` throws on the nested `<svg>` element, fall back to
-lifting the glyph path instead — replace `placeGlyph` with:
+If `@resvg/resvg-js` throws on the nested `<svg>` element, fall back to lifting the glyph path instead — replace `placeGlyph` with:
 
 ```js
 function placeGlyph(id, offset, size) {
@@ -211,9 +184,7 @@ function placeGlyph(id, offset, size) {
 
 Run: `open resources/notification-icons/zalo-mac.png`
 
-Expected: a blue rounded tile with a white Zalo glyph, centred in a
-transparent square with visible margin on all four sides. Compare against
-`resources/notification-icons/zalo.png`, which should have no margin.
+Expected: a blue rounded tile with a white Zalo glyph, centred in a transparent square with visible margin on all four sides. Compare against `resources/notification-icons/zalo.png`, which should have no margin.
 
 - [ ] **Step 8: Run the test to verify it passes**
 
@@ -229,9 +200,7 @@ Expected: no errors. Biome may reformat the generator; accept its output.
 
 - [ ] **Step 10: Stop and request a commit**
 
-Do not commit. Tell the user Task 1 is complete and ask them to run
-`/commit`. Suggested message:
-`feat(notifications): generate brand tile assets for service icons`
+Do not commit. Tell the user Task 1 is complete and ask them to run `/commit`. Suggested message: `feat(notifications): generate brand tile assets for service icons`
 
 ---
 
@@ -247,14 +216,11 @@ Do not commit. Tell the user Task 1 is complete and ask them to run
 - Consumes: `ServiceId` from `src/shared/types.ts`.
 - Produces:
   - `iconFileName(id: ServiceId, platform: NodeJS.Platform): string`
-  - `resolveIcons(dir: string, ids: readonly ServiceId[], platform:
-    NodeJS.Platform, exists: (path: string) => boolean):
-    Map<ServiceId, string>`
+  - `resolveIcons(dir: string, ids: readonly ServiceId[], platform: NodeJS.Platform, exists: (path: string) => boolean): Map<ServiceId, string>`
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/unit/notification-icons.test.ts` (and add the import of the
-module under test to the top of the file):
+Append to `tests/unit/notification-icons.test.ts` (and add the import of the module under test to the top of the file):
 
 ```ts
 import {
@@ -301,8 +267,7 @@ describe('resolveIcons', () => {
 });
 ```
 
-Add `existsSync` to the `node:fs` import at the top of the file so the last
-test compiles:
+Add `existsSync` to the `node:fs` import at the top of the file so the last test compiles:
 
 ```ts
 import { existsSync, readFileSync } from 'node:fs';
@@ -312,8 +277,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 Run: `pnpm vitest run tests/unit/notification-icons.test.ts`
 
-Expected: FAIL — cannot resolve
-`../../src/main/lib/notification-icons`.
+Expected: FAIL — cannot resolve `../../src/main/lib/notification-icons`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -353,8 +317,7 @@ export function resolveIcons(
 
 Run: `pnpm vitest run tests/unit/notification-icons.test.ts`
 
-Expected: PASS, 10 tests — the five asset checks from Task 1 plus five new
-ones.
+Expected: PASS, 10 tests — the five asset checks from Task 1 plus five new ones.
 
 - [ ] **Step 5: Typecheck and lint**
 
@@ -364,8 +327,7 @@ Expected: both clean.
 
 - [ ] **Step 6: Stop and request a commit**
 
-Do not commit. Suggested message:
-`feat(notifications): resolve per-service icon paths at startup`
+Do not commit. Suggested message: `feat(notifications): resolve per-service icon paths at startup`
 
 ---
 
@@ -382,8 +344,7 @@ Do not commit. Suggested message:
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/unit/notification-rules.test.ts`, and extend the import on
-line 2 to `import { notificationTitle, shouldNotify } from '...'`:
+Append to `tests/unit/notification-rules.test.ts`, and extend the import on line 2 to `import { notificationTitle, shouldNotify } from '...'`:
 
 ```ts
 describe('notificationTitle', () => {
@@ -426,8 +387,7 @@ Expected: PASS, 8 tests.
 
 - [ ] **Step 5: Stop and request a commit**
 
-Do not commit. Suggested message:
-`feat(notifications): fall back to service name for empty titles`
+Do not commit. Suggested message: `feat(notifications): fall back to service name for empty titles`
 
 ---
 
@@ -439,10 +399,8 @@ Do not commit. Suggested message:
 
 **Interfaces:**
 
-- Consumes: `resolveIcons` (Task 2), `notificationTitle` (Task 3), the
-  committed assets (Task 1).
-- Produces: no new exports; `NotificationRouter.handle` keeps its signature
-  `(serviceId: ServiceId, title: string, body: string): void`.
+- Consumes: `resolveIcons` (Task 2), `notificationTitle` (Task 3), the committed assets (Task 1).
+- Produces: no new exports; `NotificationRouter.handle` keeps its signature `(serviceId: ServiceId, title: string, body: string): void`.
 
 - [ ] **Step 1: Replace the file**
 
@@ -509,16 +467,13 @@ export class NotificationRouter {
 
 Run: `pnpm typecheck`
 
-Expected: clean. If it complains that `icon` is not assignable, confirm the
-spread is `...(icon ? { icon } : {})` and not `icon: icon ?? undefined`.
+Expected: clean. If it complains that `icon` is not assignable, confirm the spread is `...(icon ? { icon } : {})` and not `icon: icon ?? undefined`.
 
 - [ ] **Step 3: Run the whole unit suite**
 
 Run: `pnpm test`
 
-Expected: all suites pass. Nothing here is directly covered — the pure parts
-were tested in Tasks 2 and 3, and Electron's `Notification` cannot be
-exercised under Vitest. Behaviour is verified by hand in Task 6.
+Expected: all suites pass. Nothing here is directly covered — the pure parts were tested in Tasks 2 and 3, and Electron's `Notification` cannot be exercised under Vitest. Behaviour is verified by hand in Task 6.
 
 - [ ] **Step 4: Lint**
 
@@ -528,8 +483,7 @@ Expected: clean.
 
 - [ ] **Step 5: Stop and request a commit**
 
-Do not commit. Suggested message:
-`feat(notifications): show service icon and drop the title suffix`
+Do not commit. Suggested message: `feat(notifications): show service icon and drop the title suffix`
 
 ---
 
@@ -541,13 +495,11 @@ Do not commit. Suggested message:
 
 **Interfaces:**
 
-- Produces: `notification-icons/` inside the packaged app's `Resources`
-  directory, matching the `app.isPackaged` branch in Task 4.
+- Produces: `notification-icons/` inside the packaged app's `Resources` directory, matching the `app.isPackaged` branch in Task 4.
 
 - [ ] **Step 1: Edit the config**
 
-In `electron-builder.yml`, replace the `files:` block and add
-`extraResources:` immediately after it:
+In `electron-builder.yml`, replace the `files:` block and add `extraResources:` immediately after it:
 
 ```yaml
 files:
@@ -566,8 +518,7 @@ Leave `icon`, `mac`, `win`, `nsis` and `publish` untouched.
 
 Run: `pnpm build && pnpm exec electron-builder --mac --dir`
 
-Expected: completes with a `dist/mac-*/Goetia.app` bundle. This takes a few
-minutes.
+Expected: completes with a `dist/mac-*/Goetia.app` bundle. This takes a few minutes.
 
 - [ ] **Step 3: Verify the assets landed on disk and stayed out of the asar**
 
@@ -590,15 +541,13 @@ Expected: ten filenames listed, then `in asar: false`.
 
 - [ ] **Step 4: Stop and request a commit**
 
-Do not commit. Suggested message:
-`build: ship notification icons via extraResources`
+Do not commit. Suggested message: `build: ship notification icons via extraResources`
 
 ---
 
 ### Task 6: Verify against real banners
 
-No automated test can prove the OS drew anything. This task is manual and its
-outcome may send you back to Task 4.
+No automated test can prove the OS drew anything. This task is manual and its outcome may send you back to Task 4.
 
 **Files:**
 
@@ -618,15 +567,11 @@ Use whichever services are enabled in settings. For each banner, confirm:
 
 - [ ] **Step 3: Check both appearances**
 
-Switch macOS between Light and Dark in System Settings → Appearance and
-trigger one more banner in each. The tile must stay legible in both — that is
-the whole reason it has an opaque brand background.
+Switch macOS between Light and Dark in System Settings → Appearance and trigger one more banner in each. The tile must stay legible in both — that is the whole reason it has an opaque brand background.
 
 - [ ] **Step 4: If no tile appears, apply the NativeImage fallback**
 
-Electron 43 may only honour `icon` as a `NativeImage` on darwin. In
-`src/main/notifications.ts`, add `nativeImage` to the electron import and
-change the two icon lines:
+Electron 43 may only honour `icon` as a `NativeImage` on darwin. In `src/main/notifications.ts`, add `nativeImage` to the electron import and change the two icon lines:
 
 ```ts
 import { app, nativeImage, Notification } from 'electron';
@@ -642,23 +587,16 @@ const n = new Notification({
 });
 ```
 
-Then re-run Steps 1–3. Note in the commit message that the path form did not
-work, so the next person does not "simplify" it back.
+Then re-run Steps 1–3. Note in the commit message that the path form did not work, so the next person does not "simplify" it back.
 
 - [ ] **Step 5: Verify the packaged app**
 
-Run: `pnpm package:mac`, install the resulting dmg from `dist/`, launch it,
-and trigger one notification. This is the step that proves the
-`process.resourcesPath` branch — dev exercises only the other one.
+Run: `pnpm package:mac`, install the resulting dmg from `dist/`, launch it, and trigger one notification. This is the step that proves the `process.resourcesPath` branch — dev exercises only the other one.
 
 - [ ] **Step 6: Update the spec if reality differed**
 
-If Step 4 was needed, edit the "Runtime cost" and "Manual verification"
-sections of
-`docs/superpowers/specs/2026-08-06-notification-service-icons-design.md` to
-record what actually happened.
+If Step 4 was needed, edit the "Runtime cost" and "Manual verification" sections of `docs/superpowers/specs/2026-08-06-notification-service-icons-design.md` to record what actually happened.
 
 - [ ] **Step 7: Stop and request a commit**
 
-Do not commit. Report what you observed on each platform and ask the user to
-run `/commit`.
+Do not commit. Report what you observed on each platform and ask the user to run `/commit`.

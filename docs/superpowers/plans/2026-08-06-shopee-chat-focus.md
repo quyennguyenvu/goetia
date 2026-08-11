@@ -1,34 +1,20 @@
 # Shopee Chat-Focus Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task.
-> Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the embedded Shopee service render the buyer mini-chat
-full-window (no shopping chrome, no header), with real unread counts,
-auto-open of the collapsed widget, and Shopee disabled by default.
+**Goal:** Make the embedded Shopee service render the buyer mini-chat full-window (no shopping chrome, no header), with real unread counts, auto-open of the collapsed widget, and Shopee disabled by default.
 
-**Architecture:** All page reshaping happens in the shopee recipe's
-`css` (injected by the preload on every `DOMContentLoaded`), keyed only
-on the stable ids `#main` and `#shopee-mini-chat-embedded`. `count()`
-parses the widget's badge; `keepAlive()` reuses the trusted-click
-runner to open the collapsed pill. Entry URL moves to the homepage to
-avoid Shopee's anti-bot gate on `/webchat`.
+**Architecture:** All page reshaping happens in the shopee recipe's `css` (injected by the preload on every `DOMContentLoaded`), keyed only on the stable ids `#main` and `#shopee-mini-chat-embedded`. `count()` parses the widget's badge; `keepAlive()` reuses the trusted-click runner to open the collapsed pill. Entry URL moves to the homepage to avoid Shopee's anti-bot gate on `/webchat`.
 
-**Tech Stack:** Electron, TypeScript, vitest (happy-dom fixtures),
-Playwright e2e.
+**Tech Stack:** Electron, TypeScript, vitest (happy-dom fixtures), Playwright e2e.
 
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-08-06-shopee-chat-focus-design.md`
-- Never reference Shopee's build-hashed class names (e.g.
-  `UvGSSkd1qQ`) — ids and structural selectors only.
-- `count()` must never throw and must return
-  `{ direct: 0, indirect: 0 }` on `tests/fixtures/blank.html`.
+- Never reference Shopee's build-hashed class names (e.g. `UvGSSkd1qQ`) — ids and structural selectors only.
+- `count()` must never throw and must return `{ direct: 0, indirect: 0 }` on `tests/fixtures/blank.html`.
 - **No `git commit` anywhere** — the repo owner commits via `/commit`.
-- Verify with: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`
-  (unset `ELECTRON_RUN_AS_NODE` for e2e).
+- Verify with: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e` (unset `ELECTRON_RUN_AS_NODE` for e2e).
 
 ---
 
@@ -44,8 +30,7 @@ Playwright e2e.
 **Interfaces:**
 
 - Consumes: `DEFAULT_SETTINGS` from `src/shared/types.ts`.
-- Produces: `DEFAULT_SETTINGS.disabled.shopee === true`; rail shows 2
-  enabled services by default (messenger, zalo).
+- Produces: `DEFAULT_SETTINGS.disabled.shopee === true`; rail shows 2 enabled services by default (messenger, zalo).
 
 - [ ] **Step 1: Update the tests to the new expectations**
 
@@ -60,8 +45,7 @@ it('defaults: only messenger and zalo enabled', () => {
 });
 ```
 
-In `tests/unit/settings.test.ts`, in
-`'surfaces services added after settings.json was written'`, change:
+In `tests/unit/settings.test.ts`, in `'surfaces services added after settings.json was written'`, change:
 
 ```ts
 expect(s.disabled.shopee).toBe(true); // new service arrives disabled
@@ -78,19 +62,15 @@ await expect(
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm vitest run tests/unit/services.test.ts tests/unit/settings.test.ts`
-Expected: 2 failures (enabled list contains `'shopee'`;
-`disabled.shopee` is `false`).
+Run: `pnpm vitest run tests/unit/services.test.ts tests/unit/settings.test.ts` Expected: 2 failures (enabled list contains `'shopee'`; `disabled.shopee` is `false`).
 
 - [ ] **Step 3: Flip the default**
 
-In `src/shared/types.ts` `DEFAULT_SETTINGS.disabled`, change
-`shopee: false` to `shopee: true`.
+In `src/shared/types.ts` `DEFAULT_SETTINGS.disabled`, change `shopee: false` to `shopee: true`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm vitest run tests/unit/services.test.ts tests/unit/settings.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/services.test.ts tests/unit/settings.test.ts` Expected: PASS.
 
 ---
 
@@ -115,8 +95,7 @@ Expected: PASS.
 
 - [ ] **Step 2: Verify**
 
-Run: `pnpm vitest run tests/unit/services.test.ts && pnpm typecheck`
-Expected: PASS (no test pins the URL beyond the `https://` regex).
+Run: `pnpm vitest run tests/unit/services.test.ts && pnpm typecheck` Expected: PASS (no test pins the URL beyond the `https://` regex).
 
 ---
 
@@ -131,18 +110,12 @@ Expected: PASS (no test pins the URL beyond the `https://` regex).
 
 **Interfaces:**
 
-- Consumes: `Recipe` from `src/preload/recipes/types.ts`,
-  `unreadFromTitle` from `src/preload/recipes/title.ts`.
-- Produces: `shopee.count(doc): Counts`; helper
-  `chatHeader(doc): Element | null` (module-local, exported for reuse
-  by `keepAlive` in Task 4 via module scope — not exported publicly).
+- Consumes: `Recipe` from `src/preload/recipes/types.ts`, `unreadFromTitle` from `src/preload/recipes/title.ts`.
+- Produces: `shopee.count(doc): Counts`; helper `chatHeader(doc): Element | null` (module-local, exported for reuse by `keepAlive` in Task 4 via module scope — not exported publicly).
 
 - [ ] **Step 1: Rewrite the expanded fixture**
 
-`tests/fixtures/shopee.html` — mirrors the probed structure
-(2026-08-06): host > wrapper > header (badge + controls) + body
-(list + thread). Class names are neutral because selectors are
-structural:
+`tests/fixtures/shopee.html` — mirrors the probed structure (2026-08-06): host > wrapper > header (badge + controls) + body (list + thread). Class names are neutral because selectors are structural:
 
 ```html
 <title>Shopee Việt Nam | Mua Sắm Online</title>
@@ -200,14 +173,11 @@ describe('shopee collapsed pill', () => {
 
 - [ ] **Step 4: Run tests to verify they fail**
 
-Run: `pnpm vitest run tests/unit/recipes.test.ts`
-Expected: FAIL — shopee fixture row expects 31, stub returns 0
-(title has no "(n)").
+Run: `pnpm vitest run tests/unit/recipes.test.ts` Expected: FAIL — shopee fixture row expects 31, stub returns 0 (title has no "(n)").
 
 - [ ] **Step 5: Implement count()**
 
-Replace the body of `src/preload/recipes/shopee.ts` (keep the file's
-doc-comment style; css and keepAlive arrive in Tasks 4-5):
+Replace the body of `src/preload/recipes/shopee.ts` (keep the file's doc-comment style; css and keepAlive arrive in Tasks 4-5):
 
 ```ts
 import type { Counts } from '../../shared/types';
@@ -248,9 +218,7 @@ export default shopee;
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `pnpm vitest run tests/unit/recipes.test.ts`
-Expected: PASS, including the blank-page zero case (no host →
-title fallback → `Login` has no digits in "(n)" form → 0).
+Run: `pnpm vitest run tests/unit/recipes.test.ts` Expected: PASS, including the blank-page zero case (no host → title fallback → `Login` has no digits in "(n)" form → 0).
 
 ---
 
@@ -263,16 +231,12 @@ title fallback → `Login` has no digits in "(n)" form → 0).
 
 **Interfaces:**
 
-- Consumes: `chatHeader(doc)` and the fixtures from Task 3; the runner
-  contract in `src/preload/recipes/runner.ts` (rate-limits keepAlive
-  clicks to one per 30 s and swallows throws).
+- Consumes: `chatHeader(doc)` and the fixtures from Task 3; the runner contract in `src/preload/recipes/runner.ts` (rate-limits keepAlive clicks to one per 30 s and swallows throws).
 - Produces: `shopee.keepAlive(doc): { x: number; y: number } | null`.
 
 - [ ] **Step 1: Write the failing tests**
 
-`tests/unit/shopee-keepalive.test.ts` — mirror the structure of
-`tests/unit/zalo-keepalive.test.ts` (read it first; reuse its fixture
-loader shape). Cases:
+`tests/unit/shopee-keepalive.test.ts` — mirror the structure of `tests/unit/zalo-keepalive.test.ts` (read it first; reuse its fixture loader shape). Cases:
 
 ```ts
 // @vitest-environment happy-dom
@@ -312,13 +276,11 @@ describe('shopee keepAlive', () => {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pnpm vitest run tests/unit/shopee-keepalive.test.ts`
-Expected: FAIL — `keepAlive` is `undefined`.
+Run: `pnpm vitest run tests/unit/shopee-keepalive.test.ts` Expected: FAIL — `keepAlive` is `undefined`.
 
 - [ ] **Step 3: Implement keepAlive**
 
-Add to the `shopee` recipe object in
-`src/preload/recipes/shopee.ts`:
+Add to the `shopee` recipe object in `src/preload/recipes/shopee.ts`:
 
 ```ts
   // Collapsed pill needs a trusted click to open the chat panel —
@@ -338,8 +300,7 @@ Add to the `shopee` recipe object in
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm vitest run tests/unit/shopee-keepalive.test.ts`
-Expected: PASS.
+Run: `pnpm vitest run tests/unit/shopee-keepalive.test.ts` Expected: PASS.
 
 ---
 
@@ -351,14 +312,12 @@ Expected: PASS.
 
 **Interfaces:**
 
-- Consumes: preload css injection on `DOMContentLoaded`
-  (`src/preload/service.ts:26-31`) — nothing to wire, declarative.
+- Consumes: preload css injection on `DOMContentLoaded` (`src/preload/service.ts:26-31`) — nothing to wire, declarative.
 - Produces: the `css` string below, verified live in Task 6.
 
 - [ ] **Step 1: Add the css block to the recipe**
 
-Add to the `shopee` recipe object (validated live against the
-logged-in DOM on 2026-08-06 — full-window chat, screenshot-verified):
+Add to the `shopee` recipe object (validated live against the logged-in DOM on 2026-08-06 — full-window chat, screenshot-verified):
 
 ```ts
   // chat only: once the mini-chat panel is EXPANDED it becomes the app —
@@ -387,15 +346,11 @@ logged-in DOM on 2026-08-06 — full-window chat, screenshot-verified):
   `,
 ```
 
-(Amended during live verification: ungated rules stretched the
-collapsed pill into a blank view and would hide a captcha — every rule
-is now gated on the expanded state. `keepAlive` likewise targets the
-pill element, not the host.)
+(Amended during live verification: ungated rules stretched the collapsed pill into a blank view and would hide a captcha — every rule is now gated on the expanded state. `keepAlive` likewise targets the pill element, not the host.)
 
 - [ ] **Step 2: Static verification**
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: all PASS (css is declarative; live check is Task 6).
+Run: `pnpm lint && pnpm typecheck && pnpm test` Expected: all PASS (css is declarative; live check is Task 6).
 
 ---
 
@@ -417,16 +372,11 @@ Expected: all PASS (e2e rail count is 2 again).
 - [ ] **Step 2: Manual in-app verification (with the repo owner)**
 
 1. Quit any running Goetia instances (installed app and probes).
-2. `pnpm build`, then
-   `env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron out/main/index.js`
-   (or `pnpm dev`).
+2. `pnpm build`, then `env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron out/main/index.js` (or `pnpm dev`).
 3. Settings → enable Shopee → tile appears last on the rail.
-4. Open the Shopee tile: within ~30 s the collapsed pill auto-opens
-   (keepAlive), the shopping site is hidden, chat fills the view,
-   no header row.
+4. Open the Shopee tile: within ~30 s the collapsed pill auto-opens (keepAlive), the shopping site is hidden, chat fills the view, no header row.
 5. Rail badge shows the real unread count.
-6. ⌘/Ctrl+R reload: chat-focus treatment re-applies (css re-injected
-   on DOMContentLoaded), no `/verify/` URL, no broken layout.
+6. ⌘/Ctrl+R reload: chat-focus treatment re-applies (css re-injected on DOMContentLoaded), no `/verify/` URL, no broken layout.
 7. Restart the app: session persists, chat loads without re-login.
 
 - [ ] **Step 3: Hand back for commit**
@@ -437,11 +387,6 @@ Report results to the repo owner; they commit via `/commit`.
 
 ## Self-Review
 
-- Spec coverage: entry URL (Task 2), css reshape + header removal
-  (Task 5), auto-open (Task 4), unread count (Task 3), disabled by
-  default (Task 1), no network filtering (no task — deliberate),
-  reload robustness (Task 6 step 2.6). Covered.
+- Spec coverage: entry URL (Task 2), css reshape + header removal (Task 5), auto-open (Task 4), unread count (Task 3), disabled by default (Task 1), no network filtering (no task — deliberate), reload robustness (Task 6 step 2.6). Covered.
 - No placeholders; all code inline.
-- Types: `chatHeader` defined in Task 3, used in Task 3 only
-  (`keepAlive` re-queries the host directly — no cross-task drift).
-  `Counts`/`Recipe` imports match `src/preload/recipes/types.ts`.
+- Types: `chatHeader` defined in Task 3, used in Task 3 only (`keepAlive` re-queries the host directly — no cross-task drift). `Counts`/`Recipe` imports match `src/preload/recipes/types.ts`.

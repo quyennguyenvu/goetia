@@ -17,6 +17,12 @@ export interface Recipe {
    *  early. Absent: did-finish-load is the ready signal instead
    *  (ServiceMeta.waitForReady mirrors this). */
   ready?(doc: Document): boolean;
+  /** Site chrome the static `css` cannot express (hash-classed nav rails,
+   *  role=button icons) — the runner sets display:none on each returned
+   *  element every tick, so an SPA re-render is re-hidden within one
+   *  interval. Must be cheap, synchronous, and never return the chat
+   *  surface or an ancestor of it. Cosmetic only; `chatPaths` contains. */
+  hideChrome?(doc: Document): Element[];
   /** Report viewport coordinates needing a trusted click to keep the session
    *  alive (e.g. Zalo's idle-deactivation modal), or null when healthy.
    *  In-page synthetic clicks are untrusted and ignored — main must click. */

@@ -19,6 +19,7 @@ const cases: [ServiceId, string, number, number][] = [
   // [service, fixture, expected direct, expected indirect]
   ['whatsapp', 'whatsapp', 3, 0], // no page IndexedDB in tests -> title fallback
   ['messenger', 'messenger', 3, 0], // bold row + blue-dot row + "Unread" text row; green presence dot excluded
+  ['instagram', 'instagram', 3, 0], // same Meta markers on /direct rows; presence dot excluded
   ['telegram', 'telegram', 4, 2], // positive peers direct, negative indirect, muted skipped
   ['discord', 'discord', 3, 1], // lowerBadge_/numberBadge_ sum; "• Discord" title -> indirect
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge
@@ -54,6 +55,11 @@ describe('ready()', () => {
   it('messenger is ready once chat rows are rendered', () => {
     expect(recipes.messenger.ready?.(load('messenger'))).toBe(true);
     expect(recipes.messenger.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('instagram is ready once thread links are rendered', () => {
+    expect(recipes.instagram.ready?.(load('instagram'))).toBe(true);
+    expect(recipes.instagram.ready?.(load('blank'))).toBe(false);
   });
 
   it('shopee is ready only when the mini-chat is expanded', () => {

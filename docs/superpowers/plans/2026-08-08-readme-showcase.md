@@ -1,48 +1,25 @@
 # README Showcase Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> superpowers:subagent-driven-development (recommended) or
-> superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn `README.md` into a showcase — banner, real screenshots of
-Goetia's own chrome, and six selling points — backed by a reproducible capture
-script, with the developer half moved to `docs/DEVELOPING.md`.
+**Goal:** Turn `README.md` into a showcase — banner, real screenshots of Goetia's own chrome, and six selling points — backed by a reproducible capture script, with the developer half moved to `docs/DEVELOPING.md`.
 
-**Architecture:** Three independent pieces. A pure capture matrix
-(`scripts/lib/shots.mjs`) is the single source of truth for which PNGs exist
-and what profile each needs; a Playwright-Electron driver
-(`scripts/capture-media.mjs`) launches the real app against a throwaway
-profile per shot and writes them; the README consumes the results. No app code
-changes.
+**Architecture:** Three independent pieces. A pure capture matrix (`scripts/lib/shots.mjs`) is the single source of truth for which PNGs exist and what profile each needs; a Playwright-Electron driver (`scripts/capture-media.mjs`) launches the real app against a throwaway profile per shot and writes them; the README consumes the results. No app code changes.
 
-**Tech Stack:** Node ESM scripts, `@playwright/test`'s `_electron` (existing
-devDependency), `@resvg/resvg-js` (existing devDependency) for SVG validation,
-Vitest, markdownlint-cli2, Biome.
+**Tech Stack:** Node ESM scripts, `@playwright/test`'s `_electron` (existing devDependency), `@resvg/resvg-js` (existing devDependency) for SVG validation, Vitest, markdownlint-cli2, Biome.
 
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-08-08-readme-showcase-design.md`.
-- Prose wraps at 80 columns; tables and fenced code are exempt
-  (`.markdownlint-cli2.jsonc`, `MD013`).
-- Every committed screenshot shows **only Goetia's own chrome**. No service
-  page, no third-party UI, no private data. A fresh `mkdtemp` profile per
-  shot; never the author's real profile.
-- `docs/media/` total size stays under 1.5 MB. Remedy if exceeded: flip
-  `SCALE` in `scripts/capture-media.mjs` from `'device'` to `'css'`.
+- Prose wraps at 80 columns; tables and fenced code are exempt (`.markdownlint-cli2.jsonc`, `MD013`).
+- Every committed screenshot shows **only Goetia's own chrome**. No service page, no third-party UI, no private data. A fresh `mkdtemp` profile per shot; never the author's real profile.
+- `docs/media/` total size stays under 1.5 MB. Remedy if exceeded: flip `SCALE` in `scripts/capture-media.mjs` from `'device'` to `'css'`.
 - Screenshot filenames are `<stem>-<theme>.png`, themes `light` and `dark`.
 - Biome lints `scripts/**`: single quotes, 2-space indent, 100-column width.
-- `vitest.config.ts` only collects `tests/unit/**/*.test.ts` — a new unit test
-  must be `.ts`, and any `.mjs` it imports needs a hand-written `.d.mts` or
-  `corepack pnpm typecheck` fails under `strict`.
-- The README's user-facing install wording is **preserved verbatim**, because
-  CLAUDE.md requires it to stay in sync with `.github/release-body.md`.
-- `--goetia-e2e` injects the fake unread on **`zalo`** specifically, 1500 ms
-  after startup (`src/main/index.ts:191-197`). Any shot needing a badge must
-  enable `zalo`.
-- **Commits:** this repo's owner commits only through
-  `/grimoire-core:commit` after confirming the message. Every "Commit" step
-  below means *stop and ask the user to run it* — never run `git commit`.
+- `vitest.config.ts` only collects `tests/unit/**/*.test.ts` — a new unit test must be `.ts`, and any `.mjs` it imports needs a hand-written `.d.mts` or `corepack pnpm typecheck` fails under `strict`.
+- The README's user-facing install wording is **preserved verbatim**, because CLAUDE.md requires it to stay in sync with `.github/release-body.md`.
+- `--goetia-e2e` injects the fake unread on **`zalo`** specifically, 1500 ms after startup (`src/main/index.ts:191-197`). Any shot needing a badge must enable `zalo`.
+- **Commits:** this repo's owner commits only through `/grimoire-core:commit` after confirming the message. Every "Commit" step below means *stop and ask the user to run it* — never run `git commit`.
 
 ---
 
@@ -52,15 +29,12 @@ Vitest, markdownlint-cli2, Biome.
 
 - Modify: `.markdownlint-cli2.jsonc`
 - Create: `docs/DEVELOPING.md`
-- Modify: `README.md` (remove everything from `## Build from source
-  (developers)` to end of file; add a pointer)
+- Modify: `README.md` (remove everything from `## Build from source (developers)` to end of file; add a pointer)
 
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: a lint config that permits `img`, `picture`, `source`, `p`, `div`,
-  `details`, `summary`, `kbd`, `br` in Markdown — Task 5 depends on this.
-  `docs/DEVELOPING.md` exists as the home for developer docs.
+- Produces: a lint config that permits `img`, `picture`, `source`, `p`, `div`, `details`, `summary`, `kbd`, `br` in Markdown — Task 5 depends on this. `docs/DEVELOPING.md` exists as the home for developer docs.
 
 - [ ] **Step 1: Write the failing test — an inline-HTML probe**
 
@@ -90,8 +64,7 @@ EOF
 
 Run: `npx --yes markdownlint-cli2 /tmp/md033-probe.md`
 
-Expected: FAIL — several `MD033/no-inline-html` errors naming `p`, `picture`,
-`source`, `img`, `details`, `summary`, `kbd`.
+Expected: FAIL — several `MD033/no-inline-html` errors naming `p`, `picture`, `source`, `img`, `details`, `summary`, `kbd`.
 
 - [ ] **Step 3: Add the MD033 allowlist**
 
@@ -133,11 +106,7 @@ Expected: `Summary: 0 issues in 0 files`.
 
 - [ ] **Step 5: Create `docs/DEVELOPING.md`**
 
-This is the README's current content from `## Build from source (developers)`
-through the end, moved under a new H1, with the heading text de-parenthesised
-and a new `pnpm media` row added to the Develop block. Write the file exactly
-as the four-backtick block below encloses it — the inner three-backtick
-fences are part of the content:
+This is the README's current content from `## Build from source (developers)` through the end, moved under a new H1, with the heading text de-parenthesised and a new `pnpm media` row added to the Develop block. Write the file exactly as the four-backtick block below encloses it — the inner three-backtick fences are part of the content:
 
 ````markdown
 # Developing Goetia
@@ -151,9 +120,7 @@ pnpm may not be on PATH (Node via Homebrew); run it through corepack — the
 version is pinned in `package.json`'s `packageManager` field:
 
 ```sh
-cd ~/workspace/gh_leo/goetia
-corepack pnpm install   # first time only
-corepack pnpm dev       # start with hot reload
+cd ~/workspace/gh_leo/goetia corepack pnpm install   # first time only corepack pnpm dev       # start with hot reload
 ```
 
 Sessions persist across restarts in `~/Library/Application Support/Goetia`
@@ -172,8 +139,7 @@ Tools that spawn pnpm themselves — e.g. electron-builder — also need this.)
 ### Package the installers
 
 ```sh
-corepack pnpm package:mac   # → dist/Goetia-<version>-arm64.dmg
-corepack pnpm package:win   # run on a Windows machine
+corepack pnpm package:mac   # → dist/Goetia-<version>-arm64.dmg corepack pnpm package:win   # run on a Windows machine
 ```
 
 A locally built app is **not** quarantined, so it opens with no warning on
@@ -183,9 +149,7 @@ install steps in the README for the one-time fix. To reproduce what a
 downloader sees, quarantine a copy by hand:
 
 ```sh
-flag="0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)"
-xattr -w com.apple.quarantine "$flag" /Applications/Goetia.app
-spctl -a -vvv -t exec /Applications/Goetia.app   # expect: rejected
+flag="0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)" xattr -w com.apple.quarantine "$flag" /Applications/Goetia.app spctl -a -vvv -t exec /Applications/Goetia.app   # expect: rejected
 ```
 
 Every build gets a fresh ad-hoc signature, whose designated requirement is
@@ -205,12 +169,7 @@ Releases are cut by pushing a version tag
 ## Develop
 
 ```sh
-corepack pnpm dev          # run with HMR
-corepack pnpm test         # unit tests (Vitest)
-corepack pnpm e2e          # smoke test (Playwright-Electron)
-corepack pnpm lint         # Biome
-corepack pnpm typecheck    # tsc --noEmit
-corepack pnpm media        # regenerate the README screenshots
+corepack pnpm dev          # run with HMR corepack pnpm test         # unit tests (Vitest) corepack pnpm e2e          # smoke test (Playwright-Electron) corepack pnpm lint         # Biome corepack pnpm typecheck    # tsc --noEmit corepack pnpm media        # regenerate the README screenshots
 ```
 
 `pnpm media` relaunches the app against a throwaway profile and rewrites
@@ -240,8 +199,7 @@ corepack pnpm media        # regenerate the README screenshots
 
 - [ ] **Step 6: Cut the moved sections from `README.md`**
 
-Delete every line from `## Build from source (developers)` to the end of the
-file. In its place append:
+Delete every line from `## Build from source (developers)` to the end of the file. In its place append:
 
 ```markdown
 ## Developing
@@ -265,15 +223,11 @@ git show HEAD:README.md | sed -n '/^## Build from source/,$p' | wc -l
 sed -n '/^## Build from source/,$p' docs/DEVELOPING.md | wc -l
 ```
 
-Expected: the second count is within a few lines of the first (the difference
-is the added `pnpm media` row, the reworded intro, and the extra Notes
-bullets). If the second is dramatically smaller, content was dropped.
+Expected: the second count is within a few lines of the first (the difference is the added `pnpm media` row, the reworded intro, and the extra Notes bullets). If the second is dramatically smaller, content was dropped.
 
 - [ ] **Step 9: Commit**
 
-Stop. Ask the user to run `/grimoire-core:commit` with a message along the
-lines of `docs(readme): move developer docs to docs/DEVELOPING.md`. Do not run
-`git commit`.
+Stop. Ask the user to run `/grimoire-core:commit` with a message along the lines of `docs(readme): move developer docs to docs/DEVELOPING.md`. Do not run `git commit`.
 
 ---
 
@@ -286,13 +240,11 @@ lines of `docs(readme): move developer docs to docs/DEVELOPING.md`. Do not run
 **Interfaces:**
 
 - Consumes: nothing.
-- Produces: `docs/media/banner.svg`, a 1200×300 theme-aware banner referenced
-  by Task 5.
+- Produces: `docs/media/banner.svg`, a 1200×300 theme-aware banner referenced by Task 5.
 
 - [ ] **Step 1: Write the failing test — render the banner headlessly**
 
-`@resvg/resvg-js` is already a devDependency, so a valid SVG is provable
-without new tooling. Save this as `/tmp/check-banner.mjs`:
+`@resvg/resvg-js` is already a devDependency, so a valid SVG is provable without new tooling. Save this as `/tmp/check-banner.mjs`:
 
 ```js
 import { readFileSync } from 'node:fs';
@@ -312,12 +264,7 @@ Expected: FAIL with `ENOENT ... docs/media/banner.svg`.
 
 - [ ] **Step 3: Author the banner**
 
-Colours are lifted from the real assets: the plate and arc gradients from
-`resources/icon.svg`, and the accents from `src/renderer/src/tokens.css`
-(`--accent` is `#e8590c` light, `#ff9e2c` dark). The mark is the icon's ring
-and core at banner scale. Theme switching lives in a `<style>` block so one
-file serves both, and the CSS custom properties give a sane light default for
-renderers that ignore `prefers-color-scheme`.
+Colours are lifted from the real assets: the plate and arc gradients from `resources/icon.svg`, and the accents from `src/renderer/src/tokens.css` (`--accent` is `#e8590c` light, `#ff9e2c` dark). The mark is the icon's ring and core at banner scale. Theme switching lives in a `<style>` block so one file serves both, and the CSS custom properties give a sane light default for renderers that ignore `prefers-color-scheme`.
 
 Create `docs/media/banner.svg`:
 
@@ -391,14 +338,11 @@ Expected: `ok — banner renders to <N> bytes` with N ≥ 5000.
 
 - [ ] **Step 5: Eyeball it in both themes**
 
-Open `docs/media/banner.svg` in a browser and toggle the OS appearance
-between light and dark. Expected: background and wordmark invert; the ember
-ring and core stay warm in both; no clipped text.
+Open `docs/media/banner.svg` in a browser and toggle the OS appearance between light and dark. Expected: background and wordmark invert; the ember ring and core stay warm in both; no clipped text.
 
 - [ ] **Step 6: Commit**
 
-Stop. Ask the user to run `/grimoire-core:commit`, suggested message
-`docs(readme): add showcase banner`.
+Stop. Ask the user to run `/grimoire-core:commit`, suggested message `docs(readme): add showcase banner`.
 
 ---
 
@@ -416,14 +360,8 @@ Stop. Ask the user to run `/grimoire-core:commit`, suggested message
 - Produces, all imported by Task 4:
   - `ALL_SERVICE_IDS: ServiceId[]`
   - `THEMES: Theme[]` — `['light', 'dark']`
-  - `SHOTS: Shot[]` — one entry per committed PNG, where
-    `Shot = { stem: string; surface: Surface; enabled: ServiceId[];
-    muted?: ServiceId[]; theme: Theme }` and
-    `Surface = 'welcome' | 'rail' | 'switcher' | 'settings' | 'waking'`
-  - `settingsFor(shot: Shot)` → the object written to the throwaway
-    profile's `settings.json`:
-    `{ theme, railPosition: 'top', disabled: Record<ServiceId, boolean>,
-    muted: Record<ServiceId, boolean> }`
+  - `SHOTS: Shot[]` — one entry per committed PNG, where `Shot = { stem: string; surface: Surface; enabled: ServiceId[]; muted?: ServiceId[]; theme: Theme }` and `Surface = 'welcome' | 'rail' | 'switcher' | 'settings' | 'waking'`
+  - `settingsFor(shot: Shot)` → the object written to the throwaway profile's `settings.json`: `{ theme, railPosition: 'top', disabled: Record<ServiceId, boolean>, muted: Record<ServiceId, boolean> }`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -541,9 +479,7 @@ export function settingsFor(shot) {
 
 - [ ] **Step 4: Write the type declarations**
 
-`tsconfig.json` does not include `scripts/`, but the test does import from it,
-and `strict` mode rejects an untyped `.mjs`. TypeScript resolves `./x.mjs` to
-`./x.d.mts`. Create `scripts/lib/shots.d.mts`:
+`tsconfig.json` does not include `scripts/`, but the test does import from it, and `strict` mode rejects an untyped `.mjs`. TypeScript resolves `./x.mjs` to `./x.d.mts`. Create `scripts/lib/shots.d.mts`:
 
 ```ts
 export type ServiceId =
@@ -589,14 +525,11 @@ Expected: PASS, 5 tests.
 
 Run: `corepack pnpm test && corepack pnpm typecheck && corepack pnpm lint`
 
-Expected: all green. `typecheck` is the real risk here — if it reports
-`shots.mjs` implicitly has type `any`, the `.d.mts` filename or its exported
-names do not match Step 3.
+Expected: all green. `typecheck` is the real risk here — if it reports `shots.mjs` implicitly has type `any`, the `.d.mts` filename or its exported names do not match Step 3.
 
 - [ ] **Step 7: Commit**
 
-Stop. Ask the user to run `/grimoire-core:commit`, suggested message
-`test(media): add capture matrix for README screenshots`.
+Stop. Ask the user to run `/grimoire-core:commit`, suggested message `test(media): add capture matrix for README screenshots`.
 
 ---
 
@@ -611,8 +544,7 @@ Stop. Ask the user to run `/grimoire-core:commit`, suggested message
 **Interfaces:**
 
 - Consumes: `SHOTS`, `settingsFor` from `scripts/lib/shots.mjs` (Task 3).
-- Produces: `docs/media/{welcome,rail-badges,quick-switcher,settings,waking}-{light,dark}.png`,
-  which Task 5 references.
+- Produces: `docs/media/{welcome,rail-badges,quick-switcher,settings,waking}-{light,dark}.png`, which Task 5 references.
 
 - [ ] **Step 1: Add the `media` script**
 
@@ -626,15 +558,11 @@ In `package.json`, inside `"scripts"`, after the `"lint"` entry:
 
 Run: `corepack pnpm media`
 
-Expected: the build succeeds, then FAIL with
-`Cannot find module .../scripts/capture-media.mjs`.
+Expected: the build succeeds, then FAIL with `Cannot find module .../scripts/capture-media.mjs`.
 
 - [ ] **Step 3: Write the driver**
 
-Every locator below already exists in the shipped components: `welcome`
-(`Welcome.tsx`), `rail` and `settings-btn` (`Rail.tsx`), `switcher`
-(`QuickSwitcher.tsx`), `settings` (`SettingsView.tsx`). The shell page is the
-`file://` page that is not `loading.html`, matching the e2e specs.
+Every locator below already exists in the shipped components: `welcome` (`Welcome.tsx`), `rail` and `settings-btn` (`Rail.tsx`), `switcher` (`QuickSwitcher.tsx`), `settings` (`SettingsView.tsx`). The shell page is the `file://` page that is not `loading.html`, matching the e2e specs.
 
 Create `scripts/capture-media.mjs`:
 
@@ -750,14 +678,9 @@ console.log(`\n${SHOTS.length} shots written to ${OUT}/`);
 
 Run: `corepack pnpm media`
 
-Expected: ten `✓ docs/media/...png` lines, then
-`10 shots written to docs/media/`.
+Expected: ten `✓ docs/media/...png` lines, then `10 shots written to docs/media/`.
 
-If the `waking` shot times out because a logged-out page finished loading
-before the overlay could be captured, delete the `waking` entry from
-`SURFACES` in `scripts/lib/shots.mjs` and its handler in
-`scripts/capture-media.mjs`. The matrix test derives its expected count, so
-it keeps passing at eight shots. The spec authorises dropping this pair first.
+If the `waking` shot times out because a logged-out page finished loading before the overlay could be captured, delete the `waking` entry from `SURFACES` in `scripts/lib/shots.mjs` and its handler in `scripts/capture-media.mjs`. The matrix test derives its expected count, so it keeps passing at eight shots. The spec authorises dropping this pair first.
 
 - [ ] **Step 5: Verify the files, the budget, and the privacy rule**
 
@@ -768,12 +691,9 @@ ls -la docs/media/*.png | wc -l
 du -sh docs/media
 ```
 
-Expected: 10 files; `docs/media` under 1.5 MB. If over, set `SCALE = 'css'`
-and re-run `corepack pnpm media`.
+Expected: 10 files; `docs/media` under 1.5 MB. If over, set `SCALE = 'css'` and re-run `corepack pnpm media`.
 
-Then open all ten PNGs and confirm by eye: no service page content, no chat
-list, no contact name, no avatar — Goetia's own chrome only. Any shot that
-fails this is a spec violation, not a cosmetic problem.
+Then open all ten PNGs and confirm by eye: no service page content, no chat list, no contact name, no avatar — Goetia's own chrome only. Any shot that fails this is a spec violation, not a cosmetic problem.
 
 - [ ] **Step 6: Verify determinism on the static pairs**
 
@@ -785,24 +705,15 @@ corepack pnpm media >/dev/null
 shasum -a 256 docs/media/settings-dark.png docs/media/welcome-dark.png | diff - /tmp/before.txt
 ```
 
-Expected: no diff, for all ten files. The script emulates reduced motion on
-every page before capturing, which parks the ember portal animation, so even
-the welcome, rail, and overlay shots are byte-stable.
+Expected: no diff, for all ten files. The script emulates reduced motion on every page before capturing, which parks the ember portal animation, so even the welcome, rail, and overlay shots are byte-stable.
 
-Implementation note from the executed run: the badge shot originally raced
-`--goetia-e2e`. `DEFAULT_SETTINGS.neverHibernate` is `true` for every service,
-so each enabled service loads a hidden view at startup, and zalo's runner
-reported `{0,0}` for the logged-out page within ~500 ms — overwriting the
-injected count before the screenshot. Seeding `neverHibernate: false` in
-`settingsFor` means zalo has no view and no runner, so the injected badge
-persists indefinitely. Do not "fix" this by adding waits.
+Implementation note from the executed run: the badge shot originally raced `--goetia-e2e`. `DEFAULT_SETTINGS.neverHibernate` is `true` for every service, so each enabled service loads a hidden view at startup, and zalo's runner reported `{0,0}` for the logged-out page within ~500 ms — overwriting the injected count before the screenshot. Seeding `neverHibernate: false` in `settingsFor` means zalo has no view and no runner, so the injected badge persists indefinitely. Do not "fix" this by adding waits.
 
 - [ ] **Step 7: Confirm the shared e2e harness is undisturbed**
 
 Run: `env -u ELECTRON_RUN_AS_NODE corepack pnpm e2e`
 
-Expected: all specs pass. (VS Code shells export `ELECTRON_RUN_AS_NODE`,
-which breaks Playwright's Electron launcher — hence `env -u`.)
+Expected: all specs pass. (VS Code shells export `ELECTRON_RUN_AS_NODE`, which breaks Playwright's Electron launcher — hence `env -u`.)
 
 - [ ] **Step 8: Run the full gate**
 
@@ -812,8 +723,7 @@ Expected: all green.
 
 - [ ] **Step 9: Commit**
 
-Stop. Ask the user to run `/grimoire-core:commit`, suggested message
-`docs(readme): add screenshot capture script and captures`.
+Stop. Ask the user to run `/grimoire-core:commit`, suggested message `docs(readme): add screenshot capture script and captures`.
 
 ---
 
@@ -821,14 +731,11 @@ Stop. Ask the user to run `/grimoire-core:commit`, suggested message
 
 **Files:**
 
-- Modify: `README.md` (replace everything above `## Install (for everyone)`;
-  wrap `### If something looks off` in `<details>`; leave install wording
-  untouched)
+- Modify: `README.md` (replace everything above `## Install (for everyone)`; wrap `### If something looks off` in `<details>`; leave install wording untouched)
 
 **Interfaces:**
 
-- Consumes: `docs/media/banner.svg` (Task 2), `docs/media/*.png` (Task 4), the
-  MD033 allowlist (Task 1), `docs/DEVELOPING.md` (Task 1).
+- Consumes: `docs/media/banner.svg` (Task 2), `docs/media/*.png` (Task 4), the MD033 allowlist (Task 1), `docs/DEVELOPING.md` (Task 1).
 - Produces: the final README. Nothing depends on it.
 
 - [ ] **Step 1: Write the failing test — every referenced image must exist**
@@ -850,15 +757,11 @@ console.log(`ok — ${refs.length} image references, all present`);
 
 Run: `node /tmp/check-images.mjs`
 
-Expected: FAIL — `expected 11+ image refs, found 0` (the README has no images
-yet).
+Expected: FAIL — `expected 11+ image refs, found 0` (the README has no images yet).
 
 - [ ] **Step 3: Replace everything above `## Install (for everyone)`**
 
-Delete the current lines 1–9 (the `# Goetia` heading through the "Built with
-Electron…" paragraph) and put this in their place. The shields use the repo
-`quyennguyenvu/goetia` and Electron 43, matching `package.json`. The inner
-three-backtick `mermaid` fence is part of the content:
+Delete the current lines 1–9 (the `# Goetia` heading through the "Built with Electron…" paragraph) and put this in their place. The shields use the repo `quyennguyenvu/goetia` and Electron 43, matching `package.json`. The inner three-backtick `mermaid` fence is part of the content:
 
 ````markdown
 <p align="center">
@@ -968,22 +871,9 @@ flash:
 ## How an unread count reaches you
 
 ```mermaid
-flowchart LR
-  page["service page<br/>DOM or IndexedDB"]
-  recipe["recipe count()<br/>src/preload/recipes"]
-  runner["runner<br/>~2s, de-duped"]
-  state["MainState"]
-  rail["rail badge"]
-  dock["dock / taskbar"]
-  tray["tray tooltip"]
-  stale["grey stale dot"]
+flowchart LR page["service page<br/>DOM or IndexedDB"] recipe["recipe count()<br/>src/preload/recipes"] runner["runner<br/>~2s, de-duped"] state["MainState"] rail["rail badge"] dock["dock / taskbar"] tray["tray tooltip"] stale["grey stale dot"]
 
-  page --> recipe --> runner
-  runner -->|"unread:update"| state
-  state --> rail
-  state --> dock
-  state --> tray
-  runner -.->|"count() threw"| stale
+  page --> recipe --> runner runner -->|"unread:update"| state state --> rail state --> dock state --> tray runner -.->|"count() threw"| stale
 ```
 
 Counts are reported only when they change, so a hidden service costs almost
@@ -992,8 +882,7 @@ nothing while it sits there.
 
 - [ ] **Step 4: Fold the troubleshooting section**
 
-Leave the `### If something looks off` heading and every bullet under it
-exactly as written. Immediately after the heading, insert:
+Leave the `### If something looks off` heading and every bullet under it exactly as written. Immediately after the heading, insert:
 
 ```markdown
 <details>
@@ -1006,8 +895,7 @@ and immediately before `## Developing`, insert:
 </details>
 ```
 
-Both inserted blocks need a blank line before and after them, or MD031/MD032
-will fire.
+Both inserted blocks need a blank line before and after them, or MD031/MD032 will fire.
 
 - [ ] **Step 5: Run the image check to verify it passes**
 
@@ -1019,14 +907,11 @@ Expected: `ok — 11 image references, all present`.
 
 Run: `npx --yes markdownlint-cli2 README.md docs/DEVELOPING.md`
 
-Expected: `Summary: 0 issues in 0 files`. If MD033 fires, the element is
-outside Task 1's allowlist — use an allowed element rather than widening the
-list.
+Expected: `Summary: 0 issues in 0 files`. If MD033 fires, the element is outside Task 1's allowlist — use an allowed element rather than widening the list.
 
 - [ ] **Step 7: Verify the install wording is byte-identical**
 
-The README ↔ `.github/release-body.md` sync CLAUDE.md requires must not have
-drifted:
+The README ↔ `.github/release-body.md` sync CLAUDE.md requires must not have drifted:
 
 ```bash
 git show HEAD:README.md | sed -n '/^## Install (for everyone)/,/^### If something looks off/p' \
@@ -1039,12 +924,7 @@ Expected: `install section unchanged`.
 
 - [ ] **Step 8: Verify the rendered page**
 
-Push the branch and open the README on GitHub, or use a Markdown preview that
-renders mermaid. Check: banner centred and theme-appropriate; all four
-shields resolve; five screenshots render and follow the theme; the mermaid
-diagram draws; the `<details>` block folds and opens; the
-`docs/DEVELOPING.md` link resolves. Then switch your GitHub appearance
-setting to the other theme and confirm the images swap.
+Push the branch and open the README on GitHub, or use a Markdown preview that renders mermaid. Check: banner centred and theme-appropriate; all four shields resolve; five screenshots render and follow the theme; the mermaid diagram draws; the `<details>` block folds and opens; the `docs/DEVELOPING.md` link resolves. Then switch your GitHub appearance setting to the other theme and confirm the images swap.
 
 - [ ] **Step 9: Run the whole definition of done**
 
@@ -1059,38 +939,22 @@ Expected: all green.
 
 - [ ] **Step 10: Commit**
 
-Stop. Ask the user to run `/grimoire-core:commit`, suggested message
-`docs(readme): restructure as a showcase`.
+Stop. Ask the user to run `/grimoire-core:commit`, suggested message `docs(readme): restructure as a showcase`.
 
 ---
 
 ## Self-review
 
-**Spec coverage.** Every spec section maps to a task: MD033 allowlist and the
-`DEVELOPING.md` move → Task 1; `banner.svg` → Task 2; the capture matrix and
-its five surfaces → Task 3; `scripts/capture-media.mjs` plus the `media`
-script → Task 4; README structure, the six selling points, the mermaid
-diagram, and the `<details>` fold → Task 5. The spec's verification list is
-distributed across Task 4 Steps 5–8 and Task 5 Steps 5–9. The "chrome only"
-decision is enforced by Task 4 Step 5 and stated in the README's own
-disclaimer.
+**Spec coverage.** Every spec section maps to a task: MD033 allowlist and the `DEVELOPING.md` move → Task 1; `banner.svg` → Task 2; the capture matrix and its five surfaces → Task 3; `scripts/capture-media.mjs` plus the `media` script → Task 4; README structure, the six selling points, the mermaid diagram, and the `<details>` fold → Task 5. The spec's verification list is distributed across Task 4 Steps 5–8 and Task 5 Steps 5–9. The "chrome only" decision is enforced by Task 4 Step 5 and stated in the README's own disclaimer.
 
-**Type consistency.** `settingsFor`, `SHOTS`, `THEMES`, `ALL_SERVICE_IDS`,
-`Shot`, `Surface`, and `SeededSettings` are spelled identically in Task 3's
-test, implementation, and declarations, and in Task 4's import. Surface keys
-in `SURFACES` (`welcome`, `rail`, `switcher`, `settings`, `waking`) match the
-`surface` values in `shots.mjs` and the `Surface` union.
+**Type consistency.** `settingsFor`, `SHOTS`, `THEMES`, `ALL_SERVICE_IDS`, `Shot`, `Surface`, and `SeededSettings` are spelled identically in Task 3's test, implementation, and declarations, and in Task 4's import. Surface keys in `SURFACES` (`welcome`, `rail`, `switcher`, `settings`, `waking`) match the `surface` values in `shots.mjs` and the `Surface` union.
 
 **Known risks, each with a documented remedy in-step.**
 
-1. `waking` may race the overlay's teardown — Task 4 Step 4 says to drop the
-   pair, which the derived test count tolerates.
+1. `waking` may race the overlay's teardown — Task 4 Step 4 says to drop the pair, which the derived test count tolerates.
 2. `docs/media` may exceed 1.5 MB — Task 4 Step 5 flips one constant.
-3. `tsc` may reject the `.mjs` import — Task 3 Step 6 names the `.d.mts` as
-   the cause.
+3. `tsc` may reject the `.mjs` import — Task 3 Step 6 names the `.d.mts` as the cause.
 
 ## Out of scope
 
-Any screenshot of real conversations; animated GIFs or recordings;
-restructuring `docs/FEATURES.md`; wiring the navigation guard or code
-signing.
+Any screenshot of real conversations; animated GIFs or recordings; restructuring `docs/FEATURES.md`; wiring the navigation guard or code signing.

@@ -1,6 +1,7 @@
 export type ServiceId =
   | 'whatsapp'
   | 'messenger'
+  | 'instagram'
   | 'telegram'
   | 'discord'
   | 'zalo'
@@ -64,10 +65,11 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  order: ['messenger', 'telegram', 'zalo', 'whatsapp', 'discord', 'tiktok', 'shopee'],
+  order: ['messenger', 'instagram', 'telegram', 'zalo', 'whatsapp', 'discord', 'tiktok', 'shopee'],
   muted: {
     whatsapp: false,
     messenger: false,
+    instagram: false,
     telegram: false,
     discord: false,
     zalo: false,
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   disabled: {
     whatsapp: true,
     messenger: true,
+    instagram: true,
     telegram: true,
     discord: true,
     zalo: true,
@@ -89,6 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
   neverHibernate: {
     whatsapp: true,
     messenger: true,
+    instagram: true,
     telegram: true,
     discord: true,
     zalo: true,

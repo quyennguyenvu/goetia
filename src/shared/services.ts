@@ -9,6 +9,16 @@ export const SERVICES: ServiceMeta[] = [
     color: '#0084FF',
     waitForReady: true,
   },
+  // DMs only — land on /direct/inbox, never the feed. Selectors follow
+  // Meta's messenger DOM language but are uncalibrated until a live login
+  // pass.
+  {
+    id: 'instagram',
+    name: 'Instagram',
+    url: 'https://www.instagram.com/direct/inbox/',
+    color: '#E4405F',
+    waitForReady: true,
+  },
   {
     id: 'telegram',
     name: 'Telegram',

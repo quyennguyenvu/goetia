@@ -1,7 +1,6 @@
 # Release workflow design
 
-**Date:** 2026-08-05
-**Goal:** Users can download Goetia installers (macOS dmg, Windows exe) directly from GitHub Releases.
+**Date:** 2026-08-05 **Goal:** Users can download Goetia installers (macOS dmg, Windows exe) directly from GitHub Releases.
 
 ## Context
 
@@ -13,17 +12,12 @@
 
 ## Chosen approach
 
-Tag-push → matrix build → GitHub Release. electron-builder keeps `publish: null`
-(local packaging never publishes); the workflow attaches installers explicitly
-with `softprops/action-gh-release`.
+Tag-push → matrix build → GitHub Release. electron-builder keeps `publish: null` (local packaging never publishes); the workflow attaches installers explicitly with `softprops/action-gh-release`.
 
 Rejected alternatives:
 
-- electron-builder built-in GitHub publishing (`--publish always`): requires
-  `publish: github` in `electron-builder.yml`, which leaks publish behavior into
-  local builds and produces draft releases with less control.
-- Build-only artifacts without a release: users would have to dig into Actions
-  runs — fails the "download directly" requirement.
+- electron-builder built-in GitHub publishing (`--publish always`): requires `publish: github` in `electron-builder.yml`, which leaks publish behavior into local builds and produces draft releases with less control.
+- Build-only artifacts without a release: users would have to dig into Actions runs — fails the "download directly" requirement.
 
 ## Deliverables
 
@@ -47,20 +41,16 @@ Rejected alternatives:
 
 - Condition: tag push only; `needs: build` (both matrix legs succeeded).
 - `runs-on: ubuntu-latest`; `permissions: contents: write` (workflow-level).
-- `actions/download-artifact` → `softprops/action-gh-release@v2` with
-  `generate_release_notes: true`, files: `*.dmg`, `*.exe`.
+- `actions/download-artifact` → `softprops/action-gh-release@v2` with `generate_release_notes: true`, files: `*.dmg`, `*.exe`.
 
 ### 2. `electron-builder.yml` changes
 
 - mac `target: [dmg, zip]` → `target: dmg` (zip only serves auto-update; halves mac CI time).
-- Add mac `artifactName: ${productName}-${version}-${arch}.${ext}` so the x64 dmg
-  carries an explicit arch suffix (default naming omits it).
+- Add mac `artifactName: ${productName}-${version}-${arch}.${ext}` so the x64 dmg carries an explicit arch suffix (default naming omits it).
 
 ### 3. `README.md` addition
 
-Short **Download** section: link to Releases, pick dmg by Mac chip, plus
-unsigned-app first-launch notes (macOS: right-click → Open; Windows: SmartScreen
-→ More info → Run anyway).
+Short **Download** section: link to Releases, pick dmg by Mac chip, plus unsigned-app first-launch notes (macOS: right-click → Open; Windows: SmartScreen → More info → Run anyway).
 
 ## Error handling
 

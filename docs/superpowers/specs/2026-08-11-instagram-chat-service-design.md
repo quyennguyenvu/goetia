@@ -1,0 +1,31 @@
+# Instagram chat service
+
+Date: 2026-08-11. Status: accepted (implemented same day).
+
+## Context
+
+Instagram Direct is the eighth service. Like facebook.com (messenger), the site is mostly not chat — feed, reels, explore, profiles — so it needs the full chat-only treatment: land on the DM inbox, `chatPaths` containment, and cosmetic chrome hiding. Instagram web shares Meta's chat-list DOM language with facebook.com/messages: unread rows carry bold text, a small blue dot (`#0095F6`, blue-dominant like facebook's `#0064D1`), and an "Unread" screen-reader string; DMs never notify in-page (delegated to browser push, which Electron cannot receive), so banners must be synthesized.
+
+## Decisions
+
+- **Catalog**: id `instagram`, name Instagram, url `https://www.instagram.com/direct/inbox/` (the chat surface directly, never the feed), color `#E4405F`, `waitForReady: true`. Placed after `messenger` in `ServiceId`, `SERVICES`, and every `DEFAULT_SETTINGS` record; ships disabled like every service. `normalize()` slots ids missing from a persisted order in at their catalog position — right after the nearest catalog predecessor the user already has — rather than appending, so instagram lands beside messenger on existing installs too (revised same day after a live smoke test showed it appended to the end of the rail).
+- **Containment**: `chatPaths: ['/direct']` covers `/direct/inbox/` and `/direct/t/<thread>`. Login flows (`/accounts/login/`) never reach a chat path, so they are never snapped back.
+- **Shared Meta heuristics**: messenger's unread-row detection and banner-text extraction move verbatim to `src/preload/recipes/meta-unread.ts`, parameterized by thread-link selector and a link→row resolver. Messenger keeps `[role='row']`; instagram resolves `[role='listitem'], [role='row']` with the link itself as fallback. Behavior for messenger is unchanged — its existing fixture tests are the proof.
+- **Recipe**: `ready()` = a thread link (`a[href*='/direct/t/']`) visibly present (messenger precedent; a logged-out redirect to the login page keeps the waking cover up). `count()` = unread-row sweep with the `(n)` title fallback; `synthNotification()` from the first unread row's `dir="auto"` spans. CSS inerts off-chat in-page links (`pointer-events: none` on `a[href^='/']:not([href^='/direct'])`: thread-header avatar/username, @mentions, shared posts) instead of letting them navigate-then-snap-back; messenger gains the same inert rule for its profile links, both gated on the chat surface being mounted. The nav rail is hidden by a new optional recipe hook, `hideChrome(doc): Element[]`, run by the runner every tick (idempotent `display:none`, try/catch'd, re-hides SPA re-renders): two live smoke tests showed no static selector survives — the rail is hash-classed, half its icons are `role=button`, and it carries no `nav`/`role=navigation` landmark — so instagram computes it structurally as the branch holding the DM *nav* link (one not inside `main`) that sits beside `main`. Login pages render no `main`, so they are untouched, and a layout that nests the nav inside `main` hides nothing rather than risking the chat surface. Because the rail is position:fixed, hiding it leaves its reserved width as a dead column in two shapes — when the rail is found, `hideChrome` also walks `main` up to the layout root inclusive plus the single-child wrapper spine below `main` (a live inspection found the padded wrapper — StyleX atomic class `.x132t2bv`, `padding-inline-start: 72px` — outside the original chain), zeroing any rail-sized (>=40px) left margin/padding/offset (pane-internal paddings are far smaller and survive) and stretching any element that under-fills its parent by >=40px (the `width: calc(100% - rail)` leftover that otherwise strands a blank strip at the pane's right edge). The recipe `css` also zeroes `.x132t2bv`'s padding directly: StyleX hashes are derived from the single declaration they carry, so they survive rebuilds far better than component classes, with the structural reclaim as the fallback if the hash ever rotates. `chatPaths` remains the containment.
+- **Calibration caveat**: selectors follow Meta's messenger DOM language but are uncalibrated against a live logged-in session (tiktok precedent). Noted in the recipe until a live login pass.
+- **Navigation policy**: `instagram` hosts are `www.instagram.com`, `instagram.com`, `accounts.instagram.com`, plus `www.facebook.com` / `facebook.com` for the Log-in-with-Facebook bounce. VERIFY LIVE before wiring enforcement, per the existing note.
+- **Icons**: `src/renderer/src/assets/logos/instagram.svg` (simple-icons glyph, white fill); `pnpm icons` regenerates `resources/notification-icons/instagram{,-mac}.png`.
+- **Copy**: Settings shortcut line becomes `⌘/Ctrl + 1…8` (it was already stale at seven services); README service list and the chat-pinning line gain Instagram.
+
+## Testing
+
+- `tests/fixtures/instagram.html` is the count oracle: bold row + blue-dot row + "Unread" text row = 3 direct; a green presence dot and plain read rows count nothing; the blue dot sits outside the anchor to exercise the row resolver.
+- `recipes.test.ts` gains the count row, blank-page zeros, and a `ready()` case; the `waitForReady` loop enforces the flag automatically.
+- `instagram-synth.test.ts` mirrors messenger's: sender + preview from the first unread row, time suffix stripped, null on blank.
+- `instagram-chrome.test.ts` locks the rail computation (fixture rail found; nothing on a main-less login page; nothing when the only direct links are threads inside `main`) and the space reclaim (rail-sized margin zeroed, pane-internal padding kept, under-filled column stretched via stubbed layout metrics, full column left alone); `runner-chrome.test.ts` locks the hook contract (idempotent hide, re-hide after re-render, a throw never breaks counting).
+- `services.test.ts`, `settings.test.ts`, `welcome.test.ts` expectations extend to the eight-service catalog; `settings.test.ts` locks the catalog-position slotting (instagram beside messenger for pre-existing installs, and following messenger wherever a reordered rail puts it).
+
+## Out of scope
+
+- Live-DOM calibration of the unread-row selectors and `ALLOWED_HOSTS` verification — both need a real logged-in session.
+- Wiring `will-navigate` enforcement (tracked separately in CLAUDE.md).

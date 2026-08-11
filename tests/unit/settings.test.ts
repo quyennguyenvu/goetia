@@ -53,8 +53,11 @@ describe('SettingsStore', () => {
       }),
     );
     const s = new SettingsStore(dir).get();
+    // new ids slot in at their catalog position (instagram beside messenger),
+    // not at the end of the rail
     expect(s.order).toEqual([
       'messenger',
+      'instagram',
       'telegram',
       'zalo',
       'whatsapp',
@@ -62,6 +65,9 @@ describe('SettingsStore', () => {
       'tiktok',
       'shopee',
     ]);
+    expect(s.muted.instagram).toBe(false);
+    expect(s.disabled.instagram).toBe(true); // new service arrives disabled
+    expect(s.neverHibernate.instagram).toBe(true);
     expect(s.muted.tiktok).toBe(false);
     expect(s.disabled.tiktok).toBe(true); // new service arrives disabled
     expect(s.neverHibernate.tiktok).toBe(true);
@@ -80,12 +86,35 @@ describe('SettingsStore', () => {
     const s = new SettingsStore(dir).get();
     expect(s.order).toEqual([
       'messenger',
-      'zalo',
+      'instagram',
       'telegram',
+      'zalo',
       'whatsapp',
       'discord',
       'tiktok',
       'shopee',
+    ]);
+  });
+
+  it('keeps a user reordering while slotting new services after their predecessor', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    // user moved messenger to the end; instagram must follow it there
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({
+        order: ['telegram', 'zalo', 'whatsapp', 'discord', 'tiktok', 'shopee', 'messenger'],
+      }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.order).toEqual([
+      'telegram',
+      'zalo',
+      'whatsapp',
+      'discord',
+      'tiktok',
+      'shopee',
+      'messenger',
+      'instagram',
     ]);
   });
 

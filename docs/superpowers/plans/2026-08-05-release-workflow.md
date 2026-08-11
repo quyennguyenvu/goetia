@@ -23,9 +23,11 @@
 ### Task 1: electron-builder.yml — mac dmg-only target with arch-suffixed names
 
 **Files:**
+
 - Modify: `electron-builder.yml` (mac section only)
 
 **Interfaces:**
+
 - Produces: mac artifacts named `Goetia-<version>-<arch>.dmg` (e.g. `Goetia-0.1.0-arm64.dmg`, `Goetia-0.1.0-x64.dmg`); no zip target. Task 2's workflow and Task 3's README rely on these exact names.
 
 - [ ] **Step 1: Edit the mac section**
@@ -70,9 +72,11 @@ Do NOT commit. Note the file as ready; the user commits all tasks together at Ta
 ### Task 2: .github/workflows/release.yml
 
 **Files:**
+
 - Create: `.github/workflows/release.yml`
 
 **Interfaces:**
+
 - Consumes: artifact names from Task 1 (`dist/*.dmg` on mac, `dist/*.exe` on win — nsis default name is `Goetia Setup 0.1.0.exe`).
 - Produces: a GitHub Release on `v*` tag push with the three installers attached; a `workflow_dispatch` dry run that only uploads run artifacts.
 
@@ -168,6 +172,7 @@ jobs:
 ```
 
 Why these choices (context for a zero-context implementer):
+
 - `pnpm/action-setup@v4` with no `version` input reads the pinned `packageManager` field — more robust on Windows runners than `corepack enable`, and required before `setup-node`'s `cache: pnpm` works.
 - `defaults.run.shell: bash` makes the multiline steps fail-fast on Windows too (default pwsh does not stop on intermediate command failure).
 - `--publish never` is belt-and-braces: `publish: null` already disables publishing, but electron-builder can otherwise auto-publish on CI tag builds when a token is present.
@@ -203,9 +208,11 @@ Do NOT commit. The user commits all tasks together at Task 4.
 ### Task 3: README Download section
 
 **Files:**
+
 - Modify: `README.md` (insert a `## Download` section between the intro paragraph and `## Run`)
 
 **Interfaces:**
+
 - Consumes: artifact names from Task 1/2.
 
 - [ ] **Step 1: Insert the Download section**
