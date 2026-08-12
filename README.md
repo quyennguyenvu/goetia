@@ -17,7 +17,7 @@ WhatsApp, Messenger, Instagram, Telegram, Discord, Zalo, TikTok, Shopee, and Sla
 
 **Chat only.** Every other multi-service client embeds the whole site, feed and all. Goetia hides the host chrome and pins Facebook, Instagram, and TikTok to their chat paths — route away from chat and the view snaps back.
 
-**Local only.** No server, no account, no telemetry. Each service gets its own isolated `persist:<id>` session, so eight logins never see each other.
+**Local only.** No server, no account, no telemetry. Each service gets its own isolated `persist:<id>` session, so nine logins never see each other.
 
 **Badges that don't lie.** One unread recipe per service, each locked to a DOM fixture in the test suite. When a service redesigns, its tile shows a grey stale dot instead of a confident zero.
 
@@ -29,13 +29,13 @@ WhatsApp, Messenger, Instagram, Telegram, Discord, Zalo, TikTok, Shopee, and Sla
 
 ## A look around
 
-Nothing loads until you pick — a fresh install starts with every service off. Home keeps the summoned apart from the unbound, and a pick only changes which side it's on once you confirm; **Dispel** throws the edit away:
+Nothing loads until you pick — a fresh install starts with every service off. Home keeps the summoned apart from the unbound, and a pick only changes which side it's on once you confirm: the button spells out the change first (**Summon 1 · Banish 1** below), and **Dispel** throws the edit away. The unbound row filters by name, and dragging a summoned tile sets the rail order — a drop takes effect on its own, so reordering never rides along with an enable:
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/welcome-dark.png">
     <img src="docs/media/welcome-light.png" width="760"
-      alt="Goetia's Home screen: three services summoned, four unbound">
+      alt="Goetia's Home screen: three services summoned, six unbound, with one staged on each side">
   </picture>
 </p>
 
@@ -45,7 +45,7 @@ Unread counts land on the rail, on the dock or taskbar, and in the tray tooltip.
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/rail-badges-dark.png">
     <img src="docs/media/rail-badges-light.png" width="620"
-      alt="The service rail: seven tiles, an unread badge of 3, one muted">
+      alt="The service rail: nine tiles, an unread badge of 3, one muted">
   </picture>
 </p>
 
@@ -155,14 +155,14 @@ gh attestation verify Goetia-<version>-arm64.dmg --repo quyennguyenvu/goetia
 
 ### The first time you open it
 
-You'll see every service sitting under **Unbound**. Click the ones you want — they light up but stay put — then press **Summon** to bring them in. Now log in to each the normal way: scan the QR code (WhatsApp, Zalo) or type your username and password. **You only log in once per service**; Goetia remembers each account separately, even after you quit and reopen.
+You'll see every service sitting under **Choose your services**. Click the ones you want — they light up but stay put — then press **Summon** to bring them in. Now log in to each the normal way: scan the QR code (WhatsApp, Zalo) or type your username and password. **You only log in once per service**; Goetia remembers each account separately, even after you quit and reopen.
 
 Closing the window does **not** quit Goetia — it keeps running in the menu bar (Mac) or the system tray next to the clock (Windows) so notifications still arrive. To fully quit, click that icon → **Quit**, or press ⌘Q (Mac) / Ctrl+Q (Windows).
 
 ### Handy to know
 
 - **Service icons sit in a top bar** by default (each chat app already has its own left-hand column, so a second left rail would double up). Want them on the side? **Settings → Appearance → Menu position**.
-- **Add or drop services later**: press ⌘/Ctrl+0, or click the ember sigil at the head of the icon bar, for **Home**. Summoned and unbound sit in separate rows; nothing changes until you press **Summon**/**Banish**, and **Dispel** throws a selection away. Banishing keeps the login — summon it back and you're still signed in.
+- **Add or drop services later**: press ⌘/Ctrl+0, or click the ember sigil at the head of the icon bar, for **Home**. Summoned and unbound sit in separate rows; nothing changes until you press **Summon**/**Banish**, and **Dispel** throws a selection away. Banishing keeps the login — summon it back and you're still signed in. ⌘/Ctrl+F jumps to the box that filters the unbound row by name, and dragging a summoned tile reorders the icon bar right away — that one doesn't wait for **Summon**.
 - **Shortcuts**: ⌘/Ctrl+1…9 jump to a service, ⌘/Ctrl+K opens a quick switcher, ⌘/Ctrl+0 opens Home, ⌘/Ctrl+R (or F5) reloads the current service, ⌘/Ctrl+⇧+M mutes everything, right-click an icon to mute it, and drag icons to reorder them.
 - **Muting means silence, not blindness**: a muted service raises no banner and its page is silenced too, so the site's own alert sound stops as well — but its unread badge keeps counting, so you can still see what came in. Muting also silences that service's calls and voice notes while it's muted.
 - **On a Mac, allow notifications the first time**: System Settings → Notifications → **Goetia** → turn on **Allow Notifications**.
