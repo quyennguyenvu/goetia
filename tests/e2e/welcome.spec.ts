@@ -25,11 +25,11 @@ test('fresh install: welcome picker → summon → rail', async () => {
   const tiles = win.locator('[data-testid="service-tile"]');
   await expect(tiles).toHaveCount(0);
 
-  // nothing is summoned yet: the intro carries the screen and all eight wait below
+  // nothing is summoned yet: the intro carries the screen and all nine wait below
   const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   await expect(welcome.locator('[data-testid="welcome-intro"]')).toBeVisible();
-  await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(8);
+  await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(9);
 
   // confirm is disabled until something is selected
   const summon = win.getByRole('button', { name: /^Summon/ });

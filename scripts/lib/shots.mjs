@@ -13,6 +13,7 @@ export const ALL_SERVICE_IDS = [
   'discord',
   'tiktok',
   'shopee',
+  'slack',
 ];
 
 export const THEMES = ['light', 'dark'];

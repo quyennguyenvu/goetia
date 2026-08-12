@@ -20,6 +20,10 @@ const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   discord: ['discord.com', 'discordapp.com', 'canary.discord.com'],
   tiktok: ['www.tiktok.com', 'tiktok.com'],
   shopee: ['shopee.vn', 'accounts.shopee.vn'],
+  // per-user workspace hosts ({team}.slack.com) and the SSO bounce hosts
+  // (Google/Apple) can't be listed statically — needs suffix matching plus a
+  // live login pass before the guard can be wired for slack
+  slack: ['app.slack.com', 'slack.com', 'www.slack.com'],
 };
 
 export function isNavigationAllowed(id: ServiceId, url: string): boolean {

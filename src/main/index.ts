@@ -6,6 +6,7 @@ import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
 import { type AppContext, registerIpcHandlers } from './ipc-handlers';
 import { audioMuted } from './lib/notification-rules';
+import { startUrl } from './lib/start-url';
 import { resolveStartupSurface } from './lib/startup-surface';
 import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
@@ -96,6 +97,12 @@ app
       (id) => {
         const s = settings.get();
         return audioMuted({ serviceMuted: s.muted[id], globalMuted: s.globalMuted });
+      },
+      (id) => {
+        const s = settings.get();
+        const url = startUrl(serviceById(id), s.visited[id]);
+        if (!s.visited[id]) settings.update({ visited: { ...s.visited, [id]: true } });
+        return url;
       },
       overlay,
     );

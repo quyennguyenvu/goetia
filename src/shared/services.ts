@@ -32,6 +32,19 @@ export const SERVICES: ServiceMeta[] = [
   // recipe css reshapes it to fill the view. Never target /webchat —
   // it hits Shopee's anti-bot wall (verify/captcha, scene=crawler_item)
   { id: 'shopee', name: 'Shopee', url: 'https://shopee.vn/', color: '#EE4D2D', waitForReady: true },
+  // the whole client under app.slack.com/client is chat (discord precedent);
+  // /client lands on the last-active workspace, the built-in switcher rail
+  // covers the rest. Logged out it 302s to the workspace-first signin, which
+  // assumes the user knows a workspace URL — so the very first load opens
+  // the email-first entry instead, and after that slack behaves untouched.
+  {
+    id: 'slack',
+    name: 'Slack',
+    url: 'https://app.slack.com/client',
+    firstRunUrl: 'https://slack.com/get-started',
+    color: '#4A154B',
+    waitForReady: true,
+  },
   {
     id: 'telegram',
     name: 'Telegram',

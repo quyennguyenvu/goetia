@@ -39,6 +39,7 @@ function normalize(raw: Settings): Settings {
     muted: fill(raw.muted, DEFAULT_SETTINGS.muted),
     disabled: fill(raw.disabled, DEFAULT_SETTINGS.disabled),
     neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),
+    visited: fill(raw.visited, DEFAULT_SETTINGS.visited),
   };
 }
 

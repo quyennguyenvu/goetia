@@ -3,6 +3,7 @@ import discord from './discord';
 import instagram from './instagram';
 import messenger from './messenger';
 import shopee from './shopee';
+import slack from './slack';
 import telegram from './telegram';
 import tiktok from './tiktok';
 import type { Recipe } from './types';
@@ -18,4 +19,5 @@ export const recipes: Record<ServiceId, Recipe> = {
   zalo,
   tiktok,
   shopee,
+  slack,
 };

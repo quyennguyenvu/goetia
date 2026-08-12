@@ -59,6 +59,7 @@ describe('SettingsStore', () => {
     expect(s.order).toEqual([
       'messenger',
       'shopee',
+      'slack',
       'telegram',
       'tiktok',
       'zalo',
@@ -66,6 +67,10 @@ describe('SettingsStore', () => {
       'discord',
       'instagram',
     ]);
+    expect(s.muted.slack).toBe(false);
+    expect(s.disabled.slack).toBe(true); // new service arrives disabled
+    expect(s.neverHibernate.slack).toBe(true);
+    expect(s.visited.slack).toBe(false); // first view creation gets firstRunUrl
     expect(s.muted.instagram).toBe(false);
     expect(s.disabled.instagram).toBe(true); // new service arrives disabled
     expect(s.neverHibernate.instagram).toBe(true);
@@ -90,6 +95,7 @@ describe('SettingsStore', () => {
       'instagram',
       'messenger',
       'shopee',
+      'slack',
       'telegram',
       'tiktok',
       'whatsapp',
@@ -115,10 +121,11 @@ describe('SettingsStore', () => {
       'instagram',
       'tiktok',
       'shopee',
+      'slack',
       'messenger',
     ]);
     // the property the user can actually see: their arrangement is intact
-    expect(s.order.filter((id) => id !== 'instagram')).toEqual([
+    expect(s.order.filter((id) => id !== 'instagram' && id !== 'slack')).toEqual([
       'telegram',
       'zalo',
       'whatsapp',

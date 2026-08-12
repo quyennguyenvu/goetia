@@ -25,6 +25,7 @@ const cases: [ServiceId, string, number, number][] = [
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge
   ['tiktok', 'tiktok', 3, 0], // nav Messages badge total
   ['shopee', 'shopee', 31, 0], // mini-chat header badge
+  ['slack', 'slack', 3, 2], // mention badges sum direct; badge-less unread channels indirect; muted skipped
 ];
 
 describe.each(cases)('%s recipe', (id, fixture, direct, indirect) => {
@@ -91,6 +92,11 @@ describe('ready()', () => {
   it('tiktok is ready once the chat list mounts', () => {
     expect(recipes.tiktok.ready?.(load('tiktok'))).toBe(true);
     expect(recipes.tiktok.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('slack is ready once the channel sidebar mounts', () => {
+    expect(recipes.slack.ready?.(load('slack'))).toBe(true);
+    expect(recipes.slack.ready?.(load('blank'))).toBe(false);
   });
 });
 

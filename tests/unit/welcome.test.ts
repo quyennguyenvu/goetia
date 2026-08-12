@@ -133,6 +133,7 @@ describe('summonOrder', () => {
       'instagram',
       'messenger',
       'shopee',
+      'slack',
       'telegram',
       'tiktok',
       'whatsapp',
@@ -184,7 +185,7 @@ describe('welcomeSections', () => {
   it('splits a mixed set', () => {
     expect(welcomeSections(order, set('messenger', 'zalo'), named)).toEqual({
       summoned: ['messenger', 'zalo'],
-      unbound: ['discord', 'instagram', 'shopee', 'telegram', 'tiktok', 'whatsapp'],
+      unbound: ['discord', 'instagram', 'shopee', 'slack', 'telegram', 'tiktok', 'whatsapp'],
     });
   });
 

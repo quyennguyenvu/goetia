@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/telemetry-none-2F9E44" alt="No telemetry">
 </p>
 
-WhatsApp, Messenger, Instagram, Telegram, Discord, Zalo, TikTok, and Shopee in one window — with native notifications and unread badges, and **nothing but the chat**. No feeds, no shops, no menus. Electron + TypeScript + React, local only: no server, no account, no telemetry. macOS and Windows.
+WhatsApp, Messenger, Instagram, Telegram, Discord, Zalo, TikTok, Shopee, and Slack in one window — with native notifications and unread badges, and **nothing but the chat**. No feeds, no shops, no menus. Electron + TypeScript + React, local only: no server, no account, no telemetry. macOS and Windows.
 
 ## Why Goetia
 
@@ -163,7 +163,7 @@ Closing the window does **not** quit Goetia — it keeps running in the menu bar
 
 - **Service icons sit in a top bar** by default (each chat app already has its own left-hand column, so a second left rail would double up). Want them on the side? **Settings → Appearance → Menu position**.
 - **Add or drop services later**: press ⌘/Ctrl+0, or click the ember sigil at the head of the icon bar, for **Home**. Summoned and unbound sit in separate rows; nothing changes until you press **Summon**/**Banish**, and **Dispel** throws a selection away. Banishing keeps the login — summon it back and you're still signed in.
-- **Shortcuts**: ⌘/Ctrl+1…7 jump to a service, ⌘/Ctrl+K opens a quick switcher, ⌘/Ctrl+0 opens Home, ⌘/Ctrl+R (or F5) reloads the current service, ⌘/Ctrl+⇧+M mutes everything, right-click an icon to mute it, and drag icons to reorder them.
+- **Shortcuts**: ⌘/Ctrl+1…9 jump to a service, ⌘/Ctrl+K opens a quick switcher, ⌘/Ctrl+0 opens Home, ⌘/Ctrl+R (or F5) reloads the current service, ⌘/Ctrl+⇧+M mutes everything, right-click an icon to mute it, and drag icons to reorder them.
 - **Muting means silence, not blindness**: a muted service raises no banner and its page is silenced too, so the site's own alert sound stops as well — but its unread badge keeps counting, so you can still see what came in. Muting also silences that service's calls and voice notes while it's muted.
 - **On a Mac, allow notifications the first time**: System Settings → Notifications → **Goetia** → turn on **Allow Notifications**.
 - **Updates check themselves**: when a newer version is published, a small notice appears for a few seconds and a dot lands on the settings icon. Click either one to open the download page — Goetia can't install its own update, because it isn't code-signed. Turn the check off in **Settings → Updates → Automatic updates**.

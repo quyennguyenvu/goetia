@@ -137,7 +137,7 @@ test('home: search filters unbound, and Escape clears it before leaving', async 
   await win.locator('[data-testid="home-btn"]').click();
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   const tiles = unbound.locator('[data-testid="pick-tile"]');
-  await expect(tiles).toHaveCount(6);
+  await expect(tiles).toHaveCount(7);
 
   const search = unbound.getByRole('textbox', { name: 'Search unbound services' });
   await search.fill('sho');
@@ -151,7 +151,7 @@ test('home: search filters unbound, and Escape clears it before leaving', async 
 
   // first Escape clears the query and stays on Home
   await search.press('Escape');
-  await expect(tiles).toHaveCount(6);
+  await expect(tiles).toHaveCount(7);
   await expect(welcome).toBeVisible();
 
   // second Escape leaves
