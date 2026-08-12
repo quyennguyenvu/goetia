@@ -1,8 +1,10 @@
+import { Reorder } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import type { ServiceId } from '../../../shared/types';
 import {
   buildDisabledPatch,
   byName,
+  enabledKey,
   matchesQuery,
   summonDelta,
   summonLabel,
@@ -11,19 +13,23 @@ import {
 } from '../../../shared/welcome';
 import { useShell } from '../store';
 import Portal from './Portal';
-import { moveTo } from './reorder';
+import { useTileReorder } from './useTileReorder';
 import PickTile from './welcome/PickTile';
 import ServiceBand from './welcome/ServiceBand';
 import WelcomeIntro from './welcome/WelcomeIntro';
 
 export default function Welcome() {
   const state = useShell((s) => s.state);
-  const enabledKey = state
-    ? state.services
-        .filter((svc) => !state.settings.disabled[svc.id])
-        .map((svc) => svc.id)
-        .join(',')
-    : '';
+  const key = state ? enabledKey(state.services, state.settings.disabled) : '';
+  // the same list welcomeSections produces for `summoned`, derived from the
+  // same broadcast state — the hook has to run before the early return, so it
+  // cannot read `sections`
+  const reorder = useTileReorder(
+    state
+      ? state.services.filter((svc) => !state.settings.disabled[svc.id]).map((svc) => svc.id)
+      : [],
+    state ? state.services.map((svc) => svc.id) : [],
+  );
   const [selected, setSelected] = useState<ReadonlySet<ServiceId>>(new Set());
   const [query, setQuery] = useState('');
   // read through a ref so the window listener is registered once instead of on
@@ -56,9 +62,9 @@ export default function Welcome() {
   // a discarded edit never survives to the next visit. A fresh install has an
   // empty enabled set, which reproduces the original empty selection.
   useEffect(() => {
-    setSelected(new Set(enabledKey ? (enabledKey.split(',') as ServiceId[]) : []));
+    setSelected(new Set(key ? (key.split(',') as ServiceId[]) : []));
     setQuery('');
-  }, [enabledKey]);
+  }, [key]);
 
   // Home is a place, not a modal — but Escape is the reflex. Guarded the way
   // SettingsView guards its own handler: only when nothing is layered on top,
@@ -116,18 +122,11 @@ export default function Welcome() {
   // the same reseed the screen does on every visit, under the user's thumb
   const dispel = () => setSelected(enabled);
 
-  // a drop persists on its own: reordering is non-destructive, so Summon and
-  // Dispel keep meaning enable/disable and nothing else
-  const reorder = (fromId: string, toId: string) =>
-    window.goetia.send('service:reorder', {
-      orderedIds: moveTo(order, fromId as ServiceId, toId as ServiceId),
-    });
-
   // First run splits its 780px band into nine equal columns (~75.8px each, which
   // still clears "Messenger" at 66px). The steady-state bands are as wide as the
   // board, where nine columns would strand the tiles far apart — they fill with
   // as many 76px tracks as fit instead. Both are left-aligned by construction.
-  const tiles = (ids: ServiceId[], draggable = false, nineUp = false) => (
+  const tiles = (ids: ServiceId[], nineUp = false) => (
     <div className={`grid gap-2 ${nineUp ? 'grid-cols-9' : 'grid-cols-[repeat(auto-fill,76px)]'}`}>
       {pick(ids).map((svc) => (
         <PickTile
@@ -135,10 +134,48 @@ export default function Welcome() {
           service={svc}
           on={selected.has(svc.id)}
           onToggle={() => toggle(svc.id)}
-          onReorder={draggable ? reorder : undefined}
         />
       ))}
     </div>
+  );
+
+  // the same 76px auto-fill track as `tiles`; axis="xy" because the grid wraps
+  // and a tile dragged to another row moves on both axes
+  const summonedTiles = (
+    <Reorder.Group
+      as="div"
+      axis="xy"
+      {...reorder.groupProps}
+      className="grid grid-cols-[repeat(auto-fill,76px)] gap-2"
+    >
+      {pick(reorder.shown).map((svc) => (
+        <Reorder.Item
+          key={svc.id}
+          value={svc.id}
+          as="div"
+          className="relative min-w-0"
+          // drop-shadow, not boxShadow: this wrapper is a rectangle and the
+          // tile inside it is a squircle, so a box-shadow would halo the
+          // wrapper's corners. drop-shadow follows the rendered alpha.
+          whileDrag={{
+            scale: 1.1,
+            zIndex: 10,
+            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.45))',
+          }}
+          {...reorder.itemProps}
+        >
+          <PickTile
+            service={svc}
+            on={selected.has(svc.id)}
+            grab
+            onToggle={() => {
+              if (reorder.consumeDrag()) return;
+              toggle(svc.id);
+            }}
+          />
+        </Reorder.Item>
+      ))}
+    </Reorder.Group>
   );
   const emptyLine = (text: string) => <p className="text-xs text-text-2 opacity-70">{text}</p>;
 
@@ -217,7 +254,7 @@ export default function Welcome() {
             count={sections.summoned.length}
             className="max-h-[46%]"
           >
-            {tiles(sections.summoned, true)}
+            {summonedTiles}
           </ServiceBand>
         )}
         <ServiceBand
@@ -233,7 +270,7 @@ export default function Welcome() {
             ? emptyLine('Every one is bound.')
             : visibleUnbound.length === 0
               ? emptyLine(`No service matches “${query}”.`)
-              : tiles(visibleUnbound, false, fresh)}
+              : tiles(visibleUnbound, fresh)}
         </ServiceBand>
       </div>
 

@@ -15,7 +15,6 @@ interface Props {
   active: boolean;
   onActivate(): void;
   onContextMenu(e: React.MouseEvent): void;
-  onReorder(fromId: string, toId: string): void;
 }
 
 export default function ServiceTile({
@@ -25,7 +24,6 @@ export default function ServiceTile({
   active,
   onActivate,
   onContextMenu,
-  onReorder,
 }: Props) {
   const logo = logos[`../assets/logos/${service.id}.svg`];
   const showBadge = runtime.unread.direct > 0;
@@ -42,21 +40,13 @@ export default function ServiceTile({
     <button
       type="button"
       data-testid="service-tile"
-      draggable
-      onDragStart={(e) => e.dataTransfer.setData('text/goetia-service', service.id)}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        const from = e.dataTransfer.getData('text/goetia-service');
-        if (from && from !== service.id) onReorder(from, service.id);
-      }}
       onClick={onActivate}
       onContextMenu={onContextMenu}
       title={`${service.name}${showBadge ? ` — ${runtime.unread.direct} unread` : ''}`}
       aria-label={service.name}
       aria-current={active ? 'page' : undefined}
       className={`relative flex h-8 w-8 items-center justify-center rounded-[11px] transition-all duration-150 ease-out outline-none
-        focus-visible:ring-2 focus-visible:ring-accent ${stateClasses}
+        focus-visible:ring-2 focus-visible:ring-accent cursor-grab active:cursor-grabbing ${stateClasses}
         ${waking ? 'tile-breathe' : ''}`}
     >
       <span

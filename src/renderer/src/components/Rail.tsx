@@ -1,9 +1,9 @@
-import type { ServiceId } from '../../../shared/types';
+import { Reorder } from 'motion/react';
 import { useShell } from '../store';
 import Portal from './Portal';
-import { moveTo } from './reorder';
 import ServiceTile from './ServiceTile';
 import { updatePending } from './update-rules';
+import { useTileReorder } from './useTileReorder';
 
 function BellIcon({ muted }: { muted: boolean }) {
   return (
@@ -46,20 +46,18 @@ function GearIcon() {
 
 export default function Rail() {
   const state = useShell((s) => s.state);
+  // the hook must run before the early return, so its inputs are guarded
+  // rather than the call site
+  const visible = state ? state.services.filter((svc) => !state.settings.disabled[svc.id]) : [];
+  const reorder = useTileReorder(
+    visible.map((svc) => svc.id),
+    state ? state.services.map((svc) => svc.id) : [],
+  );
   if (!state) return null;
   const pos = state.settings.railPosition;
   const horizontal = pos === 'top';
-  const visible = state.services.filter((svc) => !state.settings.disabled[svc.id]);
+  const byId = new Map(state.services.map((svc) => [svc.id, svc]));
   const updateReady = updatePending(state.update);
-
-  const reorder = (fromId: string, toId: string) => {
-    const ids = moveTo(
-      state.services.map((s) => s.id),
-      fromId as ServiceId,
-      toId as ServiceId,
-    );
-    window.goetia.send('service:reorder', { orderedIds: ids });
-  };
 
   return (
     <nav
@@ -91,24 +89,57 @@ export default function Rail() {
         aria-hidden="true"
         className={horizontal ? 'h-5 w-px flex-none bg-border' : 'h-px w-6 flex-none bg-border'}
       />
-      {visible.map((svc) => (
-        <ServiceTile
-          key={svc.id}
-          service={svc}
-          runtime={state.runtime[svc.id]}
-          muted={state.muted[svc.id]}
-          active={!state.homeOpen && state.activeId === svc.id}
-          onActivate={() => window.goetia.send('service:activate', { serviceId: svc.id })}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            window.goetia.send('service:setMuted', {
-              serviceId: svc.id,
-              muted: !state.muted[svc.id],
-            });
-          }}
-          onReorder={reorder}
-        />
-      ))}
+      <Reorder.Group
+        as="div"
+        axis={horizontal ? 'x' : 'y'}
+        {...reorder.groupProps}
+        // same gap and alignment the tiles have inside the nav today, so the
+        // rendered result is unchanged — the box exists only so Motion has a
+        // container whose children are all items
+        className={
+          horizontal ? 'flex flex-row items-center gap-1.5' : 'flex flex-col items-center gap-1.5'
+        }
+      >
+        {reorder.shown.map((id) => {
+          const svc = byId.get(id);
+          if (!svc) return null;
+          return (
+            <Reorder.Item
+              key={id}
+              value={id}
+              as="div"
+              className="relative flex-none"
+              // drop-shadow, not boxShadow: this wrapper is a rectangle and the
+              // tile inside it is a squircle, so a box-shadow would halo the
+              // wrapper's corners. drop-shadow follows the rendered alpha.
+              whileDrag={{
+                scale: 1.1,
+                zIndex: 10,
+                filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.45))',
+              }}
+              {...reorder.itemProps}
+            >
+              <ServiceTile
+                service={svc}
+                runtime={state.runtime[svc.id]}
+                muted={state.muted[svc.id]}
+                active={!state.homeOpen && state.activeId === svc.id}
+                onActivate={() => {
+                  if (reorder.consumeDrag()) return;
+                  window.goetia.send('service:activate', { serviceId: svc.id });
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  window.goetia.send('service:setMuted', {
+                    serviceId: svc.id,
+                    muted: !state.muted[svc.id],
+                  });
+                }}
+              />
+            </Reorder.Item>
+          );
+        })}
+      </Reorder.Group>
       <div
         className={
           horizontal

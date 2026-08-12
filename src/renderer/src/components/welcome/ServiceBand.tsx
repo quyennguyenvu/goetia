@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import type React from 'react';
 
 interface Props {
@@ -30,8 +31,13 @@ export default function ServiceBand({
         <span className="flex-1" />
         {aside}
       </div>
-      {/* the scroll container: growth stops here and never reaches the page */}
-      <div className="min-h-0 overflow-y-auto">{children}</div>
+      {/* the scroll container: growth stops here and never reaches the page.
+          layoutScroll is what lets Motion correct a drag inside it for scroll
+          offset — without it a drag in a scrolled Summoned band computes
+          crossings against stale rects. */}
+      <motion.div layoutScroll className="min-h-0 overflow-y-auto">
+        {children}
+      </motion.div>
     </section>
   );
 }

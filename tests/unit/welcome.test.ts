@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type ServiceId, type ServiceMeta } from '../../src/shared/types';
 import {
   byName,
+  enabledKey,
   matchesQuery,
   summonDelta,
   summonLabel,
@@ -216,5 +217,36 @@ describe('welcomeSections', () => {
       summoned: ['messenger'],
       unbound: ['zalo'],
     });
+  });
+});
+
+describe('enabledKey', () => {
+  // DEFAULT_SETTINGS.disabled is all-true (fresh installs ship every service
+  // disabled), so the baseline here has to be built, not borrowed
+  const none = Object.fromEntries(DEFAULT_SETTINGS.order.map((id) => [id, false])) as Record<
+    ServiceId,
+    boolean
+  >;
+  const svcs = [meta('messenger', 'Messenger'), meta('discord', 'Discord'), meta('slack', 'Slack')];
+
+  it('is stable across a reorder of the same enabled set', () => {
+    // the two arrays differ only in order — a drag must not reseed the screen
+    const reordered = [svcs[2], svcs[0], svcs[1]];
+    expect(enabledKey(svcs, none)).toBe(enabledKey(reordered, none));
+  });
+
+  it('changes when a service is dispelled', () => {
+    const after = { ...none, discord: true };
+    expect(enabledKey(svcs, after)).not.toBe(enabledKey(svcs, none));
+  });
+
+  it('changes when a service is summoned', () => {
+    const before = { ...none, slack: true };
+    expect(enabledKey(svcs, before)).not.toBe(enabledKey(svcs, none));
+  });
+
+  it('is empty for an all-disabled catalog', () => {
+    const all = { ...none, messenger: true, discord: true, slack: true };
+    expect(enabledKey(svcs, all)).toBe('');
   });
 });

@@ -96,3 +96,19 @@ export function welcomeSections(
     unbound: named.filter((id) => !enabled.has(id)),
   };
 }
+
+/** A key over the enabled *membership*, deliberately order-insensitive.
+ *  Home reseeds its staged selection whenever this changes, so joining ids in
+ *  `settings.order` would make a drag-reorder discard the user's picks and
+ *  clear the filter. Sorted, a reorder is invisible here and a summon or
+ *  dispel still trips it. */
+export function enabledKey(
+  services: readonly ServiceMeta[],
+  disabled: Record<ServiceId, boolean>,
+): string {
+  return services
+    .filter((svc) => !disabled[svc.id])
+    .map((svc) => svc.id)
+    .sort()
+    .join(',');
+}
