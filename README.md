@@ -7,25 +7,28 @@
     src="https://img.shields.io/github/v/release/quyennguyenvu/goetia?label=release&color=E8590C" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1A1F28"
     alt="Platforms: macOS and Windows">
-  <img src="https://img.shields.io/badge/Electron-43-47848F" alt="Electron 43">
+  <img src="https://img.shields.io/github/package-json/dependency-version/quyennguyenvu/goetia/dev/electron?label=Electron&color=47848F"
+    alt="Electron version">
   <img src="https://img.shields.io/badge/telemetry-none-2F9E44" alt="No telemetry">
 </p>
 
-WhatsApp, Messenger, Instagram, Telegram, Discord, Zalo, TikTok, Shopee, and Slack in one window — with native notifications and unread badges, and **nothing but the chat**. No feeds, no shops, no menus. Electron + TypeScript + React, local only: no server, no account, no telemetry. macOS and Windows.
+Your chat apps in one window — native notifications, unread badges, and **nothing but the chat**. No feeds, no shops, no menus. Electron + TypeScript + React, local only: no server, no account, no telemetry. macOS and Windows.
+
+**In the circle so far:** WhatsApp, Messenger, Instagram, Telegram, Discord, Slack, Zalo, TikTok, and Shopee. Each one is a self-contained recipe, so the roster grows without the rest noticing.
 
 ## Why Goetia
 
-**Chat only.** Every other multi-service client embeds the whole site, feed and all. Goetia hides the host chrome and pins Facebook, Instagram, and TikTok to their chat paths — route away from chat and the view snaps back.
+**Chat only.** Every other multi-service client embeds the whole site, feed and all. Goetia hides the host chrome, and any service that is more than chat gets pinned to its chat paths — route away from chat and the view snaps back.
 
-**Local only.** No server, no account, no telemetry. Each service gets its own isolated `persist:<id>` session, so nine logins never see each other.
+**Local only.** No server, no account, no telemetry. Each service gets its own isolated `persist:<id>` session, so no two logins ever see each other.
 
 **Badges that don't lie.** One unread recipe per service, each locked to a DOM fixture in the test suite. When a service redesigns, its tile shows a grey stale dot instead of a confident zero.
 
-**Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, a per-service rate limit so a page can't spam you — plus synthetic notifications for Messenger, Instagram, and TikTok, which never fire one in-page.
+**Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, a per-service rate limit so a page can't spam you — plus synthetic notifications for the services that never fire one in-page.
 
 **Hardened further than a hobby app usually bothers.** Electron fuses (no run-as-node, no `NODE_OPTIONS`, no CLI inspect; cookie encryption and asar integrity on), a sandboxed shell, an IPC sender policy that stops one service frame from impersonating another, origin-checked permissions, a locked-down renderer CSP, and a build-provenance attestation on every installer.
 
-**Zalo, Shopee, and TikTok included.** The services the big clients cover badly or not at all.
+**Not just the usual suspects.** Zalo, Shopee, and TikTok sit beside WhatsApp and Slack — the services the big clients cover badly or not at all. Adding one is a recipe, a fixture, and a row in the test suite; nothing else has to move.
 
 ## A look around
 
@@ -35,7 +38,7 @@ Nothing loads until you pick — a fresh install starts with every service off. 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/welcome-dark.png">
     <img src="docs/media/welcome-light.png" width="760"
-      alt="Goetia's Home screen: three services summoned, six unbound, with one staged on each side">
+      alt="Goetia's Home screen: a summoned row above, the unbound below, with one staged on each side">
   </picture>
 </p>
 
@@ -45,7 +48,7 @@ Unread counts land on the rail, on the dock or taskbar, and in the tray tooltip.
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/rail-badges-dark.png">
     <img src="docs/media/rail-badges-light.png" width="620"
-      alt="The service rail: nine tiles, an unread badge of 3, one muted">
+      alt="The service rail: an unread badge of 3 on one tile, another muted">
   </picture>
 </p>
 
@@ -59,7 +62,7 @@ Unread counts land on the rail, on the dock or taskbar, and in the tray tooltip.
   </picture>
 </p>
 
-Menu position, theme, close-to-tray, launch-at-login, and update checks:
+Theme, menu position, and everything else the app lets you set:
 
 <p align="center">
   <picture>

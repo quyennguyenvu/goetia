@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300"
      viewBox="0 0 1200 300" role="img" aria-label="Goetia">
-  <title>Goetia — seven chat services, one window, nothing but the chat</title>
+  <title>Goetia — summon every chat to one window, nothing but the chat</title>
   <!-- Transparent background and a warm gradient wordmark on purpose: the
        banner must read on GitHub in either theme even if the <style> block
        below is stripped or prefers-color-scheme is not honoured. Mark and
@@ -36,8 +36,8 @@
   <style>
     /* Refinement only — every element also carries a presentation-attribute
        fallback, so losing this block costs nothing but a shade of grey. */
-    .tag { fill: #7A8494; }
-    @media (prefers-color-scheme: dark) { .tag { fill: #9AA4B2; } }
+    .tag { fill: #7A6A5B; }
+    @media (prefers-color-scheme: dark) { .tag { fill: #B3A08C; } }
   </style>
 
   <!-- Ember Portal mark -->
@@ -59,10 +59,10 @@
         letter-spacing="-2"
         font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
   >Goetia</text>
-  <text class="tag" x="324" y="172" fill="#7A8494" font-size="26"
+  <text class="tag" x="324" y="172" fill="#7A6A5B" font-size="26"
         font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
-  >Seven chat services, one window,</text>
-  <text class="tag" x="324" y="206" fill="#7A8494" font-size="26"
+  >Summon every chat to one window,</text>
+  <text class="tag" x="324" y="206" fill="#7A6A5B" font-size="26"
         font-family="system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
   >nothing but the chat.</text>
   <rect x="324" y="228" width="132" height="5" rx="2.5" fill="url(#word)"/>

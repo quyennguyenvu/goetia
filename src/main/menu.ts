@@ -2,6 +2,7 @@ import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
 import { activateService, setHomeOpen } from './activate';
 import type { AppContext } from './ipc-handlers';
+import { serviceAccelerator } from './lib/service-accelerator';
 
 function openSettings(ctx: AppContext): void {
   ctx.state.settingsOpen = true;
@@ -77,7 +78,7 @@ export function buildAppMenu(ctx: AppContext): void {
         { type: 'separator' as const },
         ...order.map((id, i) => ({
           label: serviceById(id).name,
-          accelerator: `CmdOrCtrl+${i + 1}`,
+          accelerator: serviceAccelerator(i),
           click: () => {
             ctx.win.show();
             activateService(ctx, id);
