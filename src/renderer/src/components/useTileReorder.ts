@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ServiceId } from '../../../shared/types';
 import { applySubsetOrder } from './reorder';
 
+const DRAG_CURSOR = 'tile-dragging';
+
 /** Drag-local ordering for a `Reorder.Group` of service tiles.
  *
  *  `Reorder.Group` is controlled and fires `onReorder` on every crossing, not
@@ -17,6 +19,12 @@ export function useTileReorder(liveIds: ServiceId[], order: ServiceId[]) {
   const didDrag = useRef(false);
   const liveKey = liveIds.join(',');
   const shown = draft ?? liveIds;
+
+  // Grabbing hand only while a drag is actually in flight — a tile at rest is a
+  // button. It rides <body>, not the tile: Motion drags from window pointer
+  // events, so mid-flight the pointer is often over a neighbour or the gap and a
+  // tile-local rule would flicker.
+  useEffect(() => () => document.body.classList.remove(DRAG_CURSOR), []);
 
   // The draft is NOT cleared on commit: that would render one frame of the
   // pre-drag order while the IPC round-trip is in flight, a visible snap-back
@@ -40,8 +48,10 @@ export function useTileReorder(liveIds: ServiceId[], order: ServiceId[]) {
       onDragStart: () => {
         didDrag.current = true;
         keyAtDragStart.current = liveKey;
+        document.body.classList.add(DRAG_CURSOR);
       },
       onDragEnd: () => {
+        document.body.classList.remove(DRAG_CURSOR);
         if (shown.join(',') === keyAtDragStart.current) {
           setDraft(null);
           return;

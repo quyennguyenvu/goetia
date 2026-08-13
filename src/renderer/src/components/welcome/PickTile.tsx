@@ -11,12 +11,9 @@ interface Props {
   service: ServiceMeta;
   on: boolean;
   onToggle(): void;
-  /** Summoned tiles reorder; Unbound has no order to edit. Cosmetic only —
-   *  the drag itself belongs to the Reorder.Item wrapping this tile. */
-  grab?: boolean;
 }
 
-export default function PickTile({ service, on, onToggle, grab = false }: Props) {
+export default function PickTile({ service, on, onToggle }: Props) {
   const logo = logos[`../../assets/logos/${service.id}.svg`];
   // same molten-squircle language as the rail's active tile
   const face = on
@@ -32,9 +29,8 @@ export default function PickTile({ service, on, onToggle, grab = false }: Props)
       onClick={onToggle}
       title={service.name}
       // width comes from the grid track, not the tile
-      className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-tile p-1 outline-none
-        focus-visible:ring-2 focus-visible:ring-accent
-        ${grab ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className="group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-tile p-1 outline-none
+        focus-visible:ring-2 focus-visible:ring-accent"
     >
       <span
         className={`flex h-12 w-12 items-center justify-center rounded-[15px] transition-all

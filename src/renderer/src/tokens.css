@@ -111,3 +111,11 @@ body {
     animation: none !important;
   }
 }
+/* set by useTileReorder for the length of a tile drag, and last in the file so
+   the bare `*` above cannot outrank it; `*` because the pointer passes over
+   neighbouring tiles and their children while dragging */
+body.tile-dragging,
+body.tile-dragging * {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat utility classes */
+  cursor: grabbing !important;
+}

@@ -167,7 +167,6 @@ export default function Welcome() {
           <PickTile
             service={svc}
             on={selected.has(svc.id)}
-            grab
             onToggle={() => {
               if (reorder.consumeDrag()) return;
               toggle(svc.id);

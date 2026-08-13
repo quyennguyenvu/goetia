@@ -46,7 +46,7 @@ export default function ServiceTile({
       aria-label={service.name}
       aria-current={active ? 'page' : undefined}
       className={`relative flex h-8 w-8 items-center justify-center rounded-[11px] transition-all duration-150 ease-out outline-none
-        focus-visible:ring-2 focus-visible:ring-accent cursor-grab active:cursor-grabbing ${stateClasses}
+        focus-visible:ring-2 focus-visible:ring-accent ${stateClasses}
         ${waking ? 'tile-breathe' : ''}`}
     >
       <span
