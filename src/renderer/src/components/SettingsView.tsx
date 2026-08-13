@@ -325,15 +325,6 @@ export default function SettingsView() {
                           />
                           never hibernate
                         </label>
-                        <button
-                          type="button"
-                          className="rounded-ctl border border-border px-2 py-0.5 hover:bg-bg-2"
-                          onClick={() =>
-                            window.goetia.send('service:reload', { serviceId: svc.id })
-                          }
-                        >
-                          reload
-                        </button>
                       </span>
                     </div>
                   ))}

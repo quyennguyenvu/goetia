@@ -5,6 +5,7 @@ import type { RailPosition, ServiceId } from '../shared/types';
 import { isSafeExternalUrl } from './lib/external-url';
 import { viewBounds } from './lib/layout';
 import { permissionAllowed } from './lib/permission-policy';
+import { reloadAllowed } from './lib/reload-guard';
 
 export interface ViewHooks {
   onLoading(id: ServiceId, loading: boolean): void;
@@ -22,12 +23,14 @@ export class ServiceViewManager {
   private views = new Map<ServiceId, WebContentsView>();
   private layoutScheduled = false;
   private clickHideTimers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
+  private lastRefreshAt = new Map<ServiceId, number>();
 
   constructor(
     private win: BrowserWindow,
     private hooks: ViewHooks,
     private railPosition: () => RailPosition,
     private audioMuted: (id: ServiceId) => boolean,
+    private waking: (id: ServiceId) => boolean,
     private overlay?: {
       setBounds(b: { x: number; y: number; width: number; height: number }): void;
       raise(): void;
@@ -227,6 +230,7 @@ export class ServiceViewManager {
       this.clickHideTimers.delete(id);
     }
     this.win.contentView.removeChildView(view);
+    this.lastRefreshAt.delete(id);
     view.webContents.close();
     this.views.delete(id);
     if (this.activeId === id) this.activeId = null;
@@ -239,10 +243,19 @@ export class ServiceViewManager {
   /** User-initiated reload: return a live service to its chat URL — Goetia
    *  is chat-only, and reload is the way back when a site's own links have
    *  wandered off chat. Re-shows the active view if a failed load hid it.
+   *  Dropped while the service is waking, or inside RELOAD_MIN_INTERVAL_MS,
+   *  so a spammed ⌘R cannot keep restarting the load it is waiting on.
    *  (Crash auto-reload stays on the current URL — see ResilienceManager.) */
   refresh(id: ServiceId): void {
     const view = this.views.get(id);
     if (!view) return; // hibernated/never-created: nothing to reload
+    const now = Date.now();
+    if (
+      !reloadAllowed({ waking: this.waking(id), lastReloadAt: this.lastRefreshAt.get(id), now })
+    ) {
+      return;
+    }
+    this.lastRefreshAt.set(id, now);
     if (this.activeId === id) this.activate(id);
     view.webContents.loadURL(serviceById(id).url);
   }

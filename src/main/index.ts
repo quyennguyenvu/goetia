@@ -97,6 +97,7 @@ app
         const s = settings.get();
         return audioMuted({ serviceMuted: s.muted[id], globalMuted: s.globalMuted });
       },
+      (id) => state.runtime(id).waking,
       overlay,
     );
 
