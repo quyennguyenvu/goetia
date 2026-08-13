@@ -7,7 +7,8 @@ export type ServiceId =
   | 'zalo'
   | 'tiktok'
   | 'shopee'
-  | 'slack';
+  | 'slack'
+  | 'teams';
 
 export interface Counts {
   direct: number;
@@ -29,11 +30,6 @@ export interface ServiceMeta {
   name: string;
   url: string;
   color: string; // brand color, rail tile bg tint
-  /** Loaded instead of `url` the very first time the service's view is
-   *  created (Settings.visited), then never again — for sites whose default
-   *  logged-out landing is hostile to first-timers (slack's workspace-first
-   *  signin). Reload and every later launch use `url`. */
-  firstRunUrl?: string;
   /** Disable background throttling so the page never sees itself as hidden.
    *  For sites that suspend/unmount their UI when backgrounded (Zalo). */
   keepRendered?: boolean;
@@ -56,9 +52,6 @@ export interface Settings {
    *  the user hears — turning it off leaves the page's own. */
   notificationSound: boolean;
   neverHibernate: Record<ServiceId, boolean>;
-  /** The service's view has been created at least once; the first creation
-   *  loads ServiceMeta.firstRunUrl when one is declared. */
-  visited: Record<ServiceId, boolean>;
   hibernationMinutes: number;
   closeToTray: boolean;
   launchAtLogin: boolean;
@@ -78,6 +71,7 @@ export const DEFAULT_SETTINGS: Settings = {
     'discord',
     'instagram',
     'messenger',
+    'teams',
     'shopee',
     'slack',
     'telegram',
@@ -95,6 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tiktok: false,
     shopee: false,
     slack: false,
+    teams: false,
   },
   // all disabled ⇒ fresh installs open on the welcome screen
   disabled: {
@@ -107,6 +102,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tiktok: true,
     shopee: true,
     slack: true,
+    teams: true,
   },
   globalMuted: false,
   notificationSound: true,
@@ -120,17 +116,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tiktok: true,
     shopee: true,
     slack: true,
-  },
-  visited: {
-    whatsapp: false,
-    messenger: false,
-    instagram: false,
-    telegram: false,
-    discord: false,
-    zalo: false,
-    tiktok: false,
-    shopee: false,
-    slack: false,
+    teams: true,
   },
   hibernationMinutes: 30,
   closeToTray: true,

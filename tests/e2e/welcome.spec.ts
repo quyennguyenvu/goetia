@@ -2,6 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
+import { SERVICES } from '../../src/shared/services';
 
 const isShell = (p: { url(): string }) =>
   p.url().startsWith('file://') && !p.url().includes('loading.html');
@@ -25,11 +26,12 @@ test('fresh install: welcome picker → summon → rail', async () => {
   const tiles = win.locator('[data-testid="service-tile"]');
   await expect(tiles).toHaveCount(0);
 
-  // nothing is summoned yet: the intro carries the screen and all nine wait below
+  // nothing is summoned yet: the intro carries the screen and the whole catalog
+  // waits below
   const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   await expect(welcome.locator('[data-testid="welcome-intro"]')).toBeVisible();
-  await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(9);
+  await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(SERVICES.length);
 
   // confirm is disabled until something is selected
   const summon = win.getByRole('button', { name: /^Summon/ });

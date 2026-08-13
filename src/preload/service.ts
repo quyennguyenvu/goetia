@@ -3,6 +3,7 @@ import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
 import { installNotificationShim } from './lib/notification-shim';
 import { installVisibilitySpoof } from './lib/visibility-spoof';
+import { installWebAuthnBlock } from './lib/webauthn-block';
 import { recipes } from './recipes';
 import { startReadyPoll } from './recipes/ready';
 import { startRecipe } from './recipes/runner';
@@ -12,6 +13,9 @@ const serviceId = (arg?.split('=')[1] ?? '') as ServiceId;
 const recipe = recipes[serviceId];
 
 if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
+
+// every service: Electron can't complete a passkey, so no page may offer one
+installWebAuthnBlock(window);
 
 // --- Notification interception -------------------------------------------
 // Runs before page scripts (unisolated preload), so the page only ever sees

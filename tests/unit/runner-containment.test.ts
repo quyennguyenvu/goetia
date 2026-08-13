@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { SNAPBACK_MIN_INTERVAL_MS, startRecipe } from '../../src/preload/recipes/runner';
 import type { Recipe } from '../../src/preload/recipes/types';
 
-function fakeDoc(pathname: string) {
-  const loc = { pathname };
+// hash left undefined unless a case needs one: the path-only services must
+// keep working on a location that has no hash to read
+function fakeDoc(pathname: string, hash?: string) {
+  const loc = { pathname, hash };
   return { doc: { location: loc } as unknown as Document, loc };
 }
 
@@ -95,6 +97,44 @@ describe('runner chat containment', () => {
     const h = harness({ ...recipe, chatPaths: undefined }, doc);
     await h.tick();
     loc.pathname = '/watch';
+    await h.tick();
+    expect(h.snapBack).not.toHaveBeenCalled();
+  });
+});
+
+// teams: one pathname, every surface in the fragment
+const hashRouted: Recipe = {
+  id: 'teams',
+  intervalMs: 1000,
+  chatPaths: ['/v2/#/chat', '/v2/#/conversations'],
+  count: () => ({ direct: 0, indirect: 0 }),
+};
+
+describe('runner chat containment, hash-routed', () => {
+  it('stays put while only the fragment moves within chat', async () => {
+    const { doc, loc } = fakeDoc('/v2/', '#/chat');
+    const h = harness(hashRouted, doc);
+    await h.tick();
+    loc.hash = '#/conversations/19:abc@thread.v2?ctx=chat';
+    await h.tick();
+    expect(h.snapBack).not.toHaveBeenCalled();
+  });
+
+  it('snaps back on a fragment that leaves chat, pathname unchanged', async () => {
+    const { doc, loc } = fakeDoc('/v2/', '#/chat/19:abc');
+    const h = harness(hashRouted, doc);
+    await h.tick();
+    loc.hash = '#/calendar';
+    await h.tick();
+    expect(h.snapBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('never snaps the sign-in flow, which never reaches a chat fragment', async () => {
+    const { doc, loc } = fakeDoc('/', '');
+    const h = harness(hashRouted, doc);
+    await h.tick();
+    loc.pathname = '/v2/';
+    loc.hash = '#/calendar';
     await h.tick();
     expect(h.snapBack).not.toHaveBeenCalled();
   });

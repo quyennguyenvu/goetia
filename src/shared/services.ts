@@ -28,20 +28,28 @@ export const SERVICES: ServiceMeta[] = [
     color: '#0084FF',
     waitForReady: true,
   },
+  // the v2 client routes in the hash (#/chat, #/calendar, …), so the chat
+  // route belongs in the URL: snapping back from #/calendar is then a
+  // fragment navigation Teams' own router serves — no reload, no boot splash.
+  {
+    id: 'teams',
+    name: 'Microsoft Teams',
+    url: 'https://teams.microsoft.com/v2/#/chat',
+    color: '#6264A7',
+    waitForReady: true,
+  },
   // buyer chat lives in the mini-chat widget on the shopping site; the
   // recipe css reshapes it to fill the view. Never target /webchat —
   // it hits Shopee's anti-bot wall (verify/captcha, scene=crawler_item)
   { id: 'shopee', name: 'Shopee', url: 'https://shopee.vn/', color: '#EE4D2D', waitForReady: true },
   // the whole client under app.slack.com/client is chat (discord precedent);
   // /client lands on the last-active workspace, the built-in switcher rail
-  // covers the rest. Logged out it 302s to the workspace-first signin, which
-  // assumes the user knows a workspace URL — so the very first load opens
-  // the email-first entry instead, and after that slack behaves untouched.
+  // covers the rest. Logged out it 302s to the workspace-first signin — the
+  // off-host back affordance is what gets a first-timer out of that detour.
   {
     id: 'slack',
     name: 'Slack',
     url: 'https://app.slack.com/client',
-    firstRunUrl: 'https://slack.com/get-started',
     color: '#4A154B',
     waitForReady: true,
   },

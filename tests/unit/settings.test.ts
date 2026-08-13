@@ -58,6 +58,7 @@ describe('SettingsStore', () => {
     // summoning moves a service to the end of the rail regardless (summonOrder).
     expect(s.order).toEqual([
       'messenger',
+      'teams',
       'shopee',
       'slack',
       'telegram',
@@ -67,10 +68,12 @@ describe('SettingsStore', () => {
       'discord',
       'instagram',
     ]);
+    expect(s.muted.teams).toBe(false);
+    expect(s.disabled.teams).toBe(true); // new service arrives disabled
+    expect(s.neverHibernate.teams).toBe(true);
     expect(s.muted.slack).toBe(false);
     expect(s.disabled.slack).toBe(true); // new service arrives disabled
     expect(s.neverHibernate.slack).toBe(true);
-    expect(s.visited.slack).toBe(false); // first view creation gets firstRunUrl
     expect(s.muted.instagram).toBe(false);
     expect(s.disabled.instagram).toBe(true); // new service arrives disabled
     expect(s.neverHibernate.instagram).toBe(true);
@@ -94,6 +97,7 @@ describe('SettingsStore', () => {
       'discord',
       'instagram',
       'messenger',
+      'teams',
       'shopee',
       'slack',
       'telegram',
@@ -101,6 +105,18 @@ describe('SettingsStore', () => {
       'whatsapp',
       'zalo',
     ]);
+  });
+
+  it('loads a settings.json that still carries the removed visited record', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ globalMuted: true, visited: { slack: true, whatsapp: false } }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.globalMuted).toBe(true); // real prefs survive the dead key
+    expect(s.order).toEqual(DEFAULT_SETTINGS.order);
+    expect(s.disabled).toEqual(DEFAULT_SETTINGS.disabled);
   });
 
   it('keeps a user reordering when a new service arrives', () => {
@@ -123,9 +139,11 @@ describe('SettingsStore', () => {
       'shopee',
       'slack',
       'messenger',
+      'teams',
     ]);
     // the property the user can actually see: their arrangement is intact
-    expect(s.order.filter((id) => id !== 'instagram' && id !== 'slack')).toEqual([
+    const arrived = new Set(['instagram', 'slack', 'teams']);
+    expect(s.order.filter((id) => !arrived.has(id))).toEqual([
       'telegram',
       'zalo',
       'whatsapp',

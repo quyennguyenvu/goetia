@@ -4,6 +4,7 @@ import instagram from './instagram';
 import messenger from './messenger';
 import shopee from './shopee';
 import slack from './slack';
+import teams from './teams';
 import telegram from './telegram';
 import tiktok from './tiktok';
 import type { Recipe } from './types';
@@ -20,4 +21,5 @@ export const recipes: Record<ServiceId, Recipe> = {
   tiktok,
   shopee,
   slack,
+  teams,
 };

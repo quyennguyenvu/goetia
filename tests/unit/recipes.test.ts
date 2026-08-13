@@ -26,6 +26,7 @@ const cases: [ServiceId, string, number, number][] = [
   ['tiktok', 'tiktok', 3, 0], // nav Messages badge total
   ['shopee', 'shopee', 31, 0], // mini-chat header badge
   ['slack', 'slack', 3, 2], // mention badges sum direct; badge-less unread channels indirect; muted skipped
+  ['teams', 'teams', 3, 2], // unread-count badges sum direct; badge-less unread rows indirect
 ];
 
 describe.each(cases)('%s recipe', (id, fixture, direct, indirect) => {
@@ -47,6 +48,15 @@ describe('shopee collapsed pill', () => {
   it('counts from the pill badge while collapsed', async () => {
     expect(await recipes.shopee.count(load('shopee-collapsed'))).toEqual({
       direct: 5,
+      indirect: 0,
+    });
+  });
+});
+
+describe('teams virtualized list', () => {
+  it('falls back to the title total when no unread row is rendered', async () => {
+    expect(await recipes.teams.count(load('teams-virtualized'))).toEqual({
+      direct: 7,
       indirect: 0,
     });
   });
@@ -97,6 +107,11 @@ describe('ready()', () => {
   it('slack is ready once the channel sidebar mounts', () => {
     expect(recipes.slack.ready?.(load('slack'))).toBe(true);
     expect(recipes.slack.ready?.(load('blank'))).toBe(false);
+  });
+
+  it('teams is ready once the chat list mounts', () => {
+    expect(recipes.teams.ready?.(load('teams'))).toBe(true);
+    expect(recipes.teams.ready?.(load('blank'))).toBe(false);
   });
 });
 

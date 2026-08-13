@@ -58,6 +58,7 @@ corepack pnpm media        # regenerate the README screenshots
 
 - Unread counts come from small per-service "recipes" (`src/preload/recipes/`), adapted from [ferdium-recipes](https://github.com/ferdium/ferdium-recipes) (Apache-2.0). If a service redesigns and its count breaks, the tile shows a "stale" dot — fix the selector + fixture pair together in `tests/fixtures/`; `pnpm test` locks them to each other.
 - Viber is intentionally absent: it has no web client to embed.
+- Passkeys can never work: Electron ships no WebAuthn platform authenticator, so a passkey sign-in hangs on "your device is opening a security window" forever. `src/preload/lib/webauthn-block.ts` hides the API from every service view so sites offer a password instead. If a login still stalls on a passkey screen, that shim stopped matching the API — not the site.
 - `ERROR:base/process/process_mac.cc … task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)` on startup is harmless: Chromium failing to put a child process under macOS App Nap. Not ours, and nothing breaks.
 - Branding: the icon is "Ember Portal" — a summoning circle as pure energy, matching the app's ember accent (dark `#FF9E2C`, light `#E8590C`). SVG sources live in `resources/` (`icon.svg`, `tray/*.svg`); regenerate PNGs with `rsvg-convert` (e.g. `rsvg-convert -w 1024 -h 1024 resources/icon.svg -o resources/icon.png`).
 - Design spec: `docs/superpowers/specs/2026-08-04-goetia-chat-client-design.md`.

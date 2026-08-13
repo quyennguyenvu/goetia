@@ -28,9 +28,6 @@ export class ServiceViewManager {
     private hooks: ViewHooks,
     private railPosition: () => RailPosition,
     private audioMuted: (id: ServiceId) => boolean,
-    /** URL for a fresh view — the one-time firstRunUrl on the very first
-     *  creation (marking the service visited), the chat url after. */
-    private startUrl: (id: ServiceId) => string,
     private overlay?: {
       setBounds(b: { x: number; y: number; width: number; height: number }): void;
       raise(): void;
@@ -125,7 +122,7 @@ export class ServiceViewManager {
     wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.hooks.onLoadFailed(id);
     });
-    wc.loadURL(this.startUrl(id));
+    wc.loadURL(svc.url);
     this.views.set(id, view);
     // real bounds even while hidden: pages get desktop-class layout and
     // keep-alive click coordinates from getBoundingClientRect stay valid

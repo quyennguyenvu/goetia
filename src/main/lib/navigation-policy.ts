@@ -24,6 +24,16 @@ const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   // (Google/Apple) can't be listed statically — needs suffix matching plus a
   // live login pass before the guard can be wired for slack
   slack: ['app.slack.com', 'slack.com', 'www.slack.com'],
+  // teams.live.com is where Microsoft sends personal accounts. Tenant SSO/ADFS
+  // hosts are per-organization and exact-host matching can't express them —
+  // needs a live tenant login before the guard can be wired for teams.
+  teams: [
+    'teams.microsoft.com',
+    'teams.live.com',
+    'login.microsoftonline.com',
+    'login.microsoft.com',
+    'login.live.com',
+  ],
 };
 
 export function isNavigationAllowed(id: ServiceId, url: string): boolean {

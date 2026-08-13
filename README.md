@@ -14,7 +14,7 @@
 
 Your chat apps in one window — native notifications, unread badges, and **nothing but the chat**. No feeds, no shops, no menus. Electron + TypeScript + React, local only: no server, no account, no telemetry. macOS and Windows.
 
-**In the circle so far:** WhatsApp, Messenger, Instagram, Telegram, Discord, Slack, Zalo, TikTok, and Shopee. Each one is a self-contained recipe, so the roster grows without the rest noticing.
+**In the circle so far:** WhatsApp, Messenger, Instagram, Telegram, Discord, Slack, Microsoft Teams, Zalo, TikTok, and Shopee. Each one is a self-contained recipe, so the roster grows without the rest noticing.
 
 ## Why Goetia
 

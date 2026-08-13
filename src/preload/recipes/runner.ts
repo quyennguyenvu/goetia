@@ -37,7 +37,10 @@ export function startRecipe(
     // chat containment: SPA routing off every chatPaths prefix after the
     // document has been on one means the user (or a CTA) left chat — go back.
     if (snapBack && recipe.chatPaths) {
-      const path = doc.location?.pathname ?? '';
+      // hash included: teams routes every surface off one pathname (/v2/#/chat
+      // vs /v2/#/calendar). Pathname-only prefixes are unaffected — an empty
+      // hash appends nothing.
+      const path = (doc.location?.pathname ?? '') + (doc.location?.hash ?? '');
       if (recipe.chatPaths.some((p) => path.startsWith(p))) {
         wasInChat = true;
       } else if (wasInChat && nowFn() - lastSnapBack >= SNAPBACK_MIN_INTERVAL_MS) {

@@ -2,6 +2,10 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
+import { SERVICES } from '../../src/shared/services';
+
+/** the launch profile below enables messenger + zalo; the rest stay unbound */
+const UNBOUND = SERVICES.length - 2;
 
 const isShell = (p: { url(): string }) =>
   p.url().startsWith('file://') && !p.url().includes('loading.html');
@@ -137,7 +141,7 @@ test('home: search filters unbound, and Escape clears it before leaving', async 
   await win.locator('[data-testid="home-btn"]').click();
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   const tiles = unbound.locator('[data-testid="pick-tile"]');
-  await expect(tiles).toHaveCount(7);
+  await expect(tiles).toHaveCount(UNBOUND);
 
   const search = unbound.getByRole('textbox', { name: 'Search unbound services' });
   await search.fill('sho');
@@ -151,7 +155,7 @@ test('home: search filters unbound, and Escape clears it before leaving', async 
 
   // first Escape clears the query and stays on Home
   await search.press('Escape');
-  await expect(tiles).toHaveCount(7);
+  await expect(tiles).toHaveCount(UNBOUND);
   await expect(welcome).toBeVisible();
 
   // second Escape leaves
