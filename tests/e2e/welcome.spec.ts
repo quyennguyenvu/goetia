@@ -26,27 +26,27 @@ test('fresh install: welcome picker → summon → rail', async () => {
   const tiles = win.locator('[data-testid="service-tile"]');
   await expect(tiles).toHaveCount(0);
 
-  // nothing is summoned yet: the intro carries the screen and the whole catalog
-  // waits below
+  // nothing is summoned yet: the hero invites the first pick and the whole
+  // catalog waits below
   const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
-  await expect(welcome.locator('[data-testid="welcome-intro"]')).toBeVisible();
+  await expect(welcome.locator('[data-testid="home-hero"]')).toBeVisible();
   await expect(unbound.locator('[data-testid="pick-tile"]')).toHaveCount(SERVICES.length);
 
-  // confirm is disabled until something is selected
-  const summon = win.getByRole('button', { name: /^Summon/ });
+  // the primary rests inert until something is selected
+  const summon = win.getByRole('button', { name: 'Pick a service to begin' });
   await expect(summon).toBeDisabled();
 
-  // selecting stages the change without moving the tile out of Unbound
+  // a pick flies the tile into Summoned on the spot — staged, not committed:
+  // the rail stays empty until the confirm
   await unbound.getByRole('button', { name: 'Zalo' }).click();
-  await expect(summon).toHaveText('Summon 1 service');
-  await expect(unbound.getByRole('button', { name: 'Zalo' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(summoned.getByRole('button', { name: 'Zalo' })).toHaveCount(0);
+  const confirm = win.getByRole('button', { name: 'Summon 1 service' });
+  await expect(confirm).toBeVisible();
+  await expect(summoned.getByRole('button', { name: 'Zalo' })).toBeVisible();
+  await expect(unbound.getByRole('button', { name: 'Zalo' })).toHaveCount(0);
+  await expect(tiles).toHaveCount(0);
 
-  await summon.click();
+  await confirm.click();
 
   // welcome gone, one tile, zalo active
   await expect(welcome).toHaveCount(0);
@@ -64,7 +64,7 @@ test('fresh install: welcome picker → summon → rail', async () => {
   await second.app.close();
 });
 
-test('summoning appends to the end of the rail, not to catalog position', async () => {
+test('summoning appends in click order, not catalog position', async () => {
   const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-'));
   const { app, win } = await launch(profile);
 
@@ -74,12 +74,13 @@ test('summoning appends to the end of the rail, not to catalog position', async 
   const railOrder = () =>
     railTiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
 
-  // two at once arrive in name order
+  // each pick appends to Summoned as it lands, so the rail arrives in the
+  // order the user built — Telegram first despite Discord sorting first
   await unbound.getByRole('button', { name: 'Telegram' }).click();
   await unbound.getByRole('button', { name: 'Discord' }).click();
   await win.getByRole('button', { name: 'Summon 2 services' }).click();
   await expect(railTiles).toHaveCount(2);
-  expect(await railOrder()).toEqual(['Discord', 'Telegram']);
+  expect(await railOrder()).toEqual(['Telegram', 'Discord']);
 
   // a later arrival goes last even though it sorts first
   await win.locator('[data-testid="home-btn"]').click();
@@ -89,7 +90,7 @@ test('summoning appends to the end of the rail, not to catalog position', async 
     .click();
   await win.getByRole('button', { name: 'Summon 1 service' }).click();
   await expect(railTiles).toHaveCount(3);
-  expect(await railOrder()).toEqual(['Discord', 'Telegram', 'Instagram']);
+  expect(await railOrder()).toEqual(['Telegram', 'Discord', 'Instagram']);
 
   await app.close();
 });

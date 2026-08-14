@@ -1,5 +1,32 @@
 import type { ServiceId, ServiceMeta, Settings } from './types';
 
+/** Summoned services stop at nine because service accelerators do: ⌘/Ctrl+0
+ *  is Home and Electron cannot bind CmdOrCtrl+10 (service-accelerator.ts).
+ *  cap.test.ts keeps the two constants equal. */
+export const MAX_SUMMONED = 9;
+
+/** Whether picking `id` is blocked by the cap: the staged result is full and
+ *  this tile is not part of it. Picked tiles stay live so a slot can be freed
+ *  within the same edit. */
+export function capBlocked(selected: ReadonlySet<ServiceId>, id: ServiceId): boolean {
+  return selected.size >= MAX_SUMMONED && !selected.has(id);
+}
+
+/** Enforce the cap on a persisted enabled set: every enabled id past the
+ *  ninth enabled position in `order` is disabled. A legal set comes back as
+ *  the same reference with an empty `trimmed`. */
+export function trimToCap(
+  order: ServiceId[],
+  disabled: Record<ServiceId, boolean>,
+): { disabled: Record<ServiceId, boolean>; trimmed: ServiceId[] } {
+  const enabled = order.filter((id) => !disabled[id]);
+  if (enabled.length <= MAX_SUMMONED) return { disabled, trimmed: [] };
+  const trimmed = enabled.slice(MAX_SUMMONED);
+  const next = { ...disabled };
+  for (const id of trimmed) next[id] = true;
+  return { disabled: next, trimmed };
+}
+
 /** Full disabled-record for a welcome-screen confirm: selected ids
  *  enabled, everything else disabled. Always covers every id in
  *  `order` — conf persists whole top-level objects. */
@@ -30,10 +57,13 @@ export function summonDelta(
 const services = (n: number): string => `${n} ${n === 1 ? 'service' : 'services'}`;
 
 /** The confirm button names the change it is about to apply: banishing a
- *  service tears down a logged-in view, which deserves its own word. */
+ *  service tears down a logged-in view, which deserves its own word. A pure
+ *  reorder rides along silently with a summon/banish, but alone it still
+ *  needs the button — the whole edit commits in one go. */
 export function summonLabel(
   delta: SummonDelta,
   hasEnabled: boolean,
+  orderChanged = false,
 ): { label: string; disabled: boolean } {
   const { add, remove } = delta;
   if (add.length > 0 && remove.length > 0) {
@@ -41,7 +71,8 @@ export function summonLabel(
   }
   if (add.length > 0) return { label: `Summon ${services(add.length)}`, disabled: false };
   if (remove.length > 0) return { label: `Banish ${services(remove.length)}`, disabled: false };
-  return { label: hasEnabled ? 'No changes' : 'Summon 0 services', disabled: true };
+  if (orderChanged) return { label: 'Apply new order', disabled: false };
+  return { label: hasEnabled ? 'No changes' : 'Pick a service to begin', disabled: true };
 }
 
 /** Catalog ids in display-name order — the Unbound order, and the order new
@@ -59,21 +90,12 @@ export function matchesQuery(name: string, query: string): boolean {
   return q.length === 0 || name.toLowerCase().includes(q);
 }
 
-/** Order after a welcome-screen confirm. Newly summoned ids move to the end so
- *  an arrival lands where the user last looked; a banished id keeps its slot,
- *  and appends like any other arrival if it returns. `named` supplies the
- *  arrival order when several are summoned at once — the order they were
- *  sitting in under Unbound, since a Set carries no click order. */
-export function summonOrder(
-  order: ServiceId[],
-  enabled: ReadonlySet<ServiceId>,
-  selected: ReadonlySet<ServiceId>,
-  named: ServiceId[],
-): ServiceId[] {
-  const added = named.filter((id) => selected.has(id) && !enabled.has(id));
-  if (added.length === 0) return [...order];
-  const moved = new Set(added);
-  return [...order.filter((id) => !moved.has(id)), ...added];
+/** Full `settings.order` after a staged commit: the staged summoned sequence
+ *  leads (it IS the rail the user just arranged), everything else follows in
+ *  its existing relative order. */
+export function commitOrder(order: ServiceId[], staged: ServiceId[]): ServiceId[] {
+  const stagedSet = new Set(staged);
+  return [...staged, ...order.filter((id) => !stagedSet.has(id))];
 }
 
 export interface WelcomeSections {
@@ -81,19 +103,16 @@ export interface WelcomeSections {
   unbound: ServiceId[];
 }
 
-/** Partition for the Home picker. Summoned follows `order` — that list is the
- *  rail. Unbound follows `named`, because an unchosen pool has no meaningful
- *  order and a stable one is worth more than a mirrored one. Keyed on the LIVE
- *  enabled set, never the staged selection: a tile must not move out from under
- *  the cursor mid-edit, so sections re-sort only once a confirm lands. */
-export function welcomeSections(
-  order: ServiceId[],
-  enabled: ReadonlySet<ServiceId>,
-  named: ServiceId[],
-): WelcomeSections {
+/** Partition for the Home picker, derived from the STAGED edit: the board is
+ *  the edit. Summoned is the staged list verbatim — content and order both.
+ *  Unbound follows `named`, because an unchosen pool has no meaningful order
+ *  and a stable one is worth more than a mirrored one — a tile clicked out of
+ *  Summoned flies back to its name slot. */
+export function welcomeSections(staged: ServiceId[], named: ServiceId[]): WelcomeSections {
+  const stagedSet = new Set(staged);
   return {
-    summoned: order.filter((id) => enabled.has(id)),
-    unbound: named.filter((id) => !enabled.has(id)),
+    summoned: [...staged],
+    unbound: named.filter((id) => !stagedSet.has(id)),
   };
 }
 

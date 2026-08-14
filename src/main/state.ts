@@ -19,6 +19,8 @@ export class MainState {
   /** Home (the welcome screen) is a shell surface, not a persisted
    *  preference: a restart lands on the active service. */
   homeOpen = false;
+  /** set once at boot from SettingsStore.bootTrimmed; constant for the run */
+  capTrimmed: ServiceId[] = [];
   private runtimes = new Map<ServiceId, ServiceRuntime>();
   private listeners: (() => void)[] = [];
   private updateState: UpdateState = defaultUpdate();
@@ -87,6 +89,7 @@ export class MainState {
       switcherOpen: this.switcherOpen,
       settingsOpen: this.settingsOpen,
       homeOpen: this.homeOpen,
+      capTrimmed: [...this.capTrimmed],
       theme,
       settings,
       version,

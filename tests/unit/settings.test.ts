@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SettingsStore } from '../../src/main/settings';
-import { DEFAULT_SETTINGS } from '../../src/shared/types';
+import { SERVICES } from '../../src/shared/services';
+import { DEFAULT_SETTINGS, type Settings } from '../../src/shared/types';
 
 let dir: string;
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -212,5 +213,37 @@ describe('SettingsStore', () => {
     const s = store.get();
     expect(s.order).toEqual(DEFAULT_SETTINGS.order);
     expect(s.disabled).toEqual(DEFAULT_SETTINGS.disabled);
+  });
+
+  it('trims an over-cap install to nine on first read and persists the trim', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const allOn = Object.fromEntries(SERVICES.map((s) => [s.id, false]));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ disabled: allOn }));
+
+    const store = new SettingsStore(dir);
+    const s = store.get();
+    const enabled = s.order.filter((id) => !s.disabled[id]);
+    expect(enabled).toHaveLength(9);
+    // default order ends with zalo — the tenth enabled position is the trim
+    expect(store.bootTrimmed).toEqual(['zalo']);
+    expect(s.disabled.zalo).toBe(true);
+
+    // persisted: a second instance reads a legal file and trims nothing
+    const again = new SettingsStore(dir);
+    expect(again.bootTrimmed).toEqual([]);
+    expect(again.get().disabled.zalo).toBe(true);
+  });
+
+  it('reports no boot trim for a legal install', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).bootTrimmed).toEqual([]);
+  });
+
+  it('caps a hostile update payload on read', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    const allOn = Object.fromEntries(SERVICES.map((s) => [s.id, false])) as Settings['disabled'];
+    const s = store.update({ disabled: allOn });
+    expect(s.order.filter((id) => !s.disabled[id])).toHaveLength(9);
   });
 });

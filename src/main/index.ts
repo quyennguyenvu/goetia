@@ -32,7 +32,9 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
-    minWidth: 940,
+    // wide enough for Home's nine summoned tiles in one row beside the hero
+    // column, with a side rail: 246 + 48 + 34 + 9×76 + 8×8 + 56 = 1132
+    minWidth: 1140,
     minHeight: 600,
     title: 'Goetia',
     backgroundColor: '#0F1115',
@@ -207,11 +209,14 @@ app
     // all-disabled (fresh install): show the welcome screen, create no
     // view — activating order[0] would give a disabled service network
     state.activeId = surface.activeId ?? s0.order[0];
-    state.homeOpen = surface.homeOpen;
+    // a boot trim must be seen: land on Home, where the board reads 9/9 and
+    // the toast names what was banished (a covered shell toast is invisible)
+    state.homeOpen = surface.homeOpen || settings.bootTrimmed.length > 0;
+    state.capTrimmed = settings.bootTrimmed;
     if (surface.activeId) {
       ctx.noteActivated(surface.activeId);
       // Home covers the view: resolve now, present when Home closes
-      views.activate(surface.activeId, { show: !surface.homeOpen });
+      views.activate(surface.activeId, { show: !state.homeOpen });
     }
     // never-hibernate services load hidden from the start, so their unread
     // counts and notifications work before ever being clicked

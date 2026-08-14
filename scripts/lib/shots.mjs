@@ -20,8 +20,11 @@ export const ALL_SERVICE_IDS = [
 export const THEMES = ['light', 'dark'];
 
 // zalo is enabled wherever a badge is needed: --goetia-e2e injects the fake
-// unread count on zalo alone. The rail and switcher enable everything — a
-// half-empty rail makes a poor showcase.
+// unread count on zalo alone. The rail and switcher enable NINE_UP — a
+// half-empty rail makes a poor showcase, but all ten would be trimmed to the
+// summon cap at boot and the trim toast would photobomb the shot.
+const NINE_UP = ALL_SERVICE_IDS.filter((id) => id !== 'teams');
+
 const SURFACES = [
   // a mixed live set so both Home sections carry tiles; the capture then
   // stages one summon and one banishment across them
@@ -29,10 +32,10 @@ const SURFACES = [
   {
     stem: 'rail-badges',
     surface: 'rail',
-    enabled: [...ALL_SERVICE_IDS],
+    enabled: NINE_UP,
     muted: ['whatsapp'],
   },
-  { stem: 'quick-switcher', surface: 'switcher', enabled: [...ALL_SERVICE_IDS] },
+  { stem: 'quick-switcher', surface: 'switcher', enabled: NINE_UP },
   { stem: 'settings', surface: 'settings', enabled: ['zalo', 'telegram', 'whatsapp'] },
   { stem: 'waking', surface: 'waking', enabled: ['zalo'] },
 ];

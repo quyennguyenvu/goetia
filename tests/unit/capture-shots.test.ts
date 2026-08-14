@@ -37,7 +37,9 @@ describe('capture matrix', () => {
     const shot = SHOTS.find((s) => s.stem === 'rail-badges' && s.theme === 'dark');
     if (!shot) throw new Error('rail-badges/dark missing from the matrix');
     const seeded = settingsFor(shot);
-    expect(Object.values(seeded.disabled).every((d) => d === false)).toBe(true);
+    // nine enabled is a full rail now: a tenth would be trimmed at boot and
+    // the trim toast would photobomb the capture
+    expect(Object.values(seeded.disabled).filter((d) => d === false)).toHaveLength(9);
     expect(seeded.muted.whatsapp).toBe(true);
     expect(seeded.muted.zalo).toBe(false);
   });

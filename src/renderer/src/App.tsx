@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { aggregateBadges, badgeLabel } from '../../shared/badges';
+import CapTrimToast from './components/CapTrimToast';
 import ContentPlaceholder from './components/ContentPlaceholder';
 import { renderOverlayDataUrl } from './components/overlay-badge';
 import QuickSwitcher from './components/QuickSwitcher';
@@ -38,6 +39,7 @@ export default function App() {
       <div className="relative flex min-h-0 min-w-0 flex-1">
         {showWelcome ? <Welcome /> : <ContentPlaceholder />}
         <UpdateToast />
+        <CapTrimToast />
       </div>
       {pos === 'right' && <Rail />}
       <SettingsView />

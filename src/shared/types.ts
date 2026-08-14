@@ -147,6 +147,8 @@ export interface ShellState {
   switcherOpen: boolean;
   settingsOpen: boolean;
   homeOpen: boolean;
+  /** ids the summon cap banished at startup; the shell toasts them once */
+  capTrimmed: ServiceId[];
   theme: 'light' | 'dark'; // effective theme (system already resolved)
   settings: Settings; // raw preferences, for the settings form
   version: string;

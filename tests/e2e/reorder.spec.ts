@@ -45,12 +45,25 @@ const railOrder = (win: Page) =>
     .locator('[data-testid="service-tile"]')
     .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''));
 
+/** Home's tiles animate into place when the board opens — measure only once
+ *  the geometry settles, or the drag grabs where a tile used to be. */
+async function stableBox(win: Page, selector: string) {
+  const tile = win.locator(selector);
+  let prev = await tile.boundingBox();
+  for (let i = 0; i < 20; i++) {
+    await win.waitForTimeout(100);
+    const next = await tile.boundingBox();
+    if (prev && next && prev.x === next.x && prev.y === next.y) return next;
+    prev = next;
+  }
+  throw new Error(`tile ${selector} never settled`);
+}
+
 /** Motion needs real intermediate moves to cross its drag threshold and to
  *  register the crossing — a single jump from source to target does neither. */
 async function drag(win: Page, source: string, target: string) {
-  const a = await win.locator(source).boundingBox();
-  const b = await win.locator(target).boundingBox();
-  if (!a || !b) throw new Error(`missing tile: ${source} → ${target}`);
+  const a = await stableBox(win, source);
+  const b = await stableBox(win, target);
   await win.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
   await win.mouse.down();
   await win.mouse.move(a.x + a.width / 2 + 8, a.y + a.height / 2, { steps: 4 });
@@ -58,10 +71,10 @@ async function drag(win: Page, source: string, target: string) {
   await win.mouse.up();
 }
 
-// home.spec.ts already covers "a drop reorders the rail immediately". What is
-// only testable now that the drag is pointer-driven is that the single
-// commit on drag-end actually reached settings and survives a restart.
-test('reorder: a Home drag persists across a restart', async () => {
+// home.spec.ts already covers "a drop stages the order for the confirm". What
+// is only testable here is that the committed order actually reached settings
+// and survives a restart.
+test('reorder: a committed Home drag persists across a restart', async () => {
   const profile = makeProfile();
   const first = await launch(profile);
 
@@ -78,15 +91,17 @@ test('reorder: a Home drag persists across a restart', async () => {
     '[data-testid="pick-tile"][title="Messenger"]',
   );
 
-  // the rail reordering behind Home is the in-app confirmation of the drop
-  await expect.poll(() => railOrder(first.win)).toEqual(['Zalo', 'Messenger']);
+  // the drag must not have toggled the service it dragged — pointer drag does
+  // not suppress the trailing click the way HTML5 DnD did. Banishing moves a
+  // tile out of Summoned, so "still summoned" is the check.
+  const summoned = first.win.locator('[data-testid="welcome-section-summoned"]');
+  await expect(summoned.getByRole('button', { name: 'Zalo' })).toBeVisible();
 
-  // and the drag must not have toggled the service it dragged — pointer drag
-  // does not suppress the trailing click the way HTML5 DnD did
-  await expect(first.win.locator('[data-testid="pick-tile"][title="Zalo"]')).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  // the drop is staged; the commit is what writes settings
+  const confirm = first.win.getByRole('button', { name: 'Apply new order' });
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect.poll(() => railOrder(first.win)).toEqual(['Zalo', 'Messenger']);
   await expect(first.win.getByRole('button', { name: 'No changes' })).toBeDisabled();
 
   await first.app.close();

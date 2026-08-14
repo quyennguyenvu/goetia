@@ -32,13 +32,13 @@ Your chat apps in one window — native notifications, unread badges, and **noth
 
 ## A look around
 
-Nothing loads until you pick — a fresh install starts with every service off. Home keeps the summoned apart from the unbound, and a pick only changes which side it's on once you confirm: the button spells out the change first (**Summon 1 · Banish 1** below), and **Dispel** throws the edit away. The unbound row filters by name, and dragging a summoned tile sets the rail order — a drop takes effect on its own, so reordering never rides along with an enable:
+Nothing loads until you pick — a fresh install starts with every service off. Home is one screen for every state: a hero column whose ember gauge fills as picks approach the nine-service cap (one seat per ⌘/Ctrl 1…9 shortcut), and the board beside it keeping the summoned apart from the unbound. The board is the edit: clicking an unbound tile moves it into Summoned, clicking a summoned tile sends it back, and dragging arranges the summoned row — all staged. Nothing runs or stops until the button, which spells out the change first (**Summon 1 · Banish 1** below, or **Apply new order** for a pure rearrange), commits adds, banishes and the new order in one go. **Discard** — it appears only while an edit is staged — throws the whole edit away. The unbound row filters by name:
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/welcome-dark.png">
     <img src="docs/media/welcome-light.png" width="760"
-      alt="Goetia's Home screen: a summoned row above, the unbound below, with one staged on each side">
+      alt="Goetia's Home screen: the hero column with the summon gauge at left, summoned and unbound bands at right">
   </picture>
 </p>
 
@@ -158,14 +158,14 @@ gh attestation verify Goetia-<version>-arm64.dmg --repo quyennguyenvu/goetia
 
 ### The first time you open it
 
-You'll see every service sitting under **Choose your services**. Click the ones you want — they light up but stay put — then press **Summon** to bring them in. Now log in to each the normal way: scan the QR code (WhatsApp, Zalo) or type your username and password. **You only log in once per service**; Goetia remembers each account separately, even after you quit and reopen.
+You'll see every service waiting under **Unbound** beside the hero column. Click the ones you want — they light up but stay put — then press **Summon** to bring them in. Now log in to each the normal way: scan the QR code (WhatsApp, Zalo) or type your username and password. **You only log in once per service**; Goetia remembers each account separately, even after you quit and reopen.
 
 Closing the window does **not** quit Goetia — it keeps running in the menu bar (Mac) or the system tray next to the clock (Windows) so notifications still arrive. To fully quit, click that icon → **Quit**, or press ⌘Q (Mac) / Ctrl+Q (Windows).
 
 ### Handy to know
 
 - **Service icons sit in a top bar** by default (each chat app already has its own left-hand column, so a second left rail would double up). Want them on the side? **Settings → Appearance → Menu position**.
-- **Add or drop services later**: press ⌘/Ctrl+0, or click the ember sigil at the head of the icon bar, for **Home**. Summoned and unbound sit in separate rows; nothing changes until you press **Summon**/**Banish**, and **Dispel** throws a selection away. Banishing keeps the login — summon it back and you're still signed in. ⌘/Ctrl+F jumps to the box that filters the unbound row by name, and dragging a summoned tile reorders the icon bar right away — that one doesn't wait for **Summon**.
+- **Add or drop services later**: press ⌘/Ctrl+0, or click the ember sigil at the head of the icon bar, for **Home**. Clicking a tile moves it between **Summoned** and **Unbound**, dragging arranges the summoned row, and nothing takes effect until you press **Summon**/**Banish**/**Apply new order** — add, drop and reorder in one go; **Discard** throws the staged edit away. Nine services can be summoned at once — one per ⌘/Ctrl 1…9 shortcut; banish one to make room. Banishing keeps the login — summon it back and you're still signed in. ⌘/Ctrl+F jumps to the box that filters the unbound row by name.
 - **Shortcuts**: ⌘/Ctrl+1…9 jump to a service, ⌘/Ctrl+K opens a quick switcher, ⌘/Ctrl+0 opens Home, ⌘/Ctrl+R (or F5) reloads the current service, ⌘/Ctrl+⇧+M mutes everything, right-click an icon to mute it, and drag icons to reorder them.
 - **Muting means silence, not blindness**: a muted service raises no banner and its page is silenced too, so the site's own alert sound stops as well — but its unread badge keeps counting, so you can still see what came in. Muting also silences that service's calls and voice notes while it's muted.
 - **On a Mac, allow notifications the first time**: System Settings → Notifications → **Goetia** → turn on **Allow Notifications**.

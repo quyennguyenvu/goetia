@@ -4,41 +4,41 @@ import type { ServiceId } from '../../../shared/types';
 import {
   buildDisabledPatch,
   byName,
+  capBlocked,
+  commitOrder,
   enabledKey,
+  MAX_SUMMONED,
   matchesQuery,
   summonDelta,
   summonLabel,
-  summonOrder,
   welcomeSections,
 } from '../../../shared/welcome';
 import { useShell } from '../store';
-import Portal from './Portal';
-import { useTileReorder } from './useTileReorder';
+import HomeHero from './welcome/HomeHero';
 import PickTile from './welcome/PickTile';
 import ServiceBand from './welcome/ServiceBand';
-import WelcomeIntro from './welcome/WelcomeIntro';
+
+const DRAG_CURSOR = 'tile-dragging';
 
 export default function Welcome() {
   const state = useShell((s) => s.state);
   const key = state ? enabledKey(state.services, state.settings.disabled) : '';
-  // the same list welcomeSections produces for `summoned`, derived from the
-  // same broadcast state — the hook has to run before the early return, so it
-  // cannot read `sections`
-  const reorder = useTileReorder(
-    state
-      ? state.services.filter((svc) => !state.settings.disabled[svc.id]).map((svc) => svc.id)
-      : [],
-    state ? state.services.map((svc) => svc.id) : [],
-  );
-  const [selected, setSelected] = useState<ReadonlySet<ServiceId>>(new Set());
+  // The board IS the edit: `staged` is the Summoned section, content and
+  // order both. Nothing reaches main until the confirm commits the whole
+  // edit — adds, removals and the new order — in one patch.
+  const [staged, setStaged] = useState<ServiceId[]>([]);
   const [query, setQuery] = useState('');
   // read through a ref so the window listener is registered once instead of on
   // every keystroke, and never closes over a stale query
   const queryRef = useRef('');
   const searchRef = useRef<HTMLInputElement>(null);
+  // a pointer drag does not suppress the trailing click the way HTML5 DnD
+  // did; unswallowed, it would banish the tile that was just dragged
+  const didDrag = useRef(false);
   useEffect(() => {
     queryRef.current = query;
   }, [query]);
+  useEffect(() => () => document.body.classList.remove(DRAG_CURSOR), []);
 
   // ⌘/Ctrl+F is the reflex for "find" — Home spends it on the unbound filter.
   // Nothing else on this surface searches, and the shell has no page-find.
@@ -58,11 +58,16 @@ export default function Welcome() {
     return () => window.removeEventListener('keydown', onFind);
   }, []);
 
-  // Re-seed every time the screen becomes visible or the live set changes, so
-  // a discarded edit never survives to the next visit. A fresh install has an
-  // empty enabled set, which reproduces the original empty selection.
+  // Re-seed every time the screen becomes visible or the live membership
+  // changes, so a discarded edit never survives to the next visit — but only
+  // on membership: reseeding on order too would clobber a staged reorder the
+  // moment anything else broadcasts. A fresh install reseeds to empty.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: key (membership) is the trigger; the order is read fresh from the store on purpose
   useEffect(() => {
-    setSelected(new Set(key ? (key.split(',') as ServiceId[]) : []));
+    const s = useShell.getState().state;
+    setStaged(
+      s ? s.services.filter((svc) => !s.settings.disabled[svc.id]).map((svc) => svc.id) : [],
+    );
     setQuery('');
   }, [key]);
 
@@ -88,72 +93,66 @@ export default function Welcome() {
 
   if (!state) return null;
 
-  const toggle = (id: ServiceId) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
-
+  const stagedSet = new Set(staged);
   const enabled = new Set<ServiceId>(
     state.services.filter((svc) => !state.settings.disabled[svc.id]).map((svc) => svc.id),
   );
   const order = state.services.map((svc) => svc.id);
+  const liveSummoned = order.filter((id) => enabled.has(id));
   const named = byName(state.services);
-  const { label, disabled } = summonLabel(summonDelta(order, enabled, selected), enabled.size > 0);
+  const delta = summonDelta(order, enabled, stagedSet);
+  // covers adds and removals too (the joins differ), so it doubles as `dirty`
+  const orderChanged = staged.join(',') !== liveSummoned.join(',');
+  const { label, disabled } = summonLabel(delta, enabled.size > 0, orderChanged);
+  const atCap = staged.length >= MAX_SUMMONED;
 
-  // sections follow the LIVE enabled set; the tile glow follows `selected`.
-  // Keeping the two axes independent is what stops a tile jumping out from
-  // under the cursor when it is deselected.
   const byId = new Map(state.services.map((svc) => [svc.id, svc]));
-  const sections = welcomeSections(order, enabled, named);
+  const sections = welcomeSections(staged, named);
   const pick = (ids: ServiceId[]) =>
     ids.map((id) => byId.get(id)).filter((svc) => svc !== undefined);
-  const fresh = sections.summoned.length === 0;
 
-  // one patch, not a reorder followed by an update: settings:update already
-  // resolves activation and rebuilds the app menu against `after.order`, so
-  // splitting it would broadcast a frame where order and enablement disagree
+  // one patch: adds, removals and the new order land together, so activation
+  // and the app menu resolve against a single consistent frame
   const summon = () =>
     window.goetia.send('settings:update', {
-      disabled: buildDisabledPatch(order, selected),
-      order: summonOrder(order, enabled, selected, named),
+      disabled: buildDisabledPatch(order, stagedSet),
+      order: commitOrder(order, staged),
     });
   // the same reseed the screen does on every visit, under the user's thumb
-  const dispel = () => setSelected(enabled);
+  const discard = () => setStaged(liveSummoned);
 
-  // First run splits its 780px band into nine equal columns (~75.8px each, which
-  // still clears "Messenger" at 66px). The steady-state bands are as wide as the
-  // board, where nine columns would strand the tiles far apart — they fill with
-  // as many 76px tracks as fit instead. Both are left-aligned by construction.
-  const tiles = (ids: ServiceId[], nineUp = false) => (
-    <div className={`grid gap-2 ${nineUp ? 'grid-cols-9' : 'grid-cols-[repeat(auto-fill,76px)]'}`}>
+  const summonOne = (id: ServiceId) => setStaged([...staged, id]);
+  const banishOne = (id: ServiceId) => setStaged(staged.filter((s) => s !== id));
+
+  // No tile animation at all in Unbound: any transform inside the scroll
+  // container — a cross-section fly, or even `layout` closing the gap a
+  // moved tile left — momentarily extends the scrollable area and blinks
+  // the scrollbar (2026-08-15, user decision). Moves land instantly; the
+  // scrollbar appears only on genuine overflow.
+  const unboundTiles = (ids: ServiceId[]) => (
+    <div className="grid grid-cols-[repeat(auto-fill,76px)] gap-2">
       {pick(ids).map((svc) => (
         <PickTile
           key={svc.id}
           service={svc}
-          on={selected.has(svc.id)}
-          onToggle={() => toggle(svc.id)}
+          on={false}
+          capped={capBlocked(stagedSet, svc.id)}
+          onToggle={() => summonOne(svc.id)}
         />
       ))}
     </div>
   );
 
-  // the same 76px auto-fill track as `tiles`; axis="xy" because the grid wraps
-  // and a tile dragged to another row moves on both axes
+  // single row by construction: the window's minWidth fits nine 76px tiles,
+  // so the drag is x-only and the glow never hides behind a scrollbar
   const summonedTiles = (
-    <Reorder.Group
-      as="div"
-      axis="xy"
-      {...reorder.groupProps}
-      className="grid grid-cols-[repeat(auto-fill,76px)] gap-2"
-    >
-      {pick(reorder.shown).map((svc) => (
+    <Reorder.Group as="div" axis="x" values={staged} onReorder={setStaged} className="flex gap-2">
+      {pick(sections.summoned).map((svc) => (
         <Reorder.Item
           key={svc.id}
           value={svc.id}
           as="div"
-          className="relative min-w-0"
+          className="relative w-[76px] flex-none"
           // drop-shadow, not boxShadow: this wrapper is a rectangle and the
           // tile inside it is a squircle, so a box-shadow would halo the
           // wrapper's corners. drop-shadow follows the rendered alpha.
@@ -162,14 +161,26 @@ export default function Welcome() {
             zIndex: 10,
             filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.45))',
           }}
-          {...reorder.itemProps}
+          onPointerDown={() => {
+            didDrag.current = false;
+          }}
+          onDragStart={() => {
+            didDrag.current = true;
+            document.body.classList.add(DRAG_CURSOR);
+          }}
+          onDragEnd={() => {
+            document.body.classList.remove(DRAG_CURSOR);
+          }}
         >
           <PickTile
             service={svc}
-            on={selected.has(svc.id)}
+            on
             onToggle={() => {
-              if (reorder.consumeDrag()) return;
-              toggle(svc.id);
+              if (didDrag.current) {
+                didDrag.current = false;
+                return;
+              }
+              banishOne(svc.id);
             }}
           />
         </Reorder.Item>
@@ -229,77 +240,51 @@ export default function Welcome() {
   );
 
   return (
-    <div data-testid="welcome" className="flex min-h-0 flex-1 flex-col bg-bg-0">
-      {fresh ? (
-        <WelcomeIntro />
-      ) : (
-        <header className="flex h-14 flex-none items-center gap-3 border-b border-border bg-bg-1 px-6">
-          <Portal className="h-[26px] w-[26px]" />
-          <span className="font-semibold text-text-1">Goetia</span>
-          <span className="text-text-2">All your chats. Nothing else.</span>
-          <span className="tabular ml-auto text-xs text-text-2">
-            {sections.summoned.length} of {state.services.length} summoned
-          </span>
-        </header>
-      )}
+    <div data-testid="welcome" className="flex min-h-0 flex-1 bg-bg-0">
+      <HomeHero
+        staged={staged.length}
+        label={label}
+        disabled={disabled}
+        dirty={orderChanged}
+        atCap={atCap}
+        onSummon={summon}
+        onDiscard={discard}
+      />
 
       {/* the board: min-h-0 is what lets the bands shrink instead of the page grow */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-6 py-4">
-        {!fresh && (
-          // capped so a long summoned list can never crowd Unbound out
-          <ServiceBand
-            testid="welcome-section-summoned"
-            label="Summoned"
-            count={sections.summoned.length}
-            className="max-h-[46%]"
-          >
-            {summonedTiles}
-          </ServiceBand>
-        )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 px-6 py-4">
+        <ServiceBand
+          testid="welcome-section-summoned"
+          label="Summoned"
+          count={sections.summoned.length}
+          scroll={false}
+        >
+          {sections.summoned.length === 0
+            ? emptyLine('Nothing summoned yet — pick from below.')
+            : summonedTiles}
+        </ServiceBand>
         <ServiceBand
           testid="welcome-section-unbound"
-          label={fresh ? 'Choose your services' : 'Unbound'}
+          label="Unbound"
           count={sections.unbound.length}
           aside={sections.unbound.length > 0 ? search : undefined}
-          // first run: line the band up with the three tip cards above it
-          // (3 × 252px + 2 × gap-3 = 780px, = nine 76px tile columns inside)
-          className={fresh ? 'mx-auto w-full max-w-[780px]' : undefined}
+          className="flex-1"
         >
-          {sections.unbound.length === 0
-            ? emptyLine('Every one is bound.')
-            : visibleUnbound.length === 0
-              ? emptyLine(`No service matches “${query}”.`)
-              : tiles(visibleUnbound, fresh)}
+          {sections.unbound.length === 0 ? (
+            emptyLine('Every one is bound.')
+          ) : visibleUnbound.length === 0 ? (
+            emptyLine(`No service matches “${query}”.`)
+          ) : (
+            <div className="flex flex-col gap-2">
+              {unboundTiles(visibleUnbound)}
+              {atCap &&
+                emptyLine(
+                  `At ${MAX_SUMMONED} of ${MAX_SUMMONED} — unpick a summoned tile to make room.`,
+                )}
+            </div>
+          )}
         </ServiceBand>
       </div>
-
-      <footer className="flex h-15 flex-none items-center gap-3 border-t border-border bg-bg-1 px-6">
-        <span className="text-xs text-text-2">
-          Pick at least one — come back here anytime with ⌘/Ctrl 0.
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={dispel}
-            className="rounded-ctl border border-border bg-bg-2 px-4 py-2 text-text-1
-              transition-colors duration-120 enabled:hover:border-accent disabled:opacity-40"
-          >
-            Dispel
-          </button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={summon}
-            className="tabular rounded-ctl bg-linear-to-br from-[#FFB43D] via-[#FF8A2A] to-[#F04E3E]
-              px-6 py-2 font-semibold text-[#15181F] shadow-[0_0_12px_rgba(255,158,44,0.35)]
-              transition-opacity duration-150 enabled:hover:opacity-90 disabled:opacity-40
-              disabled:shadow-none"
-          >
-            {label}
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }

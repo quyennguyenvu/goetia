@@ -76,12 +76,11 @@ test('home: banishing the active service leaves welcome on screen', async () => 
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   await summoned.getByRole('button', { name: 'Messenger' }).click();
 
-  // deselecting drops the glow but leaves the tile exactly where it was
-  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
-  await expect(unbound.getByRole('button', { name: 'Messenger' })).toHaveCount(0);
+  // the board is the edit: the tile flies back to its name slot in Unbound,
+  // but nothing is committed yet — the rail behind Home still shows both
+  await expect(unbound.getByRole('button', { name: 'Messenger' })).toBeVisible();
+  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveCount(0);
+  await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
 
   const confirm = win.getByRole('button', { name: 'Banish 1 service' });
   await expect(confirm).toBeEnabled();
@@ -91,46 +90,80 @@ test('home: banishing the active service leaves welcome on screen', async () => 
   await expect(welcome).toBeVisible();
   await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(1);
   await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
-
-  // confirming is the one moment a tile changes section
   await expect(unbound.getByRole('button', { name: 'Messenger' })).toBeVisible();
-  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveCount(0);
   await app.close();
 });
 
-test('home: Dispel abandons a staged edit without leaving the screen', async () => {
+test('home: Discard abandons a staged edit without leaving the screen', async () => {
   const { app, win } = await launch();
   const welcome = win.locator('[data-testid="welcome"]');
-  const dispel = win.getByRole('button', { name: 'Dispel' });
+  const discard = win.getByRole('button', { name: 'Discard' });
 
   await win.locator('[data-testid="home-btn"]').click();
 
-  // nothing staged: both buttons rest dead together
-  await expect(dispel).toBeDisabled();
+  // nothing staged: the hero shows one inert button and no Discard at all
   await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
+  await expect(discard).toHaveCount(0);
 
   const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
   const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
   await summoned.getByRole('button', { name: 'Messenger' }).click();
   await unbound.getByRole('button', { name: 'Telegram' }).click();
+  // both tiles changed section on the spot, staged only
+  await expect(unbound.getByRole('button', { name: 'Messenger' })).toBeVisible();
+  await expect(summoned.getByRole('button', { name: 'Telegram' })).toBeVisible();
   await expect(win.getByRole('button', { name: 'Summon 1 · Banish 1' })).toBeEnabled();
-  await expect(dispel).toBeEnabled();
+  await expect(discard).toBeVisible();
 
-  await dispel.click();
+  await discard.click();
 
   // back to the live set, still on Home, nothing persisted
   await expect(welcome).toBeVisible();
-  await expect(summoned.getByRole('button', { name: 'Messenger' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(unbound.getByRole('button', { name: 'Telegram' })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
+  await expect(summoned.getByRole('button', { name: 'Messenger' })).toBeVisible();
+  await expect(unbound.getByRole('button', { name: 'Telegram' })).toBeVisible();
   await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
-  await expect(dispel).toBeDisabled();
+  await expect(discard).toHaveCount(0);
   await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
+  await app.close();
+});
+
+test('home: the ninth pick caps the rest, unpicking frees them', async () => {
+  const { app, win } = await launch();
+  const welcome = win.locator('[data-testid="welcome"]');
+
+  await win.locator('[data-testid="home-btn"]').click();
+  const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
+  const unbound = welcome.locator('[data-testid="welcome-section-unbound"]');
+
+  // stage seven more on top of the two seeded picks → nine staged
+  const seven = [
+    'Discord',
+    'Instagram',
+    'Microsoft Teams',
+    'Shopee',
+    'Slack',
+    'Telegram',
+    'TikTok',
+  ];
+  for (const name of seven) {
+    await unbound.getByRole('button', { name }).click();
+  }
+  await expect(summoned.locator('[data-testid="pick-tile"]')).toHaveCount(9);
+
+  // the tenth tile goes inert: dimmed, aria-disabled, click does nothing.
+  // force: Playwright itself refuses to click an aria-disabled control
+  const whatsapp = unbound.getByRole('button', { name: 'WhatsApp' });
+  await expect(whatsapp).toHaveAttribute('aria-disabled', 'true');
+  await whatsapp.click({ force: true });
+  await expect(summoned.locator('[data-testid="pick-tile"]')).toHaveCount(9);
+  await expect(unbound).toContainText('unpick a summoned tile to make room');
+
+  // clicking a summoned tile frees its slot within the same edit
+  await summoned.getByRole('button', { name: 'Telegram' }).click();
+  await expect(whatsapp).toHaveAttribute('aria-disabled', 'false');
+  await whatsapp.click();
+  await expect(summoned.getByRole('button', { name: 'WhatsApp' })).toBeVisible();
+
   await app.close();
 });
 
@@ -184,7 +217,7 @@ test('home: ⌘/Ctrl+F focuses the unbound search', async () => {
   await app.close();
 });
 
-test('home: dragging a summoned tile reorders the rail immediately', async () => {
+test('home: reordering summoned tiles is staged until the confirm applies it', async () => {
   const { app, win } = await launch();
   const railTiles = win.locator('[data-testid="service-tile"]');
   const railOrder = () =>
@@ -197,11 +230,42 @@ test('home: dragging a summoned tile reorders the rail immediately', async () =>
 
   await win.locator('[data-testid="home-btn"]').click();
   const summoned = win.locator('[data-testid="welcome-section-summoned"]');
-  await summoned
-    .getByRole('button', { name: 'Zalo' })
-    .dragTo(summoned.getByRole('button', { name: 'Messenger' }));
+  // the tiles animate into place when Home opens — measure only once their
+  // geometry has settled, or the drag grabs where a tile used to be
+  const stableBox = async (name: string) => {
+    const tile = summoned.getByRole('button', { name });
+    let prev = await tile.boundingBox();
+    for (let i = 0; i < 20; i++) {
+      await win.waitForTimeout(100);
+      const next = await tile.boundingBox();
+      if (prev && next && prev.x === next.x && prev.y === next.y) return next;
+      prev = next;
+    }
+    throw new Error(`tile ${name} never settled`);
+  };
+  // stepped drag, not dragTo: Motion tracks crossings from pointermove
+  // events, and dragTo jumps to the target in a single move
+  const zalo = await stableBox('Zalo');
+  const target = await stableBox('Messenger');
+  await win.mouse.move(zalo.x + zalo.width / 2, zalo.y + zalo.height / 2);
+  await win.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await win.mouse.move(
+      zalo.x + zalo.width / 2 + ((target.x - zalo.x) * i) / 10,
+      zalo.y + zalo.height / 2,
+    );
+    await win.waitForTimeout(30);
+  }
+  await win.mouse.up();
 
-  // no confirm: a drop persists on its own, and the rail behind Home follows
+  // the drop stages the order; the rail behind Home does not move yet
+  const confirm = win.getByRole('button', { name: 'Apply new order' });
+  await expect(confirm).toBeEnabled();
+  expect(await railOrder()).toEqual(['Messenger', 'Zalo']);
+
+  await confirm.click();
+
+  // the commit is what reorders the rail, in the same patch as any summon
   await expect(async () => {
     expect(await railOrder()).toEqual(['Zalo', 'Messenger']);
   }).toPass();

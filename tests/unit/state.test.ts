@@ -43,6 +43,17 @@ describe('MainState', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
+  it('snapshots capTrimmed, defaulting to empty', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0').capTrimmed).toEqual([]);
+    s.capTrimmed = ['zalo'];
+    const snap = s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0');
+    expect(snap.capTrimmed).toEqual(['zalo']);
+    // a copy, not the live array
+    snap.capTrimmed.push('shopee');
+    expect(s.capTrimmed).toEqual(['zalo']);
+  });
+
   it('starts with no update known', () => {
     const s = new MainState();
     expect(s.update).toEqual({ status: 'idle', latest: null, announce: null });

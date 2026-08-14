@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type ServiceId, type ServiceMeta } from '../../src/shared/types';
 import {
   byName,
+  capBlocked,
+  commitOrder,
   enabledKey,
+  MAX_SUMMONED,
   matchesQuery,
   summonDelta,
   summonLabel,
-  summonOrder,
+  trimToCap,
   welcomeSections,
 } from '../../src/shared/welcome';
 
@@ -54,7 +57,7 @@ describe('summonDelta', () => {
 
 describe('summonLabel', () => {
   it('invites a pick on a fresh install', () => {
-    expect(label([], [])).toEqual({ label: 'Summon 0 services', disabled: true });
+    expect(label([], [])).toEqual({ label: 'Pick a service to begin', disabled: true });
   });
 
   it('counts the first summoning', () => {
@@ -90,6 +93,21 @@ describe('summonLabel', () => {
       label: 'Summon 2 · Banish 1',
       disabled: false,
     });
+  });
+
+  it('offers a pure reorder as its own commit', () => {
+    const delta = summonDelta(order, set('messenger', 'zalo'), set('messenger', 'zalo'));
+    expect(summonLabel(delta, true, true)).toEqual({ label: 'Apply new order', disabled: false });
+  });
+
+  it('lets a reorder ride a summon without renaming the button', () => {
+    const delta = summonDelta(order, set('messenger'), set('messenger', 'zalo'));
+    expect(summonLabel(delta, true, true)).toEqual({ label: 'Summon 1 service', disabled: false });
+  });
+
+  it('stays quiet when neither membership nor order changed', () => {
+    const delta = summonDelta(order, set('messenger'), set('messenger'));
+    expect(summonLabel(delta, true, false)).toEqual({ label: 'No changes', disabled: true });
   });
 });
 
@@ -128,9 +146,11 @@ describe('matchesQuery', () => {
   });
 });
 
-describe('summonOrder', () => {
-  it('appends a newly summoned service to the end', () => {
-    expect(summonOrder(order, set('zalo'), set('zalo', 'discord'), named)).toEqual([
+describe('commitOrder', () => {
+  it('leads with the staged sequence and pins the rest in relative order', () => {
+    expect(commitOrder(order, ['zalo', 'discord'] as ServiceId[])).toEqual([
+      'zalo',
+      'discord',
       'instagram',
       'messenger',
       'teams',
@@ -139,54 +159,43 @@ describe('summonOrder', () => {
       'telegram',
       'tiktok',
       'whatsapp',
-      'zalo',
-      'discord',
     ]);
   });
 
-  it('appends several in name order, whatever the catalog order was', () => {
-    expect(
-      summonOrder(order, set(), set('whatsapp', 'discord', 'messenger'), named).slice(-3),
-    ).toEqual(['discord', 'messenger', 'whatsapp']);
+  it('is the full order when everything is staged', () => {
+    const staged = [...order].reverse();
+    expect(commitOrder(order, staged)).toEqual(staged);
   });
 
-  it('leaves a banished service in its slot', () => {
-    expect(summonOrder(order, set('discord', 'messenger'), set('discord'), named)).toEqual(order);
+  it('keeps the existing order with nothing staged', () => {
+    expect(commitOrder(order, [])).toEqual(order);
   });
 
-  it('appends a previously banished service when it returns', () => {
-    expect(summonOrder(order, set(), set('discord'), named).at(-1)).toBe('discord');
-  });
-
-  it('returns an unchanged order when nothing is added', () => {
-    expect(summonOrder(order, set('zalo'), set('zalo'), named)).toEqual(order);
-  });
-
-  it('never mutates its input', () => {
+  it('never mutates its inputs', () => {
     const input = [...order];
-    summonOrder(input, set(), set('discord'), named);
+    commitOrder(input, ['zalo'] as ServiceId[]);
     expect(input).toEqual(order);
   });
 });
 
 describe('welcomeSections', () => {
-  it('puts everything in unbound on a fresh install', () => {
-    expect(welcomeSections(order, set(), named)).toEqual({
+  it('puts everything in unbound with nothing staged', () => {
+    expect(welcomeSections([], named)).toEqual({
       summoned: [],
-      unbound: order,
+      unbound: named,
     });
   });
 
-  it('puts everything in summoned when all are enabled', () => {
-    expect(welcomeSections(order, set(...order), named)).toEqual({
+  it('puts everything in summoned when all are staged', () => {
+    expect(welcomeSections(order, named)).toEqual({
       summoned: order,
       unbound: [],
     });
   });
 
-  it('splits a mixed set', () => {
-    expect(welcomeSections(order, set('messenger', 'zalo'), named)).toEqual({
-      summoned: ['messenger', 'zalo'],
+  it('mirrors the staged list verbatim — content and order both', () => {
+    expect(welcomeSections(['zalo', 'messenger'] as ServiceId[], named)).toEqual({
+      summoned: ['zalo', 'messenger'],
       unbound: [
         'discord',
         'instagram',
@@ -200,33 +209,15 @@ describe('welcomeSections', () => {
     });
   });
 
-  it('lists summoned in rail order, not enabled-set order', () => {
-    // 'zalo' is last in order but first into the Set
-    expect(welcomeSections(order, set('zalo', 'discord'), named).summoned).toEqual([
-      'discord',
-      'zalo',
-    ]);
-  });
-
-  // the change this signature exists for: a reordered rail must not reshuffle
-  // the pool of services the user has not chosen
-  it('lists unbound in name order even when the rail disagrees', () => {
-    const railOrder = ['zalo', 'whatsapp', 'tiktok', 'telegram'] as ServiceId[];
+  // a tile clicked out of Summoned must land back in its name slot, so the
+  // pool keeps name order whatever sequence things were staged in
+  it('lists unbound in name order regardless of staging history', () => {
     const catalog = ['telegram', 'tiktok', 'whatsapp', 'zalo'] as ServiceId[];
-    expect(welcomeSections(railOrder, set('zalo'), catalog).unbound).toEqual([
+    expect(welcomeSections(['zalo'] as ServiceId[], catalog).unbound).toEqual([
       'telegram',
       'tiktok',
       'whatsapp',
     ]);
-  });
-
-  it('ignores ids that are enabled but not in order', () => {
-    expect(
-      welcomeSections(['messenger', 'zalo'], set('messenger', 'discord'), ['messenger', 'zalo']),
-    ).toEqual({
-      summoned: ['messenger'],
-      unbound: ['zalo'],
-    });
   });
 });
 
@@ -258,5 +249,56 @@ describe('enabledKey', () => {
   it('is empty for an all-disabled catalog', () => {
     const all = { ...none, messenger: true, discord: true, slack: true };
     expect(enabledKey(svcs, all)).toBe('');
+  });
+});
+
+describe('capBlocked', () => {
+  const nine = order.slice(0, 9);
+
+  it('blocks an unpicked tile once the staged set is full', () => {
+    expect(capBlocked(set(...nine), order[9])).toBe(true);
+  });
+
+  it('never blocks a tile that is already picked', () => {
+    expect(capBlocked(set(...nine), nine[0])).toBe(false);
+  });
+
+  it('blocks nothing below the cap', () => {
+    expect(capBlocked(set(...nine.slice(0, 8)), order[9])).toBe(false);
+  });
+});
+
+describe('trimToCap', () => {
+  const flags = (enabled: ServiceId[]) =>
+    Object.fromEntries(order.map((id) => [id, !enabled.includes(id)])) as Record<
+      ServiceId,
+      boolean
+    >;
+
+  it('disables everything past the ninth enabled position, in rail order', () => {
+    const { disabled, trimmed } = trimToCap(order, flags([...order]));
+    expect(trimmed).toEqual([order[9]]);
+    expect(disabled[order[9]]).toBe(true);
+    expect(order.slice(0, 9).every((id) => !disabled[id])).toBe(true);
+  });
+
+  it('returns a legal set untouched, same reference', () => {
+    const input = flags(order.slice(0, 9));
+    const { disabled, trimmed } = trimToCap(order, input);
+    expect(trimmed).toEqual([]);
+    expect(disabled).toBe(input);
+  });
+
+  it('never mutates its input', () => {
+    const input = flags([...order]);
+    const copy = { ...input };
+    trimToCap(order, input);
+    expect(input).toEqual(copy);
+  });
+});
+
+describe('MAX_SUMMONED', () => {
+  it('is nine', () => {
+    expect(MAX_SUMMONED).toBe(9);
   });
 });

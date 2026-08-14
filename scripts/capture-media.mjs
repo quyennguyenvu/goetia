@@ -53,7 +53,7 @@ async function clipAround(page, selectors, pad = 24) {
  * shot as suits it.
  */
 const SURFACES = {
-  async welcome({ app, win }) {
+  async welcome({ win }) {
     // with services enabled Home is not the default surface any more, so
     // reach it the way a user does — the rail sigil
     await win.locator('[data-testid="home-btn"]').click();
@@ -66,9 +66,9 @@ const SURFACES = {
       .locator('[data-testid="rail"]')
       .getByText('3', { exact: true })
       .waitFor({ timeout: 20_000 });
-    // stage one of each so the confirm names a real change and Dispel goes
-    // live: whatsapp lights up under Unbound, messenger dims in place under
-    // Summoned. Neither moves section until confirm — that is the point.
+    // stage one of each so the confirm names a real change and Discard
+    // appears: whatsapp moves into Summoned, messenger back to its name slot
+    // under Unbound. Staged only — nothing commits until the confirm.
     for (const name of ['WhatsApp', 'Messenger']) {
       await welcome.getByRole('button', { name, exact: true }).click();
     }
@@ -79,57 +79,9 @@ const SURFACES = {
     await win.mouse.move(4, 4);
     await win.waitForTimeout(400); // the 150ms tile transition must settle
 
-    // The board is flex-1 and the bands are content-height, so at the shipped
-    // 820px a handful of services leaves ~300px of empty board between the last
-    // band and the footer. Shrink the window onto its content: the footer
-    // carries Summon/Dispel and has to stay in frame, so cropping is not an
-    // option. This goes past the app's own 600px floor, hence the temporary
-    // minimum.
-    const shrink = (drop) =>
-      app.evaluate(({ BrowserWindow }, dy) => {
-        const w = BrowserWindow.getAllWindows()[0];
-        const [width, height] = w.getSize();
-        w.setMinimumSize(940, 300);
-        w.setSize(width, Math.round(height - dy));
-      }, drop);
-
-    // Room in the board beyond what the bands need. Summoned is capped at 46%
-    // of the board, so it starts scrolling while the two bands together would
-    // still fit — that cap, not their sum, is what sets the floor.
-    const slack = () =>
-      win.evaluate(() => {
-        const unbound = document.querySelector('[data-testid="welcome-section-unbound"]');
-        const board = unbound.parentElement;
-        const style = getComputedStyle(board);
-        const inner =
-          board.clientHeight -
-          Number.parseFloat(style.paddingTop) -
-          Number.parseFloat(style.paddingBottom);
-        // what a band would measure with its scroller unclipped
-        const natural = (sec) => {
-          const scroller = sec.lastElementChild;
-          return sec.getBoundingClientRect().height - scroller.clientHeight + scroller.scrollHeight;
-        };
-        const summoned = natural(
-          document.querySelector('[data-testid="welcome-section-summoned"]'),
-        );
-        const need = Math.max(
-          summoned + Number.parseFloat(style.rowGap) + natural(unbound),
-          summoned / 0.46,
-        );
-        return Math.floor(inner - need);
-      });
-
-    // the second pass corrects the sub-pixel residue of the first, which would
-    // otherwise leave a scrollbar in frame — that reads as a defect, not a crop
-    for (let i = 0; i < 3; i++) {
-      const drop = await slack();
-      if (drop === 0) break;
-      await shrink(drop);
-      await win.waitForTimeout(300); // scheduleLayout coalesces the resize
-    }
-
-    // the welcome pane is full-bleed; frame its content, not the empty margins
+    // No window shrink: the hero column fills the height, so the shipped
+    // 820px frames Summon/Discard and the board without dead space below.
+    // The welcome pane is full-bleed; frame its content, not the empty margins.
     const clip = await clipAround(win, ['[data-testid="welcome"] > *'], 40);
     return (path) => win.screenshot({ path, clip, scale: SCALE });
   },

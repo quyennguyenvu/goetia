@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { shouldToast, TOAST_MS } from '../../src/renderer/src/components/toast-rules';
+import {
+  capTrimMessage,
+  shouldToast,
+  TOAST_MS,
+} from '../../src/renderer/src/components/toast-rules';
 
 describe('shouldToast', () => {
   it('announces a version the shell has not shown yet', () => {
@@ -22,5 +26,23 @@ describe('shouldToast', () => {
 describe('TOAST_MS', () => {
   it('is the eight seconds the design specifies', () => {
     expect(TOAST_MS).toBe(8000);
+  });
+});
+
+describe('capTrimMessage', () => {
+  it('is silent when nothing was trimmed', () => {
+    expect(capTrimMessage([])).toBeNull();
+  });
+
+  it('names a single banished service', () => {
+    expect(capTrimMessage(['Zalo'])).toBe(
+      'Zalo was banished — nine services is the maximum. Summon it back any time from Home.',
+    );
+  });
+
+  it('lists several with a plural verb', () => {
+    expect(capTrimMessage(['Zalo', 'Shopee'])).toBe(
+      'Zalo and Shopee were banished — nine services is the maximum. Summon them back any time from Home.',
+    );
   });
 });
