@@ -29,7 +29,15 @@ export class NotificationRouter {
 
   handle({ serviceId, title, body, synthetic }: RendererToMain['notification:fired']): void {
     const s = this.ctx.settings.get();
-    if (!shouldNotify({ serviceMuted: s.muted[serviceId], globalMuted: s.globalMuted })) return;
+    if (
+      !shouldNotify({
+        serviceMuted: s.muted[serviceId],
+        globalMuted: s.globalMuted,
+        quietNow: this.ctx.quietNow(),
+      })
+    ) {
+      return;
+    }
     if (!this.throttle.allow(serviceId, Date.now())) return;
     const icon = this.icons.get(serviceId);
     const notification = new Notification({

@@ -10,6 +10,7 @@ describe('MainState', () => {
       { ...DEFAULT_SETTINGS, order: ['discord', 'whatsapp', 'messenger', 'telegram', 'zalo'] },
       'dark',
       '0.1.0',
+      false,
     );
     expect(snap.services[0].id).toBe('discord');
     expect(snap.runtime.discord.unread.direct).toBe(4);
@@ -45,9 +46,9 @@ describe('MainState', () => {
 
   it('snapshots capTrimmed, defaulting to empty', () => {
     const s = new MainState();
-    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0').capTrimmed).toEqual([]);
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).capTrimmed).toEqual([]);
     s.capTrimmed = ['zalo'];
-    const snap = s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0');
+    const snap = s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false);
     expect(snap.capTrimmed).toEqual(['zalo']);
     // a copy, not the live array
     snap.capTrimmed.push('shopee');
@@ -73,7 +74,20 @@ describe('MainState', () => {
   it('snapshot carries the update slice', () => {
     const s = new MainState();
     s.setUpdate({ status: 'available', latest: '0.3.0', announce: '0.3.0' });
-    const snap = s.snapshot(DEFAULT_SETTINGS, 'dark', '0.2.0');
+    const snap = s.snapshot(DEFAULT_SETTINGS, 'dark', '0.2.0', false);
     expect(snap.update).toEqual({ status: 'available', latest: '0.3.0', announce: '0.3.0' });
+  });
+
+  it('snapshot carries quietActive', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', true).quietActive).toBe(true);
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).quietActive).toBe(false);
+  });
+
+  it('snapshot carries summonHotkeyOk, defaulting true', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).summonHotkeyOk).toBe(true);
+    s.summonHotkeyOk = false;
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).summonHotkeyOk).toBe(false);
   });
 });

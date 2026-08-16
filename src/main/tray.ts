@@ -31,7 +31,7 @@ export function createTray(ctx: AppContext): {
         {
           label: 'Mute all notifications',
           type: 'checkbox',
-          checked: s.globalMuted,
+          checked: s.globalMuted || ctx.quietNow(),
           // no accelerator here: the app menu owns the binding, and declaring
           // it twice risks the toggle firing twice for one keypress
           click: (item) => ctx.setGlobalMuted(item.checked),

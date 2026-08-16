@@ -1,11 +1,27 @@
 import { join } from 'node:path';
-import { type BrowserWindow, session, shell, WebContentsView } from 'electron';
+import {
+  BrowserWindow,
+  type ContextMenuParams,
+  clipboard,
+  desktopCapturer,
+  Menu,
+  type MenuItemConstructorOptions,
+  session,
+  shell,
+  type WebContents,
+  WebContentsView,
+} from 'electron';
 import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
+import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
+import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
 import { isSafeExternalUrl } from './lib/external-url';
 import { viewBounds } from './lib/layout';
+import { isNavigationAllowed } from './lib/navigation-policy';
 import { permissionAllowed } from './lib/permission-policy';
 import { reloadAllowed } from './lib/reload-guard';
+
+const EDIT_LABELS = { cut: 'Cut', copy: 'Copy', paste: 'Paste', selectAll: 'Select All' } as const;
 
 export interface ViewHooks {
   onLoading(id: ServiceId, loading: boolean): void;
@@ -24,6 +40,7 @@ export class ServiceViewManager {
   private layoutScheduled = false;
   private clickHideTimers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
   private lastRefreshAt = new Map<ServiceId, number>();
+  private callWindows = new Map<ServiceId, Set<BrowserWindow>>();
 
   constructor(
     private win: BrowserWindow,
@@ -68,17 +85,36 @@ export class ServiceViewManager {
     ses.setSpellCheckerLanguages(
       wanted.filter((l) => ses.availableSpellCheckerLanguages.includes(l)),
     );
-    ses.setPermissionRequestHandler((_wc, permission, cb, details) =>
-      cb(
-        permissionAllowed({
-          permission,
-          requestingUrl: details.requestingUrl ?? '',
-          serviceUrl,
-        }),
-      ),
-    );
+    ses.setPermissionRequestHandler((_wc, permission, cb, details) => {
+      const ok = permissionAllowed({
+        permission,
+        requestingUrl: details.requestingUrl ?? '',
+        serviceUrl,
+        callOrigins: CALL_ORIGINS[id],
+      });
+      // TEMPORARY calls diagnosis (2026-08-16) — do not commit.
+      console.error(
+        `[calls-debug] permission "${permission}" from "${details.requestingUrl ?? ''}" on ${id}: ${ok ? 'grant' : 'DENY'}`,
+      );
+      cb(ok);
+    });
     ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
-      permissionAllowed({ permission, requestingUrl: requestingOrigin, serviceUrl }),
+      permissionAllowed({
+        permission,
+        requestingUrl: requestingOrigin,
+        serviceUrl,
+        callOrigins: CALL_ORIGINS[id],
+      }),
+    );
+    ses.setDisplayMediaRequestHandler(
+      (_request, callback) => {
+        // fallback when the native picker is unavailable (Windows/Linux,
+        // older macOS) or fails: share the primary screen, don't fail the call
+        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+          callback(sources[0] ? { video: sources[0] } : {});
+        });
+      },
+      { useSystemPicker: true },
     );
     return ses;
   }
@@ -107,10 +143,73 @@ export class ServiceViewManager {
     wc.setAudioMuted(this.audioMuted(id)); // a fresh view starts unmuted
     if (svc.keepRendered) wc.setBackgroundThrottling(false);
     wc.setWindowOpenHandler(({ url }) => {
+      // TEMPORARY calls diagnosis (2026-08-16): remove after capturing the
+      // real call-popup URL — do not commit.
+      console.error(
+        `[calls-debug] window.open from ${id}: "${url}" -> ${
+          isCallPopup(id, url) || isBlankCallPopup(id, url) ? 'ALLOW' : 'deny'
+        }`,
+      );
+      // a call is chat: a call-declaring service may open its popup, but the
+      // guest window is inert scaffolding — hidden, and never allowed to
+      // commit a navigation. It exists so the page keeps a live same-process
+      // handle it can script (Chrome parity; Messenger writes into the
+      // about:blank popup it just opened, then navigates it). The real call
+      // surface opens via adoption in did-create-window below. Guest
+      // webPreferences are NOT overridden: about:blank popups ignore the
+      // override entirely, and a same-process guest committing a navigation
+      // crashes the shared renderer with the opener's Node env pending work
+      // (electron#36858 class — reproduced 2026-08-16, SIGSEGV exit 11).
+      if (isCallPopup(id, url) || isBlankCallPopup(id, url)) {
+        return { action: 'allow', overrideBrowserWindowOptions: { show: false } };
+      }
       // external links open in the OS browser, never inside Goetia; only
       // web schemes — a hostile page must not reach file:/smb:/custom
       if (isSafeExternalUrl(url)) shell.openExternal(url);
       return { action: 'deny' };
+    });
+    wc.on('did-create-window', (child) => {
+      // the guest never navigates and never spawns: its first call-URL
+      // navigation is adopted into a standalone call window, anything else
+      // closes it. Closing an idle guest is safe — only an in-process
+      // navigation commit races the opener's Node env (see above).
+      child.excludedFromShownWindowsMenu = true;
+      child.webContents.setWindowOpenHandler(({ url }) => {
+        if (isSafeExternalUrl(url)) shell.openExternal(url);
+        return { action: 'deny' };
+      });
+      child.webContents.on('will-navigate', (e, url) => {
+        // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
+        console.error(`[calls-debug] guest nav on ${id}: "${url}"`);
+        e.preventDefault();
+        if (isCallPopup(id, url)) {
+          this.openCallWindow(id, url);
+          return;
+        }
+        if (isSafeExternalUrl(url)) shell.openExternal(url);
+        if (!child.isDestroyed()) child.close();
+      });
+      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
+      child.on('closed', () => console.error(`[calls-debug] guest closed (${id})`));
+    });
+    wc.on('context-menu', (_e, params) => {
+      const items = buildContextMenuTemplate({
+        misspelledWord: params.misspelledWord,
+        dictionarySuggestions: params.dictionarySuggestions,
+        isEditable: params.isEditable,
+        editFlags: {
+          canCut: params.editFlags.canCut,
+          canCopy: params.editFlags.canCopy,
+          canPaste: params.editFlags.canPaste,
+          canSelectAll: params.editFlags.canSelectAll,
+        },
+        selectionText: params.selectionText,
+        linkURL: params.linkURL,
+        imageURL: params.mediaType === 'image' ? params.srcURL : '',
+      });
+      if (items.length === 0) return;
+      const template = items.map((item) => this.menuItemFor(item, wc, params));
+      Menu.buildFromTemplate(template).popup({ window: this.win });
     });
     wc.on('before-input-event', (_e, input) => {
       // F5 reload while focus is inside the service page (menu covers Cmd/Ctrl+R)
@@ -121,7 +220,11 @@ export class ServiceViewManager {
     wc.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
       if (isMainFrame && !isSameDocument) this.hooks.onNavigate(id);
     });
-    wc.on('render-process-gone', () => this.hooks.onCrashed(id));
+    wc.on('render-process-gone', (_e, d) => {
+      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
+      console.error(`[calls-debug] service ${id} GONE reason=${d.reason} exit=${d.exitCode}`);
+      this.hooks.onCrashed(id);
+    });
     wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.hooks.onLoadFailed(id);
     });
@@ -132,6 +235,111 @@ export class ServiceViewManager {
     const [w, h] = this.win.getContentSize();
     view.setBounds(viewBounds(w, h, this.railPosition()));
     return view;
+  }
+
+  /** The adopted call surface: a standalone hardened window (isolated,
+   *  sandboxed, no preload, no opener) in the service's own partition, so the
+   *  signed-in session and the session-level permission and display-media
+   *  handlers apply. Unlike the guest it replaces, it has no Node env to race
+   *  and no scripting contract with the opener page. Closed on service
+   *  destroy; switching services leaves a call running. */
+  private openCallWindow(id: ServiceId, url: string): void {
+    // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
+    console.error(`[calls-debug] adopting call for ${id}: "${url}"`);
+    const call = new BrowserWindow({
+      width: 1080,
+      height: 720,
+      backgroundColor: '#0F1115',
+      webPreferences: {
+        partition: `persist:${id}`,
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+      },
+    });
+    let open = this.callWindows.get(id);
+    if (!open) {
+      open = new Set();
+      this.callWindows.set(id, open);
+    }
+    open.add(call);
+    call.on('closed', () => {
+      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
+      console.error(`[calls-debug] call window closed (${id})`);
+      this.callWindows.get(id)?.delete(call);
+    });
+    // a call window is not a browser: no further popups, and every
+    // navigation must stay a call URL or at least on the service's own hosts
+    call.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+      if (isSafeExternalUrl(popupUrl)) shell.openExternal(popupUrl);
+      return { action: 'deny' };
+    });
+    call.webContents.on('will-navigate', (e, navUrl) => {
+      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
+      console.error(`[calls-debug] call window nav on ${id}: "${navUrl}"`);
+      if (isCallPopup(id, navUrl) || isNavigationAllowed(id, navUrl)) return;
+      e.preventDefault();
+      if (isSafeExternalUrl(navUrl)) shell.openExternal(navUrl);
+      if (!call.isDestroyed()) call.close();
+    });
+    // TEMPORARY calls diagnosis (2026-08-16): surface what the call page
+    // does — remove with the other debug lines, do not commit.
+    call.webContents.on('did-finish-load', () =>
+      console.error(`[calls-debug] call window loaded: ${call.webContents.getURL()}`),
+    );
+    call.webContents.on('did-navigate', (_e, navUrl, code) =>
+      console.error(`[calls-debug] call window did-navigate ${code}: "${navUrl}"`),
+    );
+    call.webContents.on('page-title-updated', (_e, title) =>
+      console.error(`[calls-debug] call window title: "${title}"`),
+    );
+    call.webContents.on('did-fail-load', (_e, code, desc, failedUrl) =>
+      console.error(`[calls-debug] call window FAILED load ${code} "${desc}" ${failedUrl}`),
+    );
+    call.webContents.on('console-message', (event) =>
+      console.error(`[calls-debug] call js[${event.level}]: ${event.message.slice(0, 300)}`),
+    );
+    call.webContents.on('render-process-gone', (_e, d) =>
+      console.error(`[calls-debug] call window GONE reason=${d.reason} exit=${d.exitCode}`),
+    );
+    call.loadURL(url);
+  }
+
+  /** Map a template descriptor to a native item. Only `open-link` reaches the
+   *  outside world, and the builder emits it solely for isSafeExternalUrl
+   *  URLs — the same gate as the window-open handler above. */
+  private menuItemFor(
+    item: ContextMenuItem,
+    wc: WebContents,
+    params: ContextMenuParams,
+  ): MenuItemConstructorOptions {
+    switch (item.kind) {
+      case 'suggestion':
+        return { label: item.word, click: () => wc.replaceMisspelling(item.word) };
+      case 'no-guesses':
+        return { label: 'No Guesses Found', enabled: false };
+      case 'add-to-dictionary':
+        return {
+          label: 'Add to Dictionary',
+          click: () => wc.session.addWordToSpellCheckerDictionary(item.word),
+        };
+      case 'edit':
+        return {
+          label: EDIT_LABELS[item.action],
+          enabled: item.enabled,
+          click: () => wc[item.action](),
+        };
+      case 'copy-link':
+        return { label: 'Copy Link Address', click: () => clipboard.writeText(item.url) };
+      case 'open-link':
+        return { label: 'Open Link in Browser', click: () => shell.openExternal(item.url) };
+      case 'copy-image':
+        return { label: 'Copy Image', click: () => wc.copyImageAt(params.x, params.y) };
+      case 'save-image':
+        return { label: 'Save Image As…', click: () => wc.downloadURL(item.url) };
+      case 'separator':
+        return { type: 'separator' };
+    }
   }
 
   /** Trusted synthetic click; page-JS clicks are untrusted and e.g. Zalo's
@@ -231,6 +439,10 @@ export class ServiceViewManager {
     }
     this.win.contentView.removeChildView(view);
     this.lastRefreshAt.delete(id);
+    for (const call of this.callWindows.get(id) ?? []) {
+      if (!call.isDestroyed()) call.close();
+    }
+    this.callWindows.delete(id);
     view.webContents.close();
     this.views.delete(id);
     if (this.activeId === id) this.activeId = null;

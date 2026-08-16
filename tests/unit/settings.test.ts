@@ -246,4 +246,70 @@ describe('SettingsStore', () => {
     const s = store.update({ disabled: allOn });
     expect(s.order.filter((id) => !s.disabled[id])).toHaveLength(9);
   });
+
+  it('defaults quiet hours off, 22:00–07:00, every day', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const s = new SettingsStore(dir).get();
+    expect(s.quietHours).toEqual({
+      enabled: false,
+      start: '22:00',
+      end: '07:00',
+      days: [true, true, true, true, true, true, true],
+    });
+    expect(s.quietOverrideWindowStart).toBeNull();
+  });
+
+  it('persists quiet hours edits and the override across instances', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    new SettingsStore(dir).update({
+      quietHours: {
+        enabled: true,
+        start: '21:30',
+        end: '06:00',
+        days: [false, true, true, true, true, true, false],
+      },
+      quietOverrideWindowStart: 1_755_000_000_000,
+    });
+    const reread = new SettingsStore(dir).get();
+    expect(reread.quietHours.enabled).toBe(true);
+    expect(reread.quietHours.start).toBe('21:30');
+    expect(reread.quietHours.days[0]).toBe(false);
+    expect(reread.quietOverrideWindowStart).toBe(1_755_000_000_000);
+  });
+
+  it('coerces a mangled quietHours block field by field', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({
+        quietHours: { enabled: 'yes', start: '25:99', end: '06:30', days: [true, false] },
+        quietOverrideWindowStart: 'soon',
+      }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.quietHours.enabled).toBe(false); // junk -> default
+    expect(s.quietHours.start).toBe('22:00'); // invalid time -> default
+    expect(s.quietHours.end).toBe('06:30'); // valid field survives
+    expect(s.quietHours.days).toEqual([true, true, true, true, true, true, true]);
+    expect(s.quietOverrideWindowStart).toBeNull();
+  });
+
+  it('defaults the summon hotkey off with the stock combo', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).get().summonHotkey).toEqual({
+      enabled: false,
+      accelerator: 'Alt+CmdOrCtrl+G',
+    });
+  });
+
+  it('coerces an off-list summon accelerator back to the default', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ summonHotkey: { enabled: true, accelerator: 'CmdOrCtrl+Q' } }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.summonHotkey.enabled).toBe(true); // valid field survives
+    expect(s.summonHotkey.accelerator).toBe('Alt+CmdOrCtrl+G');
+  });
 });

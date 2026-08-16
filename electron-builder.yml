@@ -28,6 +28,10 @@ mac:
   # reopen the injection path the fuses close)
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  # macOS refuses mic/camera access without usage descriptions in Info.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: Goetia uses the microphone for voice and video calls in your chat services.
+    NSCameraUsageDescription: Goetia uses the camera for video calls in your chat services.
 # Locks the packaged binary: no run-as-node / NODE_OPTIONS / --inspect
 # code-exec paths, session cookies encrypted via OS keychain (not plaintext
 # SQLite), and the asar is integrity-checked and the only load source.

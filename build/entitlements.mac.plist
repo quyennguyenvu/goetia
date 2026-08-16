@@ -15,5 +15,12 @@
     <!-- Deliberately NOT granting allow-dyld-environment-variables (in
          electron-builder's default): it permits DYLD_INSERT_LIBRARIES
          injection, undoing the runAsNode/NODE_OPTIONS fuse hardening. -->
+    <!-- Calls are chat: WebRTC needs mic and camera under the hardened
+         runtime; without these the OS denies getUserMedia in the packaged
+         app (2026-08-16). -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.device.camera</key>
+    <true/>
   </dict>
 </plist>

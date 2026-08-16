@@ -1,12 +1,21 @@
-export function shouldNotify(opts: { serviceMuted: boolean; globalMuted: boolean }): boolean {
-  return !opts.serviceMuted && !opts.globalMuted;
+export function shouldNotify(opts: {
+  serviceMuted: boolean;
+  globalMuted: boolean;
+  quietNow: boolean;
+}): boolean {
+  return !opts.serviceMuted && !opts.globalMuted && !opts.quietNow;
 }
 
 /** Muted means silent, so the page's own ding goes too — suppressing the
  *  banner alone left every service still audible. Defined as the inverse of
  *  shouldNotify so the two can't drift: whatever wouldn't raise a banner
- *  doesn't get to make a noise either. Badges are untouched by both. */
-export function audioMuted(opts: { serviceMuted: boolean; globalMuted: boolean }): boolean {
+ *  doesn't get to make a noise either. Badges are untouched by both, and
+ *  quiet hours count as mute here, nowhere else. */
+export function audioMuted(opts: {
+  serviceMuted: boolean;
+  globalMuted: boolean;
+  quietNow: boolean;
+}): boolean {
   return !shouldNotify(opts);
 }
 

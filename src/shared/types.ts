@@ -38,6 +38,16 @@ export interface ServiceMeta {
   waitForReady?: boolean;
 }
 
+export interface QuietHoursSchedule {
+  enabled: boolean;
+  /** 'HH:MM', 24h local wall-clock */
+  start: string;
+  /** 'HH:MM'; end < start crosses midnight; end === start is an empty window */
+  end: string;
+  /** indexed by Date.getDay(): 0 = Sunday … 6 = Saturday */
+  days: [boolean, boolean, boolean, boolean, boolean, boolean, boolean];
+}
+
 export type ThemePref = 'system' | 'light' | 'dark';
 
 export type RailPosition = 'top' | 'left' | 'right';
@@ -53,6 +63,12 @@ export interface Settings {
   notificationSound: boolean;
   neverHibernate: Record<ServiceId, boolean>;
   hibernationMinutes: number;
+  /** scheduled global mute: window + active days; see lib/quiet-hours-rules */
+  quietHours: QuietHoursSchedule;
+  /** start (epoch ms) of the one window the user dismissed by unmuting */
+  quietOverrideWindowStart: number | null;
+  /** system-wide show/hide shortcut; accelerator must be one of SUMMON_COMBOS */
+  summonHotkey: { enabled: boolean; accelerator: string };
   closeToTray: boolean;
   launchAtLogin: boolean;
   theme: ThemePref;
@@ -119,6 +135,14 @@ export const DEFAULT_SETTINGS: Settings = {
     teams: true,
   },
   hibernationMinutes: 30,
+  quietHours: {
+    enabled: false,
+    start: '22:00',
+    end: '07:00',
+    days: [true, true, true, true, true, true, true],
+  },
+  quietOverrideWindowStart: null,
+  summonHotkey: { enabled: false, accelerator: 'Alt+CmdOrCtrl+G' },
   closeToTray: true,
   launchAtLogin: false,
   theme: 'system',
@@ -144,6 +168,10 @@ export interface ShellState {
   runtime: Record<ServiceId, ServiceRuntime>;
   muted: Record<ServiceId, boolean>;
   globalMuted: boolean;
+  /** quiet-hours engaged right now (manual override already applied) */
+  quietActive: boolean;
+  /** false while an enabled summon combo failed to register (owned elsewhere) */
+  summonHotkeyOk: boolean;
   switcherOpen: boolean;
   settingsOpen: boolean;
   homeOpen: boolean;

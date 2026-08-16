@@ -28,10 +28,10 @@ export function buildAppMenu(ctx: AppContext): void {
     label: 'Mute All Notifications',
     accelerator: 'CmdOrCtrl+Shift+M',
     type: 'checkbox',
-    checked: s.globalMuted,
+    checked: s.globalMuted || ctx.quietNow(),
     // the item's own `checked` is stale the moment mute moves elsewhere; read
-    // the setting instead, and let setGlobalMuted rebuild both menus
-    click: () => ctx.setGlobalMuted(!ctx.settings.get().globalMuted),
+    // effective silence instead, and let setGlobalMuted rebuild both menus
+    click: () => ctx.setGlobalMuted(!(ctx.settings.get().globalMuted || ctx.quietNow())),
   };
   const checkUpdatesItem: Electron.MenuItemConstructorOptions = {
     label: 'Check for Updates…',

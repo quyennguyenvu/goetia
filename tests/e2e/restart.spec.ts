@@ -83,3 +83,44 @@ test('restart: a recorded service that is now disabled opens Home', async () => 
   await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
   await app.close();
 });
+
+test('restart: quiet hours edits persist', async () => {
+  const profile = makeProfile({ disabled: TWO_ENABLED });
+  const first = await launch(profile);
+
+  await first.win.locator('[data-testid="settings-btn"]').click();
+  await first.win.locator('[data-testid="settings-nav-notifications"]').click();
+  await first.win.locator('[data-testid="quiet-enabled"]').check();
+  await first.win.locator('[data-testid="quiet-start"]').fill('21:30');
+  await first.win.locator('[data-testid="quiet-day-1"]').click(); // Monday off
+  await first.app.close();
+
+  const second = await launch(profile);
+  await second.win.locator('[data-testid="settings-btn"]').click();
+  await second.win.locator('[data-testid="settings-nav-notifications"]').click();
+  await expect(second.win.locator('[data-testid="quiet-enabled"]')).toBeChecked();
+  await expect(second.win.locator('[data-testid="quiet-start"]')).toHaveValue('21:30');
+  await expect(second.win.locator('[data-testid="quiet-day-1"]')).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await second.app.close();
+});
+
+test('restart: summon hotkey setting persists', async () => {
+  const profile = makeProfile({ disabled: TWO_ENABLED });
+  const first = await launch(profile);
+
+  await first.win.locator('[data-testid="settings-btn"]').click();
+  await first.win.locator('[data-testid="settings-nav-general"]').click();
+  await first.win.locator('[data-testid="summon-enabled"]').check();
+  await first.win.locator('[data-testid="summon-combo"]').selectOption('Ctrl+Shift+Space');
+  await first.app.close();
+
+  const second = await launch(profile);
+  await second.win.locator('[data-testid="settings-btn"]').click();
+  await second.win.locator('[data-testid="settings-nav-general"]').click();
+  await expect(second.win.locator('[data-testid="summon-enabled"]')).toBeChecked();
+  await expect(second.win.locator('[data-testid="summon-combo"]')).toHaveValue('Ctrl+Shift+Space');
+  await second.app.close();
+});

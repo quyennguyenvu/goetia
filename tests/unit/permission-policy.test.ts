@@ -40,4 +40,45 @@ describe('permissionAllowed', () => {
       }),
     ).toBe(false);
   });
+
+  it('grants media and display-capture on a declared call origin', () => {
+    for (const permission of ['media', 'display-capture']) {
+      expect(
+        permissionAllowed({
+          permission,
+          requestingUrl: 'https://teams.live.com/call/x',
+          serviceUrl: 'https://teams.microsoft.com/',
+          callOrigins: ['https://teams.live.com'],
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it('never extends notifications to a call origin', () => {
+    expect(
+      permissionAllowed({
+        permission: 'notifications',
+        requestingUrl: 'https://teams.live.com/call/x',
+        serviceUrl: 'https://teams.microsoft.com/',
+        callOrigins: ['https://teams.live.com'],
+      }),
+    ).toBe(false);
+  });
+
+  it('denies a foreign origin even with call origins declared', () => {
+    expect(
+      permissionAllowed({
+        permission: 'media',
+        requestingUrl: 'https://evil.example/x',
+        serviceUrl: svc,
+        callOrigins: ['https://teams.live.com'],
+      }),
+    ).toBe(false);
+  });
+
+  it('grants display-capture on the service origin itself', () => {
+    expect(
+      permissionAllowed({ permission: 'display-capture', requestingUrl: svc, serviceUrl: svc }),
+    ).toBe(true);
+  });
 });

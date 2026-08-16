@@ -58,6 +58,7 @@ export default function Rail() {
   const horizontal = pos === 'top';
   const byId = new Map(state.services.map((svc) => [svc.id, svc]));
   const updateReady = updatePending(state.update);
+  const silenced = state.globalMuted || state.quietActive;
 
   return (
     <nav
@@ -150,16 +151,20 @@ export default function Rail() {
         <button
           type="button"
           title={`${
-            state.globalMuted ? 'Unmute all notifications' : 'Mute all notifications'
-          } (⌘/Ctrl+⇧+M) — badges stay`}
-          onClick={() => window.goetia.send('global:setMuted', { muted: !state.globalMuted })}
+            silenced ? 'Unmute all notifications' : 'Mute all notifications'
+          } (⌘/Ctrl+⇧+M) — badges stay${
+            state.quietActive && !state.globalMuted
+              ? ` — quiet hours until ${state.settings.quietHours.end}`
+              : ''
+          }`}
+          onClick={() => window.goetia.send('global:setMuted', { muted: !silenced })}
           className={`flex h-7 w-7 items-center justify-center rounded-ctl transition-colors duration-120 ${
-            state.globalMuted
+            silenced
               ? 'bg-badge/15 text-badge hover:bg-badge/25'
               : 'text-text-2 hover:bg-bg-2 hover:text-text-1'
           }`}
         >
-          <BellIcon muted={state.globalMuted} />
+          <BellIcon muted={silenced} />
         </button>
         <button
           type="button"

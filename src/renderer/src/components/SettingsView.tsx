@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
 import { shouldAutoRecheck, updatePending } from './update-rules';
@@ -14,6 +15,12 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'updates', label: 'Updates' },
 ];
+
+// display Monday-first; storage stays Date.getDay()-indexed (0 = Sunday)
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+const isMac = navigator.platform.startsWith('Mac');
 
 function Row({
   label,
@@ -256,6 +263,40 @@ export default function SettingsView() {
                     className="tabular w-20 rounded-ctl border border-border bg-bg-2 px-2 py-1 text-right text-text-1"
                   />
                 </Row>
+                <Row
+                  label="Summoning hotkey"
+                  hint={
+                    state.summonHotkeyOk
+                      ? 'Show or hide Goetia from anywhere.'
+                      : 'That combo is taken by another app — pick a different one.'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="summon-enabled"
+                    checked={s.summonHotkey.enabled}
+                    onChange={(e) =>
+                      update({ summonHotkey: { ...s.summonHotkey, enabled: e.target.checked } })
+                    }
+                  />
+                </Row>
+                <Row label="Combo">
+                  <select
+                    data-testid="summon-combo"
+                    disabled={!s.summonHotkey.enabled}
+                    value={s.summonHotkey.accelerator}
+                    onChange={(e) =>
+                      update({ summonHotkey: { ...s.summonHotkey, accelerator: e.target.value } })
+                    }
+                    className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
+                  >
+                    {SUMMON_COMBOS.map((c) => (
+                      <option key={c} value={c}>
+                        {comboLabel(c, isMac)}
+                      </option>
+                    ))}
+                  </select>
+                </Row>
               </Pane>
             )}
 
@@ -352,7 +393,7 @@ export default function SettingsView() {
                 <Row label="Mute all notifications">
                   <input
                     type="checkbox"
-                    checked={s.globalMuted}
+                    checked={state.quietActive || s.globalMuted}
                     onChange={(e) =>
                       window.goetia.send('global:setMuted', { muted: e.target.checked })
                     }
@@ -371,6 +412,73 @@ export default function SettingsView() {
                     className="flex-none disabled:opacity-40"
                   />
                 </Row>
+                <Row
+                  label="Quiet hours"
+                  hint="Banners and page sounds pause on schedule. Badges keep counting."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="quiet-enabled"
+                    checked={s.quietHours.enabled}
+                    onChange={(e) =>
+                      update({ quietHours: { ...s.quietHours, enabled: e.target.checked } })
+                    }
+                  />
+                </Row>
+                <Row label="From">
+                  <span className="flex items-center gap-2 text-text-2">
+                    <input
+                      type="time"
+                      data-testid="quiet-start"
+                      value={s.quietHours.start}
+                      disabled={!s.quietHours.enabled}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          update({ quietHours: { ...s.quietHours, start: e.target.value } });
+                        }
+                      }}
+                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
+                    />
+                    to
+                    <input
+                      type="time"
+                      data-testid="quiet-end"
+                      value={s.quietHours.end}
+                      disabled={!s.quietHours.enabled}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          update({ quietHours: { ...s.quietHours, end: e.target.value } });
+                        }
+                      }}
+                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
+                    />
+                  </span>
+                </Row>
+                <Row label="On days">
+                  <span className="flex items-center gap-1">
+                    {DAY_ORDER.map((d, i) => (
+                      <button
+                        key={d}
+                        type="button"
+                        data-testid={`quiet-day-${d}`}
+                        aria-pressed={s.quietHours.days[d]}
+                        disabled={!s.quietHours.enabled}
+                        onClick={() => {
+                          const days = [...s.quietHours.days] as Settings['quietHours']['days'];
+                          days[d] = !days[d];
+                          update({ quietHours: { ...s.quietHours, days } });
+                        }}
+                        className={`h-7 w-7 rounded-ctl text-[12px] transition-colors duration-120 disabled:opacity-40 ${
+                          s.quietHours.days[d]
+                            ? 'bg-accent/15 font-medium text-accent'
+                            : 'bg-bg-2 text-text-2 hover:text-text-1'
+                        }`}
+                      >
+                        {DAY_LABELS[i]}
+                      </button>
+                    ))}
+                  </span>
+                </Row>
               </Pane>
             )}
 
@@ -383,6 +491,12 @@ export default function SettingsView() {
                   <p className="py-1">⌘/Ctrl + F — find a service (on home)</p>
                   <p className="py-1">⌘/Ctrl + , — settings</p>
                   <p className="py-1">⌘/Ctrl + ⇧ + M — mute / unmute everything</p>
+                  {s.summonHotkey.enabled && (
+                    <p className="py-1">
+                      {comboLabel(s.summonHotkey.accelerator, isMac)} (system-wide) — summon /
+                      dismiss Goetia
+                    </p>
+                  )}
                   <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
                   <p className="py-1">Esc — close this window</p>
                   <p className="py-1">Right-click a tile — mute/unmute service</p>

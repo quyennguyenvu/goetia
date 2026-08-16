@@ -21,6 +21,8 @@ export class MainState {
   homeOpen = false;
   /** set once at boot from SettingsStore.bootTrimmed; constant for the run */
   capTrimmed: ServiceId[] = [];
+  /** set by the summon-hotkey wiring; true when disabled or registered */
+  summonHotkeyOk = true;
   private runtimes = new Map<ServiceId, ServiceRuntime>();
   private listeners: (() => void)[] = [];
   private updateState: UpdateState = defaultUpdate();
@@ -77,7 +79,12 @@ export class MainState {
     for (const cb of this.listeners) cb();
   }
 
-  snapshot(settings: Settings, theme: 'light' | 'dark', version: string): ShellState {
+  snapshot(
+    settings: Settings,
+    theme: 'light' | 'dark',
+    version: string,
+    quietActive: boolean,
+  ): ShellState {
     const runtime = {} as ShellState['runtime'];
     for (const id of settings.order) runtime[id] = { ...this.runtime(id) };
     return {
@@ -86,6 +93,8 @@ export class MainState {
       runtime,
       muted: settings.muted,
       globalMuted: settings.globalMuted,
+      quietActive,
+      summonHotkeyOk: this.summonHotkeyOk,
       switcherOpen: this.switcherOpen,
       settingsOpen: this.settingsOpen,
       homeOpen: this.homeOpen,

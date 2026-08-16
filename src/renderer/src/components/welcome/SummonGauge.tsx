@@ -13,7 +13,8 @@ interface Props {
 export default function SummonGauge({ staged, cap, dirty }: Props) {
   const frac = Math.min(1, staged / cap);
   const full = staged >= cap;
-  const caption = full ? 'full' : dirty ? 'after summon' : 'summoned';
+  // captions must fit the ring's inner circle at 9px — keep them short
+  const caption = full ? 'full' : dirty ? 'chosen' : 'summoned';
   return (
     <div data-testid="summon-gauge" className="relative h-[100px] w-[100px]">
       <svg width="100" height="100" viewBox="0 0 104 104" className="-rotate-90" aria-hidden="true">

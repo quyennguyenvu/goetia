@@ -6,14 +6,17 @@ import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
 import { type AppContext, registerIpcHandlers } from './ipc-handlers';
 import { audioMuted } from './lib/notification-rules';
+import { muteToggleResult, quietWindowFor } from './lib/quiet-hours-rules';
 import { resolveStartupSurface } from './lib/startup-surface';
 import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
 import { buildAppMenu } from './menu';
 import { NotificationRouter } from './notifications';
+import { QuietHoursController } from './quiet-hours';
 import { ResilienceManager } from './resilience';
 import { SettingsStore } from './settings';
 import { MainState } from './state';
+import { SummonHotkey } from './summon-hotkey';
 import { createTray } from './tray';
 import { UpdateChecker } from './updates';
 import { ServiceViewManager } from './views';
@@ -97,7 +100,11 @@ app
       () => settings.get().railPosition,
       (id) => {
         const s = settings.get();
-        return audioMuted({ serviceMuted: s.muted[id], globalMuted: s.globalMuted });
+        return audioMuted({
+          serviceMuted: s.muted[id],
+          globalMuted: s.globalMuted,
+          quietNow: quiet.quietNow(),
+        });
       },
       (id) => state.runtime(id).waking,
       overlay,
@@ -124,6 +131,27 @@ app
         : undefined,
     });
 
+    const quiet = new QuietHoursController({
+      schedule: () => settings.get().quietHours,
+      override: () => settings.get().quietOverrideWindowStart,
+      // lazy: defined below with broadcast; boundaries only fire after startup
+      onBoundary: () => quietSideEffects(),
+    });
+
+    const summon = new SummonHotkey(() => {
+      if (win.isDestroyed()) return;
+      if (win.isFocused()) {
+        // hiding a fullscreen window strands an empty desktop space
+        if (!win.isFullScreen()) win.hide();
+        return;
+      }
+      win.show();
+      win.focus();
+    });
+    const applySummon = () => {
+      state.summonHotkeyOk = summon.apply(settings.get().summonHotkey);
+    };
+
     const syncOverlay = () => {
       const rt = state.runtime(state.activeId);
       const show =
@@ -143,11 +171,23 @@ app
     const broadcast = () => {
       if (win.isDestroyed()) return;
       const s = settings.get();
-      win.webContents.send('shell:state', state.snapshot(s, effectiveTheme(), app.getVersion()));
+      win.webContents.send(
+        'shell:state',
+        state.snapshot(s, effectiveTheme(), app.getVersion(), quiet.quietNow()),
+      );
       const summary = aggregateBadges(s.order.map((id) => state.runtime(id).unread));
       applyBadges(win, summary);
       tray?.updateTooltip(summary.total);
       syncOverlay();
+    };
+
+    // the boundary fire and the mute toggle share one tail so they can't drift
+    const quietSideEffects = () => {
+      views.applyAudioMuteAll();
+      // both menus capture the checkmark when they are built
+      buildAppMenu(ctx);
+      tray?.refresh();
+      broadcast();
     };
 
     state.onChange(broadcast);
@@ -180,11 +220,22 @@ app
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
       setGlobalMuted: (muted) => {
-        settings.update({ globalMuted: muted });
-        views.applyAudioMuteAll();
-        // both menus capture the checkmark when they are built
-        buildAppMenu(ctx);
-        tray?.refresh();
+        settings.update(
+          muteToggleResult({
+            wantSilence: muted,
+            engagedWindowStart:
+              quietWindowFor(new Date(), settings.get().quietHours)?.start.getTime() ?? null,
+          }),
+        );
+        quietSideEffects();
+      },
+      quietNow: () => quiet.quietNow(),
+      quietScheduleChanged: () => {
+        quiet.rearm();
+        quietSideEffects();
+      },
+      summonHotkeyChanged: () => {
+        applySummon();
         broadcast();
       },
     };
@@ -192,12 +243,18 @@ app
     resilience = new ResilienceManager(ctx);
     registerIpcHandlers(ctx, new NotificationRouter(ctx));
     hibernation.start();
+    quiet.start();
+    applySummon();
     tray = createTray(ctx);
     buildAppMenu(ctx);
 
     // dev and e2e runs must not touch the network; a manual check still works
     if (app.isPackaged) updates.start();
-    app.on('before-quit', () => updates.dispose());
+    app.on('before-quit', () => {
+      updates.dispose();
+      quiet.dispose();
+      summon.dispose();
+    });
 
     const s0 = settings.get();
     const surface = resolveStartupSurface({

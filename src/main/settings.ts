@@ -1,7 +1,32 @@
 import Conf from 'conf';
 import { SERVICES } from '../shared/services';
-import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../shared/types';
+import { SUMMON_COMBOS } from '../shared/summon';
+import {
+  DEFAULT_SETTINGS,
+  type QuietHoursSchedule,
+  type ServiceId,
+  type Settings,
+} from '../shared/types';
 import { trimToCap } from '../shared/welcome';
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Same job as fill() for the quiet-hours block: a settings.json written
+ *  before the field existed, or hand-mangled, must coerce field by field. */
+function fillQuietHours(raw: unknown): QuietHoursSchedule {
+  const d = DEFAULT_SETTINGS.quietHours;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<QuietHoursSchedule>;
+  const days =
+    Array.isArray(r.days) && r.days.length === 7 && r.days.every((x) => typeof x === 'boolean')
+      ? ([...r.days] as QuietHoursSchedule['days'])
+      : d.days;
+  return {
+    enabled: typeof r.enabled === 'boolean' ? r.enabled : d.enabled,
+    start: typeof r.start === 'string' && TIME_RE.test(r.start) ? r.start : d.start,
+    end: typeof r.end === 'string' && TIME_RE.test(r.end) ? r.end : d.end,
+    days,
+  };
+}
 
 /** settings.json written before a service existed persists whole top-level
  *  objects — a shallow merge with defaults never surfaces new ServiceIds.
@@ -10,6 +35,19 @@ import { trimToCap } from '../shared/welcome';
  *  already has, so e.g. instagram lands beside messenger even in a
  *  reordered rail), drop unknown ids, fill missing record keys from
  *  defaults, and cap the enabled set at MAX_SUMMONED. */
+function fillSummonHotkey(raw: unknown): Settings['summonHotkey'] {
+  const d = DEFAULT_SETTINGS.summonHotkey;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['summonHotkey']>;
+  return {
+    enabled: typeof r.enabled === 'boolean' ? r.enabled : d.enabled,
+    accelerator:
+      typeof r.accelerator === 'string' &&
+      (SUMMON_COMBOS as readonly string[]).includes(r.accelerator)
+        ? r.accelerator
+        : d.accelerator,
+  };
+}
+
 function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } {
   const ids = SERVICES.map((s) => s.id);
   const known = new Set<ServiceId>(ids);
@@ -42,6 +80,13 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
       muted: fill(raw.muted, DEFAULT_SETTINGS.muted),
       disabled: capped.disabled,
       neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),
+      quietHours: fillQuietHours(raw.quietHours),
+      quietOverrideWindowStart:
+        typeof raw.quietOverrideWindowStart === 'number' &&
+        Number.isFinite(raw.quietOverrideWindowStart)
+          ? raw.quietOverrideWindowStart
+          : null,
+      summonHotkey: fillSummonHotkey(raw.summonHotkey),
     },
     trimmed: capped.trimmed,
   };

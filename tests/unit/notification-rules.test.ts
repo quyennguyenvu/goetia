@@ -8,30 +8,28 @@ import {
 
 describe('shouldNotify', () => {
   it.each([
-    [{ serviceMuted: false, globalMuted: false }, true],
-    [{ serviceMuted: true, globalMuted: false }, false],
-    [{ serviceMuted: false, globalMuted: true }, false],
-    [{ serviceMuted: true, globalMuted: true }, false],
+    [{ serviceMuted: false, globalMuted: false, quietNow: false }, true],
+    [{ serviceMuted: true, globalMuted: false, quietNow: false }, false],
+    [{ serviceMuted: false, globalMuted: true, quietNow: false }, false],
+    [{ serviceMuted: false, globalMuted: false, quietNow: true }, false],
+    [{ serviceMuted: true, globalMuted: true, quietNow: true }, false],
   ])('%o -> %s', (opts, expected) => {
     expect(shouldNotify(opts)).toBe(expected);
   });
 });
 
 describe('audioMuted', () => {
-  it.each([
-    [{ serviceMuted: false, globalMuted: false }, false],
-    [{ serviceMuted: true, globalMuted: false }, true],
-    [{ serviceMuted: false, globalMuted: true }, true],
-    [{ serviceMuted: true, globalMuted: true }, true],
-  ])('%o -> %s', (opts, expected) => {
-    expect(audioMuted(opts)).toBe(expected);
+  it('quiet hours alone mute the page, not just the banner', () => {
+    expect(audioMuted({ serviceMuted: false, globalMuted: false, quietNow: true })).toBe(true);
   });
 
   it('is exactly the inverse of shouldNotify', () => {
     for (const serviceMuted of [true, false]) {
       for (const globalMuted of [true, false]) {
-        const opts = { serviceMuted, globalMuted };
-        expect(audioMuted(opts)).toBe(!shouldNotify(opts));
+        for (const quietNow of [true, false]) {
+          const opts = { serviceMuted, globalMuted, quietNow };
+          expect(audioMuted(opts)).toBe(!shouldNotify(opts));
+        }
       }
     }
   });

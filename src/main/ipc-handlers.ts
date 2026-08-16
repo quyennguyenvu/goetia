@@ -30,6 +30,13 @@ export interface AppContext {
    *  land here so the pages, both menus' checkmarks and the shell agree;
    *  late-bound in index.ts */
   setGlobalMuted(muted: boolean): void;
+  /** quiet-hours engagement right now, override applied; late-bound in index.ts */
+  quietNow(): boolean;
+  /** re-arm the boundary timer and re-apply mute after a schedule edit;
+   *  late-bound in index.ts */
+  quietScheduleChanged(): void;
+  /** re-register the summon hotkey after a setting edit; late-bound in index.ts */
+  summonHotkeyChanged(): void;
 }
 
 function register(ctx: AppContext) {
@@ -97,6 +104,8 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       app.setLoginItemSettings({ openAtLogin: patch.launchAtLogin === true });
     }
     if ('railPosition' in patch) ctx.views.layout();
+    if ('quietHours' in patch) ctx.quietScheduleChanged();
+    if ('summonHotkey' in patch) ctx.summonHotkeyChanged();
     if (patch.disabled) {
       for (const id of after.order) {
         if (after.disabled[id] && ctx.views.has(id)) {
