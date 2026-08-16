@@ -49,7 +49,8 @@ export class NotificationRouter {
     notification.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
     notification.on('click', () => {
       this.ctx.win.show();
-      activateService(this.ctx, serviceId);
+      // a stale banner can outlive its service being banished on Home
+      if (!this.ctx.settings.get().disabled[serviceId]) activateService(this.ctx, serviceId);
     });
     notification.show();
   }

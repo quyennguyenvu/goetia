@@ -63,6 +63,9 @@ export interface Settings {
   notificationSound: boolean;
   neverHibernate: Record<ServiceId, boolean>;
   hibernationMinutes: number;
+  /** Peek sleeping services on a schedule so badges and banners keep working
+   *  while their views are destroyed. */
+  lightSleep: boolean;
   /** scheduled global mute: window + active days; see lib/quiet-hours-rules */
   quietHours: QuietHoursSchedule;
   /** start (epoch ms) of the one window the user dismissed by unmuting */
@@ -122,19 +125,21 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   globalMuted: false,
   notificationSound: true,
+  // Light Sleep keeps sleeping badges honest, so nothing needs Keep Awake
   neverHibernate: {
-    whatsapp: true,
-    messenger: true,
-    instagram: true,
-    telegram: true,
-    discord: true,
-    zalo: true,
-    tiktok: true,
-    shopee: true,
-    slack: true,
-    teams: true,
+    whatsapp: false,
+    messenger: false,
+    instagram: false,
+    telegram: false,
+    discord: false,
+    zalo: false,
+    tiktok: false,
+    shopee: false,
+    slack: false,
+    teams: false,
   },
   hibernationMinutes: 30,
+  lightSleep: true,
   quietHours: {
     enabled: false,
     start: '22:00',

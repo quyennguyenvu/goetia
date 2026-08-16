@@ -15,6 +15,9 @@ describe('SettingsStore', () => {
     const store = new SettingsStore(dir);
     expect(store.get().hibernationMinutes).toBe(30);
     expect(store.get().order[0]).toBe('discord');
+    expect(store.get().lightSleep).toBe(true);
+    // Light Sleep makes sleeping safe, so nothing is kept awake by default
+    expect(Object.values(store.get().neverHibernate).every((v) => v === false)).toBe(true);
   });
 
   it('persists partial updates across instances', () => {
@@ -71,19 +74,20 @@ describe('SettingsStore', () => {
     ]);
     expect(s.muted.teams).toBe(false);
     expect(s.disabled.teams).toBe(true); // new service arrives disabled
-    expect(s.neverHibernate.teams).toBe(true);
+    expect(s.neverHibernate.teams).toBe(false);
     expect(s.muted.slack).toBe(false);
     expect(s.disabled.slack).toBe(true); // new service arrives disabled
-    expect(s.neverHibernate.slack).toBe(true);
+    expect(s.neverHibernate.slack).toBe(false);
     expect(s.muted.instagram).toBe(false);
     expect(s.disabled.instagram).toBe(true); // new service arrives disabled
-    expect(s.neverHibernate.instagram).toBe(true);
+    expect(s.neverHibernate.instagram).toBe(false);
     expect(s.muted.tiktok).toBe(false);
     expect(s.disabled.tiktok).toBe(true); // new service arrives disabled
-    expect(s.neverHibernate.tiktok).toBe(true);
+    expect(s.neverHibernate.tiktok).toBe(false);
     expect(s.muted.shopee).toBe(false);
     expect(s.disabled.shopee).toBe(true);
-    expect(s.neverHibernate.shopee).toBe(true);
+    expect(s.neverHibernate.shopee).toBe(false);
+    expect(s.neverHibernate.messenger).toBe(true); // persisted choice untouched
     expect(s.muted.messenger).toBe(true); // existing prefs untouched
   });
 

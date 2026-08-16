@@ -219,6 +219,8 @@ app
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
+      noteUnreadReport: (id: Parameters<HibernationController['noteUnreadReport']>[0]) =>
+        hibernation.noteUnreadReport(id),
       setGlobalMuted: (muted) => {
         settings.update(
           muteToggleResult({
@@ -254,6 +256,7 @@ app
       updates.dispose();
       quiet.dispose();
       summon.dispose();
+      hibernation.dispose();
     });
 
     const s0 = settings.get();

@@ -264,6 +264,17 @@ export default function SettingsView() {
                   />
                 </Row>
                 <Row
+                  label="Light Sleep"
+                  hint="Sleeping services wake hidden every few minutes so badges and banners stay current."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="light-sleep-enabled"
+                    checked={s.lightSleep}
+                    onChange={(e) => update({ lightSleep: e.target.checked })}
+                  />
+                </Row>
+                <Row
                   label="Summoning hotkey"
                   hint={
                     state.summonHotkeyOk

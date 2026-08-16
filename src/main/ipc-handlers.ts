@@ -26,6 +26,8 @@ export interface AppContext {
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
+  /** ends a Light Sleep peek on the service's first report; late-bound in index.ts */
+  noteUnreadReport(id: import('../shared/types').ServiceId): void;
   /** the one way to move global mute — bell, tray, menu and accelerator all
    *  land here so the pages, both menus' checkmarks and the shell agree;
    *  late-bound in index.ts */
@@ -153,10 +155,15 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     }
     ctx.broadcast();
   });
-  on('unread:update', ({ serviceId, direct, indirect }) =>
-    ctx.state.setRuntime(serviceId, { unread: { direct, indirect }, stale: false }),
-  );
-  on('unread:stale', ({ serviceId }) => ctx.state.setRuntime(serviceId, { stale: true }));
+  on('unread:update', ({ serviceId, direct, indirect }) => {
+    ctx.state.setRuntime(serviceId, { unread: { direct, indirect }, stale: false });
+    // setRuntime no-ops on an unchanged count, so the peek signal lives here
+    ctx.noteUnreadReport(serviceId);
+  });
+  on('unread:stale', ({ serviceId }) => {
+    ctx.state.setRuntime(serviceId, { stale: true });
+    ctx.noteUnreadReport(serviceId);
+  });
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
   on('service:keepalive-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));

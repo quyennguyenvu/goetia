@@ -26,6 +26,8 @@ Your chat apps in one window — native notifications, unread badges, and **noth
 
 **Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, a per-service rate limit so a page can't spam you — plus synthetic notifications for the services that never fire one in-page.
 
+**Light Sleep.** Idle services give up their renderer but never go dark — each one wakes hidden every few minutes just long enough to refresh its badge and fire any banner, then sleeps again. Nine chats without nine browsers' worth of RAM; Keep Awake stays a per-service opt-out.
+
 **Hardened further than a hobby app usually bothers.** Electron fuses (no run-as-node, no `NODE_OPTIONS`, no CLI inspect; cookie encryption and asar integrity on), a sandboxed shell, an IPC sender policy that stops one service frame from impersonating another, origin-checked permissions, a locked-down renderer CSP, and a build-provenance attestation on every installer.
 
 **Not just the usual suspects.** Zalo, Shopee, and TikTok sit beside WhatsApp and Slack — the services the big clients cover badly or not at all. Adding one is a recipe, a fixture, and a row in the test suite; nothing else has to move.

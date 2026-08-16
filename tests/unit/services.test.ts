@@ -33,8 +33,9 @@ describe('service catalog', () => {
     expect(serviceById('messenger').url).toBe('https://www.facebook.com/messages/');
   });
 
-  it('defaults: nothing hibernates, 30min timeout', () => {
-    expect(Object.values(DEFAULT_SETTINGS.neverHibernate).every((v) => v === true)).toBe(true);
+  it('defaults: everything sleeps (Light Sleep keeps badges honest), 30min timeout', () => {
+    expect(Object.values(DEFAULT_SETTINGS.neverHibernate).every((v) => v === false)).toBe(true);
+    expect(DEFAULT_SETTINGS.lightSleep).toBe(true);
     expect(DEFAULT_SETTINGS.hibernationMinutes).toBe(30);
     expect(DEFAULT_SETTINGS.order).toEqual(SERVICES.map((s) => s.id));
     expect(DEFAULT_SETTINGS.railPosition).toBe('top');
