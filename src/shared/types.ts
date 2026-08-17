@@ -36,6 +36,9 @@ export interface ServiceMeta {
   /** The recipe defines ready(); did-finish-load must not clear the
    *  waking cover — only ready, crash, destroy, or the timeout do. */
   waitForReady?: boolean;
+  /** Mirror of the recipe's chatPaths (recipes.test.ts enforces sync) — main
+   *  validates banner hrefs against it without importing preload code. */
+  chatPaths?: string[];
 }
 
 export interface QuietHoursSchedule {

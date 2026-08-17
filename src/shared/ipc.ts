@@ -15,8 +15,17 @@ export interface RendererToMain {
   'unread:update': { serviceId: ServiceId } & Counts;
   'unread:stale': { serviceId: ServiceId };
   /** `synthetic`: the recipe built this because the site notifies nowhere
-   *  in-page, so no page sound accompanied it — see soundOptions. */
-  'notification:fired': { serviceId: ServiceId; title: string; body: string; synthetic: boolean };
+   *  in-page, so no page sound accompanied it — see soundOptions.
+   *  `clickId`: shim registry id for replaying the page's own click handler.
+   *  `href`: synthetic banners' conversation link (validated in main). */
+  'notification:fired': {
+    serviceId: ServiceId;
+    title: string;
+    body: string;
+    synthetic: boolean;
+    clickId?: number;
+    href?: string;
+  };
   'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
   'service:ready': { serviceId: ServiceId };
   'updates:check': Record<string, never>;
@@ -28,6 +37,14 @@ export interface MainToRenderer {
   'shell:state': ShellState;
   /** main -> loading overlay page */
   'loading:state': { theme: 'light' | 'dark'; serviceName: string };
+}
+
+/** main -> service view preload, via webContents.send */
+export interface MainToService {
+  'notification:replayClick': { clickId: number };
+  /** banner click on a live view: route to the thread in-page (anchor click),
+   *  falling back to a full navigation to `url` if the anchor is gone */
+  'notification:openConversation': { href: string; url: string };
 }
 
 export const R2M_CHANNELS = [

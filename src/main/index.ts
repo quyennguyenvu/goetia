@@ -221,6 +221,8 @@ app
         hibernation.noteActivated(id),
       noteUnreadReport: (id: Parameters<HibernationController['noteUnreadReport']>[0]) =>
         hibernation.noteUnreadReport(id),
+      noteBannerFired: (id: Parameters<HibernationController['noteBannerFired']>[0]) =>
+        hibernation.noteBannerFired(id),
       setGlobalMuted: (muted) => {
         settings.update(
           muteToggleResult({

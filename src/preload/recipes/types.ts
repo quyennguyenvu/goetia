@@ -32,6 +32,7 @@ export interface Recipe {
   /** Build a notification for the newest unread conversation. For sites that
    *  never notify in-page (facebook.com delegates to browser push, which
    *  Electron doesn't support) — the runner calls this when the direct count
-   *  rises while the page is unfocused. */
-  synthNotification?(doc: Document): { title: string; body: string } | null;
+   *  rises while the page is unfocused. `href`: the conversation's own link,
+   *  so the banner click can land on the thread (validated in main). */
+  synthNotification?(doc: Document): { title: string; body: string; href?: string } | null;
 }

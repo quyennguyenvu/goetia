@@ -472,6 +472,27 @@ export class ServiceViewManager {
     view.webContents.loadURL(serviceById(id).url);
   }
 
+  /** Banner click, lane B: land the (possibly just-woken) view on the
+   *  conversation URL itself. The URL was validated by resolveBannerClick. */
+  openConversation(id: ServiceId, url: string): void {
+    this.ensure(id);
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) wc.loadURL(url);
+  }
+
+  /** Banner click, lane A: ask the page to run its own notification onclick. */
+  sendReplayClick(id: ServiceId, clickId: number): void {
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) wc.send('notification:replayClick', { clickId });
+  }
+
+  /** Banner click, lane B on a live view: route in-page — a loadURL here
+   *  would reboot the SPA and raise the waking cover for a thread switch. */
+  sendOpenConversation(id: ServiceId, href: string, url: string): void {
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) wc.send('notification:openConversation', { href, url });
+  }
+
   layout(): void {
     const [w, h] = this.win.getContentSize();
     const bounds = viewBounds(w, h, this.railPosition());

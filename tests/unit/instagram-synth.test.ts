@@ -15,6 +15,7 @@ describe('instagram synthesized notification', () => {
     expect(instagram.synthNotification?.(load('instagram'))).toEqual({
       title: 'bao.tran',
       body: 'Sent a photo',
+      href: '/direct/t/17801',
     });
   });
 

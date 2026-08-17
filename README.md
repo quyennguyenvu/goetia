@@ -24,7 +24,7 @@ Your chat apps in one window — native notifications, unread badges, and **noth
 
 **Badges that don't lie.** One unread recipe per service, each locked to a DOM fixture in the test suite. When a service redesigns, its tile shows a grey stale dot instead of a confident zero.
 
-**Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, a per-service rate limit so a page can't spam you — plus synthetic notifications for the services that never fire one in-page.
+**Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, a per-service rate limit so a page can't spam you — plus synthetic notifications for the services that never fire one in-page. Click a banner and you land in that conversation, not just the app — even if the service was asleep when it fired.
 
 **Light Sleep.** Idle services give up their renderer but never go dark — each one wakes hidden every few minutes just long enough to refresh its badge and fire any banner, then sleeps again. Nine chats without nine browsers' worth of RAM; Keep Awake stays a per-service opt-out.
 

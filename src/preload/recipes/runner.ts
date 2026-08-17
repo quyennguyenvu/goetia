@@ -19,7 +19,7 @@ export function startRecipe(
   report: (c: Counts) => void,
   reportStale: () => void,
   reportKeepAlive?: (pt: { x: number; y: number }) => void,
-  reportNotification?: (n: { title: string; body: string }) => void,
+  reportNotification?: (n: { title: string; body: string; href?: string }) => void,
   snapBack?: () => void,
   setIntervalFn: typeof setInterval = setInterval,
   nowFn: () => number = Date.now,

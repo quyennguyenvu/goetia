@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
+import { openConversationInPage } from './lib/conversation-open';
 import { installNotificationShim } from './lib/notification-shim';
 import { installVisibilitySpoof } from './lib/visibility-spoof';
 import { installWebAuthnBlock } from './lib/webauthn-block';
@@ -26,8 +27,16 @@ if (!inCallPopup) {
   // Runs before page scripts (unisolated preload), so the page only ever sees
   // the shim. Notifications surface as native OS notifications via main.
 
-  installNotificationShim(window, (title, body) =>
-    ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: false }),
+  const shim = installNotificationShim(window, (title, body, clickId) =>
+    ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: false, clickId }),
+  );
+  // banner click, lane A: main asks the page to run its own onclick
+  ipcRenderer.on('notification:replayClick', (_e, payload: { clickId: number }) =>
+    shim.replayClick(payload.clickId),
+  );
+  // banner click, lane B on a live view: route to the thread in-page
+  ipcRenderer.on('notification:openConversation', (_e, payload: { href: string; url: string }) =>
+    openConversationInPage(document, payload.href, payload.url),
   );
 
   // --- Unread-count recipe -------------------------------------------------
@@ -45,8 +54,8 @@ if (!inCallPopup) {
       (c) => ipcRenderer.send('unread:update', { serviceId, ...c }),
       () => ipcRenderer.send('unread:stale', { serviceId }),
       (pt) => ipcRenderer.send('service:keepalive-click', { serviceId, ...pt }),
-      ({ title, body }) =>
-        ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: true }),
+      ({ title, body, href }) =>
+        ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: true, href }),
       // chat only: page-initiated navigation, no IPC surface needed
       () => window.location.assign(serviceById(serviceId).url),
     );

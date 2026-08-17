@@ -59,7 +59,7 @@ export function synthFromRows(
   doc: Document,
   linkSelector: string,
   rowFor: (link: Element) => Element,
-): { title: string; body: string } | null {
+): { title: string; body: string; href?: string } | null {
   const win = doc.defaultView;
   if (!win) return null;
   for (const link of doc.querySelectorAll(linkSelector)) {
@@ -75,6 +75,7 @@ export function synthFromRows(
     return {
       title: texts[0],
       body: (texts[1] ?? '').replace(/\s*·\s*\S{1,4}$/u, ''),
+      href: link.getAttribute('href') ?? undefined,
     };
   }
   return null;

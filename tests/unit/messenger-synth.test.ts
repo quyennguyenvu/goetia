@@ -15,6 +15,7 @@ describe('messenger synthesized notification', () => {
     expect(messenger.synthNotification?.(load('messenger'))).toEqual({
       title: 'Alice',
       body: 'sent a photo',
+      href: '/messages/e2ee/t/111',
     });
   });
 
@@ -22,6 +23,7 @@ describe('messenger synthesized notification', () => {
     expect(messenger.synthNotification?.(load('messenger-reaction'))).toEqual({
       title: 'Hồ Nguyễn Tiến Hưng',
       body: 'Reacted 😆 to your message',
+      href: '/messages/e2ee/t/777',
     });
   });
 

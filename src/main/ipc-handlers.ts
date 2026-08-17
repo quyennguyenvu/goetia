@@ -28,6 +28,9 @@ export interface AppContext {
   noteActivated(id: import('../shared/types').ServiceId): void;
   /** ends a Light Sleep peek on the service's first report; late-bound in index.ts */
   noteUnreadReport(id: import('../shared/types').ServiceId): void;
+  /** stamps banner-grace so a peek view survives long enough to click;
+   *  late-bound in index.ts */
+  noteBannerFired(id: import('../shared/types').ServiceId): void;
   /** the one way to move global mute — bell, tray, menu and accelerator all
    *  land here so the pages, both menus' checkmarks and the shell agree;
    *  late-bound in index.ts */

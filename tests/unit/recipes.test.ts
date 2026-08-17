@@ -137,3 +137,13 @@ describe('countWhatsAppChats', () => {
     ).toEqual({ direct: 2, indirect: 4 });
   });
 });
+
+describe('chatPaths mirror', () => {
+  // main validates lane-B hrefs against ServiceMeta.chatPaths; the recipe's
+  // copy is what the runner contains with — they must never drift
+  it('ServiceMeta.chatPaths matches each recipe', () => {
+    for (const s of SERVICES) {
+      expect(s.chatPaths ?? null, s.id).toEqual(recipes[s.id].chatPaths ?? null);
+    }
+  });
+});

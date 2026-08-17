@@ -19,6 +19,7 @@ export const SERVICES: ServiceMeta[] = [
     url: 'https://www.instagram.com/direct/inbox/',
     color: '#E4405F',
     waitForReady: true,
+    chatPaths: ['/direct'],
   },
   // messenger.com redirects logged-in users into facebook.com — target Messages directly
   {
@@ -27,6 +28,7 @@ export const SERVICES: ServiceMeta[] = [
     url: 'https://www.facebook.com/messages/',
     color: '#0084FF',
     waitForReady: true,
+    chatPaths: ['/messages', '/messenger_media'],
   },
   // the v2 client routes in the hash (#/chat, #/calendar, …), so the chat
   // route belongs in the URL: snapping back from #/calendar is then a
@@ -37,6 +39,7 @@ export const SERVICES: ServiceMeta[] = [
     url: 'https://teams.microsoft.com/v2/#/chat',
     color: '#6264A7',
     waitForReady: true,
+    chatPaths: ['/v2/#/chat', '/v2/#/conversations'],
   },
   // buyer chat lives in the mini-chat widget on the shopping site; the
   // recipe css reshapes it to fill the view. Never target /webchat —
@@ -68,6 +71,7 @@ export const SERVICES: ServiceMeta[] = [
     url: 'https://www.tiktok.com/messages',
     color: '#FE2C55',
     waitForReady: true,
+    chatPaths: ['/messages'],
   },
   {
     id: 'whatsapp',

@@ -5,6 +5,7 @@ import type { RendererToMain } from '../shared/ipc';
 import { SERVICES, serviceById } from '../shared/services';
 import { activateService } from './activate';
 import type { AppContext } from './ipc-handlers';
+import { resolveBannerClick } from './lib/notification-click';
 import { resolveIcons } from './lib/notification-icons';
 import { notificationTitle, shouldNotify, soundOptions } from './lib/notification-rules';
 import { NotificationThrottle } from './lib/notification-throttle';
@@ -27,7 +28,14 @@ export class NotificationRouter {
 
   constructor(private ctx: AppContext) {}
 
-  handle({ serviceId, title, body, synthetic }: RendererToMain['notification:fired']): void {
+  handle({
+    serviceId,
+    title,
+    body,
+    synthetic,
+    clickId,
+    href,
+  }: RendererToMain['notification:fired']): void {
     const s = this.ctx.settings.get();
     if (
       !shouldNotify({
@@ -49,9 +57,25 @@ export class NotificationRouter {
     notification.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
     notification.on('click', () => {
       this.ctx.win.show();
-      // a stale banner can outlive its service being banished on Home
-      if (!this.ctx.settings.get().disabled[serviceId]) activateService(this.ctx, serviceId);
+      const meta = serviceById(serviceId);
+      const action = resolveBannerClick({
+        // a stale banner can outlive its service being banished on Home
+        disabled: this.ctx.settings.get().disabled[serviceId],
+        hasView: this.ctx.views.has(serviceId),
+        clickId,
+        href,
+        serviceUrl: meta.url,
+        chatPaths: meta.chatPaths,
+      });
+      if (action.kind === 'show-only') return;
+      activateService(this.ctx, serviceId);
+      if (action.kind === 'navigate') this.ctx.views.openConversation(serviceId, action.url);
+      if (action.kind === 'open-in-page') {
+        this.ctx.views.sendOpenConversation(serviceId, action.href, action.url);
+      }
+      if (action.kind === 'replay') this.ctx.views.sendReplayClick(serviceId, action.clickId);
     });
+    this.ctx.noteBannerFired(serviceId);
     notification.show();
   }
 }
