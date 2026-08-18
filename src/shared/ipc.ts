@@ -1,4 +1,4 @@
-import type { Counts, ServiceId, Settings, ShellState } from './types';
+import type { ActivityEntryView, Counts, ServiceId, Settings, ShellState } from './types';
 
 /** renderer/preload -> main, via ipcRenderer.send */
 export interface RendererToMain {
@@ -6,6 +6,8 @@ export interface RendererToMain {
   'service:setMuted': { serviceId: ServiceId; muted: boolean };
   'service:reorder': { orderedIds: ServiceId[] };
   'service:reload': { serviceId: ServiceId };
+  /** right-click on a rail tile: main pops the native per-service menu */
+  'service:tileMenu': { serviceId: ServiceId };
   'global:setMuted': { muted: boolean };
   'switcher:setOpen': { open: boolean };
   'settings:setOpen': { open: boolean };
@@ -26,6 +28,8 @@ export interface RendererToMain {
     clickId?: number;
     href?: string;
   };
+  /** open a recents row: main resolves the stored entry and re-validates */
+  'activity:open': { entryId: number };
   'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
   'service:ready': { serviceId: ServiceId };
   'updates:check': Record<string, never>;
@@ -52,6 +56,7 @@ export const R2M_CHANNELS = [
   'service:setMuted',
   'service:reorder',
   'service:reload',
+  'service:tileMenu',
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
@@ -61,19 +66,31 @@ export const R2M_CHANNELS = [
   'unread:update',
   'unread:stale',
   'notification:fired',
+  'activity:open',
   'service:keepalive-click',
   'service:ready',
   'updates:check',
   'updates:openDownload',
 ] as const satisfies readonly (keyof RendererToMain)[];
 
+/** renderer -> main round-trips, via ipcRenderer.invoke */
+export interface RendererInvoke {
+  /** recents for the quick switcher: fetched once per open, never broadcast */
+  'activity:recent': { result: ActivityEntryView[] };
+}
+
+export const INVOKE_CHANNELS = [
+  'activity:recent',
+] as const satisfies readonly (keyof RendererInvoke)[];
+
 /** Channels only the trusted shell renderer may send. Everything else is a
  *  service-preload channel carrying its own serviceId. */
-export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain>([
+export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof RendererInvoke>([
   'service:activate',
   'service:setMuted',
   'service:reorder',
   'service:reload',
+  'service:tileMenu',
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
@@ -82,4 +99,6 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain>([
   'badge:overlay',
   'updates:check',
   'updates:openDownload',
+  'activity:open',
+  'activity:recent',
 ]);

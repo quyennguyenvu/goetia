@@ -3,6 +3,7 @@ import { serviceById } from '../shared/services';
 import { activateService, setHomeOpen } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { serviceAccelerator } from './lib/service-accelerator';
+import { stepZoom } from './lib/zoom-rules';
 
 function openSettings(ctx: AppContext): void {
   ctx.state.settingsOpen = true;
@@ -14,6 +15,16 @@ function openSettings(ctx: AppContext): void {
 function toggleHome(ctx: AppContext): void {
   setHomeOpen(ctx, !ctx.state.homeOpen);
   ctx.win.webContents.focus();
+}
+
+/** Zoom acts on the active service view; with no view anywhere (fresh
+ *  install on Home) it is a silent no-op. Persist first, then re-apply. */
+function setActiveZoom(ctx: AppContext, next: (current: number) => number): void {
+  const id = ctx.state.activeId;
+  if (!ctx.views.has(id)) return;
+  const s = ctx.settings.get();
+  ctx.settings.update({ zoom: { ...s.zoom, [id]: next(s.zoom[id]) } });
+  ctx.views.applyZoom(id);
 }
 
 export function buildAppMenu(ctx: AppContext): void {
@@ -65,11 +76,31 @@ export function buildAppMenu(ctx: AppContext): void {
       : []),
     { role: 'editMenu' },
     {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+=',
+          click: () => setActiveZoom(ctx, (z) => stepZoom(z, 1)),
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+-',
+          click: () => setActiveZoom(ctx, (z) => stepZoom(z, -1)),
+        },
+        {
+          label: 'Actual Size',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => setActiveZoom(ctx, () => 0),
+        },
+      ],
+    },
+    {
       label: 'Go',
       submenu: [
         {
           label: 'Home',
-          accelerator: 'CmdOrCtrl+0',
+          accelerator: 'CmdOrCtrl+Shift+H',
           click: () => {
             ctx.win.show();
             toggleHome(ctx);

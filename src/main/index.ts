@@ -5,6 +5,7 @@ import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
 import { type AppContext, registerIpcHandlers } from './ipc-handlers';
+import { ActivityLog } from './lib/activity-log';
 import { audioMuted } from './lib/notification-rules';
 import { muteToggleResult, quietWindowFor } from './lib/quiet-hours-rules';
 import { resolveStartupSurface } from './lib/startup-surface';
@@ -107,6 +108,7 @@ app
         });
       },
       (id) => state.runtime(id).waking,
+      (id) => settings.get().zoom[id],
       overlay,
     );
 
@@ -216,6 +218,7 @@ app
       settings,
       waking,
       updates,
+      activity: new ActivityLog(),
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),

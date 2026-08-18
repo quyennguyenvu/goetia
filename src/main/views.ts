@@ -48,6 +48,7 @@ export class ServiceViewManager {
     private railPosition: () => RailPosition,
     private audioMuted: (id: ServiceId) => boolean,
     private waking: (id: ServiceId) => boolean,
+    private zoomLevel: (id: ServiceId) => number,
     private overlay?: {
       setBounds(b: { x: number; y: number; width: number; height: number }): void;
       raise(): void;
@@ -141,6 +142,7 @@ export class ServiceViewManager {
     });
     const wc = view.webContents;
     wc.setAudioMuted(this.audioMuted(id)); // a fresh view starts unmuted
+    wc.setZoomLevel(this.zoomLevel(id));
     if (svc.keepRendered) wc.setBackgroundThrottling(false);
     wc.setWindowOpenHandler(({ url }) => {
       // TEMPORARY calls diagnosis (2026-08-16): remove after capturing the
@@ -216,7 +218,12 @@ export class ServiceViewManager {
       if (input.type === 'keyDown' && input.key === 'F5') this.refresh(id);
     });
     wc.on('did-start-loading', () => this.hooks.onLoading(id, true));
-    wc.on('did-finish-load', () => this.hooks.onLoading(id, false));
+    wc.on('did-finish-load', () => {
+      // re-assert: restarts, hibernation wakes, reloads and sign-outs all
+      // land here, and the persisted level must survive every one of them
+      wc.setZoomLevel(this.zoomLevel(id));
+      this.hooks.onLoading(id, false);
+    });
     wc.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
       if (isMainFrame && !isSameDocument) this.hooks.onNavigate(id);
     });
@@ -386,6 +393,12 @@ export class ServiceViewManager {
     for (const id of this.views.keys()) this.applyAudioMute(id);
   }
 
+  /** Re-apply the persisted zoom after a View-menu change. */
+  applyZoom(id: ServiceId): void {
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) wc.setZoomLevel(this.zoomLevel(id));
+  }
+
   /** Create the view (starts loading, recipes, notifications) without showing it. */
   ensure(id: ServiceId): void {
     if (!this.views.has(id)) this.create(id);
@@ -470,6 +483,14 @@ export class ServiceViewManager {
     this.lastRefreshAt.set(id, now);
     if (this.activeId === id) this.activate(id);
     view.webContents.loadURL(serviceById(id).url);
+  }
+
+  /** Post-sign-out reset: land a live view back on the chat URL. Not the ⌘R
+   *  path, so no reload-guard — and no ensure: a hibernated service must not
+   *  wake just to show a login page. */
+  loadServiceUrl(id: ServiceId): void {
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) wc.loadURL(serviceById(id).url);
   }
 
   /** Banner click, lane B: land the (possibly just-woken) view on the

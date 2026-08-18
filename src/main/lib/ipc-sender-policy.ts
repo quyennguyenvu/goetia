@@ -1,11 +1,11 @@
-import { type RendererToMain, SHELL_ONLY_CHANNELS } from '../../shared/ipc';
+import { type RendererInvoke, type RendererToMain, SHELL_ONLY_CHANNELS } from '../../shared/ipc';
 import type { ServiceId } from '../../shared/types';
 
 /** True when this sender is allowed to use this channel. Shell-only channels
  *  must come from the shell frame; service channels must come from the frame
  *  of the very service named in the payload. */
 export function ipcSenderAllowed(opts: {
-  channel: keyof RendererToMain;
+  channel: keyof RendererToMain | keyof RendererInvoke;
   fromShell: boolean;
   senderServiceId: ServiceId | null;
   payloadServiceId: ServiceId | undefined;

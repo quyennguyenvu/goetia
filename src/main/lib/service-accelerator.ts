@@ -1,4 +1,5 @@
-/** ⌘/Ctrl+0 is Home, so services take 1…9 — and stop there. Electron's
+/** ⌘/Ctrl+0 is zoom's Actual Size and ⌘/Ctrl+⇧+H is Home, so services take
+ *  1…9 — and stop there. Electron's
  *  accelerator parser has no key for a multi-digit string: `globalShortcut`
  *  throws a conversion failure on `CmdOrCtrl+10`, while `Menu.buildFromTemplate`
  *  accepts it silently and never binds it. A tenth enabled service would get a

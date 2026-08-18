@@ -8,6 +8,7 @@ import {
   type Settings,
 } from '../shared/types';
 import { trimToCap } from '../shared/welcome';
+import { clampZoom } from './lib/zoom-rules';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -48,6 +49,16 @@ function fillSummonHotkey(raw: unknown): Settings['summonHotkey'] {
   };
 }
 
+/** Number-record twin of fill(): missing keys default to 0, corrupt or
+ *  out-of-range levels coerce/clamp via clampZoom. */
+function fillZoom(raw: unknown): Record<ServiceId, number> {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<ServiceId, number>>;
+  return Object.fromEntries(SERVICES.map((s) => [s.id, clampZoom(r[s.id])])) as Record<
+    ServiceId,
+    number
+  >;
+}
+
 function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } {
   const ids = SERVICES.map((s) => s.id);
   const known = new Set<ServiceId>(ids);
@@ -80,6 +91,7 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
       muted: fill(raw.muted, DEFAULT_SETTINGS.muted),
       disabled: capped.disabled,
       neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),
+      zoom: fillZoom(raw.zoom),
       quietHours: fillQuietHours(raw.quietHours),
       quietOverrideWindowStart:
         typeof raw.quietOverrideWindowStart === 'number' &&

@@ -15,6 +15,17 @@ export interface Counts {
   indirect: number;
 }
 
+/** What the switcher renders per recent conversation. Deliberately hrefless:
+ *  conversation links never cross IPC — main re-validates at open time. */
+export interface ActivityEntryView {
+  id: number;
+  serviceId: ServiceId;
+  title: string;
+  /** mute or quiet hours suppressed the banner itself at fire time (🌙) */
+  silenced: boolean;
+  at: number;
+}
+
 export type UpdateStatus = 'idle' | 'checking' | 'current' | 'available' | 'error';
 
 export interface UpdateState {
@@ -65,6 +76,8 @@ export interface Settings {
    *  the user hears — turning it off leaves the page's own. */
   notificationSound: boolean;
   neverHibernate: Record<ServiceId, boolean>;
+  /** Per-service Chromium zoom level (1.2^level); 0 = 100%. */
+  zoom: Record<ServiceId, number>;
   hibernationMinutes: number;
   /** Peek sleeping services on a schedule so badges and banners keep working
    *  while their views are destroyed. */
@@ -140,6 +153,18 @@ export const DEFAULT_SETTINGS: Settings = {
     shopee: false,
     slack: false,
     teams: false,
+  },
+  zoom: {
+    whatsapp: 0,
+    messenger: 0,
+    instagram: 0,
+    telegram: 0,
+    discord: 0,
+    zalo: 0,
+    tiktok: 0,
+    shopee: 0,
+    slack: 0,
+    teams: 0,
   },
   hibernationMinutes: 30,
   lightSleep: true,

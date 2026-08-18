@@ -1,16 +1,20 @@
-import { app, type BrowserWindow, ipcMain, shell } from 'electron';
+import { app, type BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
+import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
-import { activateService, rememberSurface, setHomeOpen } from './activate';
+import { activateService, performBannerAction, rememberSurface, setHomeOpen } from './activate';
 import { applyOverlay } from './badges';
 import { resolveActivation } from './lib/activation-rules';
+import type { ActivityLog } from './lib/activity-log';
 import { isSafeExternalUrl } from './lib/external-url';
 import { ipcSenderAllowed } from './lib/ipc-sender-policy';
+import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
 import { releaseUrl } from './lib/update-check';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
 import type { SettingsStore } from './settings';
+import { confirmSignOut } from './signout';
 import type { MainState } from './state';
 import type { UpdateChecker } from './updates';
 import type { ServiceViewManager } from './views';
@@ -23,6 +27,8 @@ export interface AppContext {
   settings: SettingsStore;
   waking: WakingTracker;
   updates: UpdateChecker;
+  /** banner history behind the switcher's Recent section; in-memory only */
+  activity: ActivityLog;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -68,16 +74,30 @@ function register(ctx: AppContext) {
   };
 }
 
+function setServiceMuted(ctx: AppContext, serviceId: ServiceId, muted: boolean): void {
+  const s = ctx.settings.get();
+  ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
+  ctx.views.applyAudioMute(serviceId);
+  ctx.broadcast();
+}
+
 export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter): void {
   const on = register(ctx);
   on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
   on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));
-  on('service:setMuted', ({ serviceId, muted }) => {
-    const s = ctx.settings.get();
-    ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
-    ctx.views.applyAudioMute(serviceId);
-    ctx.broadcast();
+  on('service:setMuted', ({ serviceId, muted }) => setServiceMuted(ctx, serviceId, muted));
+  on('service:tileMenu', ({ serviceId }) => {
+    const muted = ctx.settings.get().muted[serviceId];
+    const name = serviceById(serviceId).name;
+    Menu.buildFromTemplate([
+      {
+        label: muted ? `Unmute ${name}` : `Mute ${name}`,
+        click: () => setServiceMuted(ctx, serviceId, !muted),
+      },
+      { type: 'separator' },
+      { label: 'Sign Out…', click: () => void confirmSignOut(ctx, serviceId) },
+    ]).popup({ window: ctx.win });
   });
   on('service:reorder', ({ orderedIds }) => {
     ctx.settings.update({ order: orderedIds });
@@ -169,6 +189,34 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
+  ipcMain.handle('activity:recent', (e) => {
+    const fromShell = e.sender.id === ctx.win.webContents.id;
+    const senderServiceId = ctx.views.serviceIdForWebContentsId(e.sender.id);
+    if (
+      !ipcSenderAllowed({
+        channel: 'activity:recent',
+        fromShell,
+        senderServiceId,
+        payloadServiceId: undefined,
+      })
+    ) {
+      return [];
+    }
+    return ctx.activity.recent();
+  });
+  on('activity:open', ({ entryId }) => {
+    const entry = ctx.activity.get(entryId);
+    if (!entry) return; // rotated out of the ring since the switcher fetched
+    const meta = serviceById(entry.serviceId);
+    const action = resolveBannerClick({
+      disabled: ctx.settings.get().disabled[entry.serviceId],
+      hasView: ctx.views.has(entry.serviceId),
+      href: entry.synthetic ? entry.href : undefined,
+      serviceUrl: meta.url,
+      chatPaths: meta.chatPaths,
+    });
+    performBannerAction(ctx, entry.serviceId, action);
+  });
   on('service:keepalive-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
   on('updates:check', () => void ctx.updates.check('manual'));
   on('updates:openDownload', () => {

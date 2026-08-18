@@ -76,7 +76,7 @@ export default function Rail() {
         data-testid="home-btn"
         aria-label="Home"
         aria-current={state.homeOpen ? 'page' : undefined}
-        title="Home — all services (⌘0)"
+        title="Home — all services (⌘⇧H)"
         onClick={() => window.goetia.send('home:setOpen', { open: !state.homeOpen })}
         className={`flex h-8 w-8 flex-none items-center justify-center rounded-[11px]
           transition-all duration-150 ease-out outline-none focus-visible:ring-2
@@ -131,10 +131,7 @@ export default function Rail() {
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  window.goetia.send('service:setMuted', {
-                    serviceId: svc.id,
-                    muted: !state.muted[svc.id],
-                  });
+                  window.goetia.send('service:tileMenu', { serviceId: svc.id });
                 }}
               />
             </Reorder.Item>

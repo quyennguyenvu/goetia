@@ -1,12 +1,22 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { R2M_CHANNELS, type RendererToMain } from '../shared/ipc';
+import {
+  INVOKE_CHANNELS,
+  R2M_CHANNELS,
+  type RendererInvoke,
+  type RendererToMain,
+} from '../shared/ipc';
 import type { ShellState } from '../shared/types';
 
 const allowed = new Set<string>(R2M_CHANNELS);
+const invokable = new Set<string>(INVOKE_CHANNELS);
 
 const api = {
   send<C extends keyof RendererToMain>(channel: C, payload: RendererToMain[C]): void {
     if (allowed.has(channel)) ipcRenderer.send(channel, payload);
+  },
+  invoke<C extends keyof RendererInvoke>(channel: C): Promise<RendererInvoke[C]['result']> {
+    if (!invokable.has(channel)) return Promise.reject(new Error(`blocked channel: ${channel}`));
+    return ipcRenderer.invoke(channel) as Promise<RendererInvoke[C]['result']>;
   },
   onState(cb: (s: ShellState) => void): () => void {
     const listener = (_e: unknown, s: ShellState) => cb(s);

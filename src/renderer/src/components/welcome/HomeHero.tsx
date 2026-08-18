@@ -86,7 +86,7 @@ export default function HomeHero({
           </>
         )}
         <br />
-        ⌘/Ctrl 0 returns you here
+        ⌘/Ctrl ⇧ H returns you here
       </p>
     </aside>
   );

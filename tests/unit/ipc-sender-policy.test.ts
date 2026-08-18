@@ -22,6 +22,62 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(false);
   });
+  it('allows the tile menu from the shell frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:tileMenu',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: 'telegram',
+      }),
+    ).toBe(true);
+  });
+  it('rejects the tile menu from a service frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:tileMenu',
+        fromShell: false,
+        senderServiceId: 'telegram',
+        payloadServiceId: 'telegram',
+      }),
+    ).toBe(false);
+  });
+  it('allows activity channels from the shell frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'activity:open',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      ipcSenderAllowed({
+        channel: 'activity:recent',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: undefined,
+      }),
+    ).toBe(true);
+  });
+  it('rejects activity channels from a service frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'activity:open',
+        fromShell: false,
+        senderServiceId: 'messenger',
+        payloadServiceId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      ipcSenderAllowed({
+        channel: 'activity:recent',
+        fromShell: false,
+        senderServiceId: 'messenger',
+        payloadServiceId: undefined,
+      }),
+    ).toBe(false);
+  });
   it('allows a service channel when the sender matches the payload id', () => {
     expect(
       ipcSenderAllowed({

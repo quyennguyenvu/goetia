@@ -316,4 +316,31 @@ describe('SettingsStore', () => {
     expect(s.summonHotkey.enabled).toBe(true); // valid field survives
     expect(s.summonHotkey.accelerator).toBe('Alt+CmdOrCtrl+G');
   });
+
+  it('defaults zoom to 0 for every service', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const zoom = new SettingsStore(dir).get().zoom;
+    expect(Object.keys(zoom)).toHaveLength(SERVICES.length);
+    expect(Object.values(zoom).every((z) => z === 0)).toBe(true);
+  });
+
+  it('fills missing zoom keys and clamps corrupt values', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ zoom: { whatsapp: 99, telegram: 'big', discord: 1.5 } }),
+    );
+    const zoom = new SettingsStore(dir).get().zoom;
+    expect(zoom.whatsapp).toBe(3.5); // clamped to ZOOM_MAX
+    expect(zoom.telegram).toBe(0); // corrupt string coerced
+    expect(zoom.discord).toBe(1.5);
+    expect(zoom.zalo).toBe(0); // missing key filled
+  });
+
+  it('round-trips a zoom update across instances', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.update({ zoom: { ...store.get().zoom, slack: 1 } });
+    expect(new SettingsStore(dir).get().zoom.slack).toBe(1);
+  });
 });

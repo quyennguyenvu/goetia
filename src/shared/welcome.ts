@@ -1,8 +1,9 @@
 import type { ServiceId, ServiceMeta, Settings } from './types';
 
 /** Summoned services stop at nine because service accelerators do: ⌘/Ctrl+0
- *  is Home and Electron cannot bind CmdOrCtrl+10 (service-accelerator.ts).
- *  cap.test.ts keeps the two constants equal. */
+ *  is zoom's Actual Size (Home is ⌘/Ctrl+⇧+H) and Electron cannot bind
+ *  CmdOrCtrl+10 (service-accelerator.ts). cap.test.ts keeps the two constants
+ *  equal. */
 export const MAX_SUMMONED = 9;
 
 /** Whether picking `id` is blocked by the cap: the staged result is full and

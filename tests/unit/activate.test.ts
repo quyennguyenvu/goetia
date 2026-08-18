@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { activateService, setHomeOpen } from '../../src/main/activate';
+import { activateService, performBannerAction, setHomeOpen } from '../../src/main/activate';
 import type { AppContext } from '../../src/main/ipc-handlers';
 import { MainState } from '../../src/main/state';
 
@@ -85,5 +85,59 @@ describe('setHomeOpen', () => {
     state.onChange(cb);
     setHomeOpen(makeCtx(state).ctx, true);
     expect(cb).toHaveBeenCalled();
+  });
+});
+
+describe('performBannerAction', () => {
+  function makeBannerCtx() {
+    const state = new MainState();
+    const views = {
+      activate: vi.fn(),
+      hideActive: vi.fn(),
+      showActive: vi.fn(),
+      openConversation: vi.fn(),
+      sendOpenConversation: vi.fn(),
+      sendReplayClick: vi.fn(),
+    };
+    const ctx = {
+      state,
+      views,
+      settings: { update: vi.fn() },
+      noteActivated: vi.fn(),
+    } as unknown as AppContext;
+    return { ctx, views };
+  }
+
+  it('does nothing for show-only', () => {
+    const { ctx, views } = makeBannerCtx();
+    performBannerAction(ctx, 'telegram', { kind: 'show-only' });
+    expect(views.activate).not.toHaveBeenCalled();
+  });
+
+  it('activates then hands a dead view the conversation URL', () => {
+    const { ctx, views } = makeBannerCtx();
+    performBannerAction(ctx, 'telegram', { kind: 'navigate', url: 'https://t.example/1' });
+    expect(views.activate).toHaveBeenCalledWith('telegram');
+    expect(views.openConversation).toHaveBeenCalledWith('telegram', 'https://t.example/1');
+  });
+
+  it('routes in-page on a live view', () => {
+    const { ctx, views } = makeBannerCtx();
+    performBannerAction(ctx, 'telegram', {
+      kind: 'open-in-page',
+      href: '#123',
+      url: 'https://t.example/#123',
+    });
+    expect(views.sendOpenConversation).toHaveBeenCalledWith(
+      'telegram',
+      '#123',
+      'https://t.example/#123',
+    );
+  });
+
+  it('replays the page click for shim banners', () => {
+    const { ctx, views } = makeBannerCtx();
+    performBannerAction(ctx, 'discord', { kind: 'replay', clickId: 7 });
+    expect(views.sendReplayClick).toHaveBeenCalledWith('discord', 7);
   });
 });

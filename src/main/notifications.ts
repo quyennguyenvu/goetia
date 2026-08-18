@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { app, Notification } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
 import { SERVICES, serviceById } from '../shared/services';
-import { activateService } from './activate';
+import { performBannerAction } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { resolveBannerClick } from './lib/notification-click';
 import { resolveIcons } from './lib/notification-icons';
@@ -37,16 +37,16 @@ export class NotificationRouter {
     href,
   }: RendererToMain['notification:fired']): void {
     const s = this.ctx.settings.get();
-    if (
-      !shouldNotify({
-        serviceMuted: s.muted[serviceId],
-        globalMuted: s.globalMuted,
-        quietNow: this.ctx.quietNow(),
-      })
-    ) {
-      return;
-    }
+    const silenced = !shouldNotify({
+      serviceMuted: s.muted[serviceId],
+      globalMuted: s.globalMuted,
+      quietNow: this.ctx.quietNow(),
+    });
+    // the throttle bounds the log too: a spammy page during quiet hours
+    // must not flood the recents list any more than it may flood banners
     if (!this.throttle.allow(serviceId, Date.now())) return;
+    this.ctx.activity.append({ serviceId, title, href, synthetic, silenced, at: Date.now() });
+    if (silenced) return;
     const icon = this.icons.get(serviceId);
     const notification = new Notification({
       title: notificationTitle(title, serviceById(serviceId).name),
@@ -67,13 +67,7 @@ export class NotificationRouter {
         serviceUrl: meta.url,
         chatPaths: meta.chatPaths,
       });
-      if (action.kind === 'show-only') return;
-      activateService(this.ctx, serviceId);
-      if (action.kind === 'navigate') this.ctx.views.openConversation(serviceId, action.url);
-      if (action.kind === 'open-in-page') {
-        this.ctx.views.sendOpenConversation(serviceId, action.href, action.url);
-      }
-      if (action.kind === 'replay') this.ctx.views.sendReplayClick(serviceId, action.clickId);
+      performBannerAction(this.ctx, serviceId, action);
     });
     this.ctx.noteBannerFired(serviceId);
     notification.show();

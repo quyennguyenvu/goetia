@@ -1,5 +1,6 @@
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
+import type { BannerClickAction } from './lib/notification-click';
 
 /** Remember the surface to restore on the next launch. Written on change, not
  *  at quit: force-quit, a crash, and an OS restart never run before-quit.
@@ -12,7 +13,7 @@ export function rememberSurface(ctx: AppContext): void {
   });
 }
 
-/** Open or close Home. Both ⌘/Ctrl 0 and the IPC handler route here so the
+/** Open or close Home. Both ⌘/Ctrl ⇧ H and the IPC handler route here so the
  *  surface is recorded however Home was reached. Focus stays with the caller:
  *  the two paths deliberately differ there. */
 export function setHomeOpen(ctx: AppContext, open: boolean): void {
@@ -39,4 +40,19 @@ export function activateService(ctx: AppContext, id: ServiceId): void {
   // a field, so for an already-non-hibernated service it is a no-op and the
   // rail/content would not update until the next state change (e.g. a reload).
   ctx.state.touch();
+}
+
+/** Shared tail of a banner or recents click: land on the service, then route
+ *  as deep as the resolved action allows. show-only means the service was
+ *  banished after the fact — activate nothing. */
+export function performBannerAction(
+  ctx: AppContext,
+  id: ServiceId,
+  action: BannerClickAction,
+): void {
+  if (action.kind === 'show-only') return;
+  activateService(ctx, id);
+  if (action.kind === 'navigate') ctx.views.openConversation(id, action.url);
+  if (action.kind === 'open-in-page') ctx.views.sendOpenConversation(id, action.href, action.url);
+  if (action.kind === 'replay') ctx.views.sendReplayClick(id, action.clickId);
 }
