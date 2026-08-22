@@ -1,5 +1,5 @@
 import type { Counts } from '../../shared/types';
-import { countUnreadRows, synthFromRows } from './meta-unread';
+import { countUnreadRows, synthFromRows, watchRows } from './meta-unread';
 import { visiblyPresent } from './ready';
 import type { Recipe } from './types';
 
@@ -45,6 +45,11 @@ const messenger: Recipe = {
   },
   count(doc): Counts {
     return countUnreadRows(doc, THREAD_LINK, rowFor);
+  },
+  // count() sweeps every row's styles, so it is worth not running it at all
+  // while the thread list is untouched
+  watch(doc) {
+    return watchRows(doc, THREAD_LINK, rowFor);
   },
   // facebook.com never notifies in-page — it delegates to browser push, which
   // Electron doesn't support (no FCM)

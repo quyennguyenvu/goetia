@@ -11,13 +11,20 @@ import { unreadFromTitle } from './title';
  *  screen-reader string. Green presence dots ("Active now") must not count. */
 export function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
   if (row.textContent?.includes('Unread')) return true;
-  // one computed-style read per element (bold text OR blue unread dot),
-  // instead of two overlapping querySelectorAll sweeps
+  // A style read can flush a pending recalc, and this loop runs per row per
+  // tick — so read one only for elements that could actually carry a signal.
+  // Bold text is only ever on a span; the dot carries no text at all. That
+  // skips every text-bearing wrapper, which is the bulk of a row, without
+  // changing which elements can return true.
   for (const el of row.querySelectorAll('span, div, i')) {
+    const isSpan = el.tagName === 'SPAN';
+    const couldBeDot = !el.textContent;
+    if (!isSpan && !couldBeDot) continue;
     const style = win.getComputedStyle(el);
-    if (el.tagName === 'SPAN' && Number.parseInt(style.fontWeight, 10) >= 600) {
+    if (isSpan && Number.parseInt(style.fontWeight, 10) >= 600) {
       return true;
     }
+    if (!couldBeDot) continue;
     const radius = style.borderRadius;
     if (!radius || (!radius.includes('%') && Number.parseInt(radius, 10) < 8)) continue;
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(style.backgroundColor);
@@ -50,6 +57,20 @@ export function countUnreadRows(
     if (isUnreadRow(rowFor(link), win)) direct++;
   }
   return { direct, indirect: 0 };
+}
+
+/** The thread list, derived from the very selectors count() uses so it cannot
+ *  drift from them: the container holding the first thread row. Null while no
+ *  thread link exists (logged out, still booting), which makes the runner
+ *  count every tick until the surface is up. */
+export function watchRows(
+  doc: Document,
+  linkSelector: string,
+  rowFor: (link: Element) => Element,
+): Node | null {
+  const link = doc.querySelector(linkSelector);
+  if (!link) return null;
+  return rowFor(link).parentElement;
 }
 
 /** Build a banner from the first unread row — for Meta sites that never

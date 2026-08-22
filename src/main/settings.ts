@@ -104,10 +104,41 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
   };
 }
 
+/** get() hands out a shared reference rather than a fresh normalize() per call,
+ *  so a caller mutating it would poison every later read. Freezing turns that
+ *  into an immediate TypeError instead of silent corruption; writes are rare,
+ *  so the walk costs nothing. Every nested object normalize() emits is freshly
+ *  built, so nothing shared with DEFAULT_SETTINGS is frozen by this. */
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const nested of Object.values(value)) deepFreeze(nested);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+/** Trailing window for deferred writes. An atomic write costs ~5 ms of
+ *  synchronous main-process I/O, and zoom is the one setting on a key-repeat
+ *  path (⌘+ held down). Throttle, not debounce: the first call sets the
+ *  deadline, so persistence latency stays bounded however long the key is held. */
+const DEFER_MS = 400;
+
 /** JSON settings at <cwd>/settings.json. `conf` is electron-store's engine,
  *  used directly so this is testable without an Electron runtime. */
 export class SettingsStore {
   private conf: Conf<Settings>;
+  /** Authoritative between writes. `conf.store` does a readFileSync plus a
+   *  JSON.parse on every access, and normalize() rebuilds four records on top —
+   *  which one broadcast used to pay about five times over. This store is the
+   *  only writer, so re-reading the file per get() bought nothing but
+   *  synchronous I/O on the main thread. An edit made to settings.json
+   *  underneath a running app is consequently not observed until restart. */
+  private cached: Settings;
+  private deferred: Partial<Settings> | null = null;
+  private deferTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Disk writes performed. Exists so the batching this class does can be
+   *  asserted rather than assumed. */
+  writeCount = 0;
   /** ids the cap disabled when this store first read the file — persisted
    *  immediately so the trim happens once, surfaced so the shell can say so */
   readonly bootTrimmed: ServiceId[];
@@ -116,17 +147,56 @@ export class SettingsStore {
     this.conf = new Conf<Settings>({ cwd, configName: 'settings', defaults: DEFAULT_SETTINGS });
     const first = normalize({ ...DEFAULT_SETTINGS, ...this.conf.store });
     this.bootTrimmed = first.trimmed;
-    if (first.trimmed.length > 0) this.conf.set('disabled', first.settings.disabled);
+    this.cached = deepFreeze(first.settings);
+    if (first.trimmed.length > 0) this.write({ disabled: first.settings.disabled });
   }
 
   get(): Settings {
-    return normalize({ ...DEFAULT_SETTINGS, ...this.conf.store }).settings;
+    return this.cached;
   }
 
+  /** One atomic write per patch, whatever its size. The old per-key conf.set()
+   *  loop paid a full ~5 ms write for each key — 12.3 ms on every service
+   *  switch, since rememberSurface writes two. */
   update(patch: Partial<Settings>): Settings {
-    for (const [k, v] of Object.entries(patch)) {
-      this.conf.set(k as keyof Settings, v as Settings[keyof Settings]);
+    return this.write(patch);
+  }
+
+  /** Cache now, disk shortly. Only for settings whose loss to a hard kill is
+   *  harmless — zoom loses one step. NEVER for the remembered surface: it is
+   *  written on change precisely because a crash never runs before-quit. */
+  updateDeferred(patch: Partial<Settings>): Settings {
+    this.deferred = { ...this.deferred, ...patch };
+    this.cached = deepFreeze(normalize({ ...this.cached, ...patch }).settings);
+    if (!this.deferTimer) this.deferTimer = setTimeout(() => this.flush(), DEFER_MS);
+    return this.cached;
+  }
+
+  /** Commit a pending deferred patch now. No-op when nothing is pending. */
+  flush(): void {
+    if (!this.deferred) return;
+    this.write({});
+  }
+
+  dispose(): void {
+    this.flush();
+  }
+
+  private write(patch: Partial<Settings>): Settings {
+    if (this.deferTimer) {
+      clearTimeout(this.deferTimer);
+      this.deferTimer = null;
     }
-    return this.get();
+    // an immediate write carries any pending deferred patch with it, so a
+    // flush racing an update can never drop the deferred keys
+    const merged = this.deferred ? { ...this.deferred, ...patch } : patch;
+    this.deferred = null;
+    // assigning the store commits in a single _write, where a conf.set() per
+    // key paid a full atomic write each. Merging onto the file's own contents
+    // keeps exactly the persisted shape the per-key loop produced.
+    this.conf.store = { ...this.conf.store, ...merged };
+    this.writeCount++;
+    this.cached = deepFreeze(normalize({ ...DEFAULT_SETTINGS, ...this.conf.store }).settings);
+    return this.cached;
   }
 }

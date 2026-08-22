@@ -1,11 +1,12 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, nativeImage, nativeTheme } from 'electron';
-import { aggregateBadges } from '../shared/badges';
+import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor } from 'electron';
+import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
 import { type AppContext, registerIpcHandlers } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
+import { coalesce } from './lib/coalesce';
 import { audioMuted } from './lib/notification-rules';
 import { muteToggleResult, quietWindowFor } from './lib/quiet-hours-rules';
 import { resolveStartupSurface } from './lib/startup-surface';
@@ -170,7 +171,8 @@ app
     };
 
     let tray: ReturnType<typeof createTray> | null = null;
-    const broadcast = () => {
+    let appliedBadges: BadgeSummary | null = null;
+    const flushBroadcast = () => {
       if (win.isDestroyed()) return;
       const s = settings.get();
       win.webContents.send(
@@ -178,10 +180,22 @@ app
         state.snapshot(s, effectiveTheme(), app.getVersion(), quiet.quietNow()),
       );
       const summary = aggregateBadges(s.order.map((id) => state.runtime(id).unread));
-      applyBadges(win, summary);
-      tray?.updateTooltip(summary.total);
+      // setBadgeCount and setToolTip are platform calls; only make them when
+      // the number actually moved, not on every unrelated state change
+      if (
+        !appliedBadges ||
+        appliedBadges.total !== summary.total ||
+        appliedBadges.indirectOnly !== summary.indirectOnly
+      ) {
+        appliedBadges = summary;
+        applyBadges(win, summary);
+        tray?.updateTooltip(summary.total);
+      }
       syncOverlay();
     };
+    // one pass per burst: a handler that touches several services in a loop
+    // used to pay the whole fan-out per iteration
+    const broadcast = coalesce(flushBroadcast);
 
     // the boundary fire and the mute toggle share one tail so they can't drift
     const quietSideEffects = () => {
@@ -237,6 +251,7 @@ app
         quietSideEffects();
       },
       quietNow: () => quiet.quietNow(),
+      onBattery: () => powerMonitor.onBatteryPower,
       quietScheduleChanged: () => {
         quiet.rearm();
         quietSideEffects();
@@ -253,6 +268,9 @@ app
     quiet.start();
     applySummon();
     tray = createTray(ctx);
+    // the tray missed any badge applied before it existed; re-apply on the next
+    // broadcast rather than leaving its tooltip stale
+    appliedBadges = null;
     buildAppMenu(ctx);
 
     // dev and e2e runs must not touch the network; a manual check still works
@@ -262,6 +280,9 @@ app
       quiet.dispose();
       summon.dispose();
       hibernation.dispose();
+      resilience?.dispose();
+      // last: commits any deferred write (zoom) before the process goes
+      settings.dispose();
     });
 
     const s0 = settings.get();

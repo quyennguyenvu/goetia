@@ -343,4 +343,129 @@ describe('SettingsStore', () => {
     store.update({ zoom: { ...store.get().zoom, slack: 1 } });
     expect(new SettingsStore(dir).get().zoom.slack).toBe(1);
   });
+
+  // R3: get() re-read and re-normalized settings.json on every call (27 µs of
+  // synchronous readFileSync, ~5× per broadcast). Reads now come from memory.
+  it('serves reads from memory instead of re-reading the file', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    expect(store.get().hibernationMinutes).toBe(30);
+    // an edit made underneath a running store is not observed: the cache is
+    // authoritative between writes, and this store is the only writer
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ hibernationMinutes: 99 }));
+    expect(store.get().hibernationMinutes).toBe(30);
+  });
+
+  it('freezes what get() hands out, so a stray mutation cannot poison the cache', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    const s = store.get();
+    // get() returns a shared reference now rather than a fresh normalize() per
+    // call, so mutating it would silently corrupt every later read
+    expect(() => {
+      (s as { globalMuted: boolean }).globalMuted = true;
+    }).toThrow(TypeError);
+    expect(() => {
+      (s.disabled as Record<string, boolean>).slack = false;
+    }).toThrow(TypeError);
+    expect(store.get().globalMuted).toBe(false);
+    // the supported way to change it still works
+    expect(store.update({ globalMuted: true }).globalMuted).toBe(true);
+  });
+
+  it('reflects its own writes immediately (read-your-writes)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.update({ globalMuted: true });
+    // setServiceMuted writes and then re-reads through applyAudioMute; a cache
+    // that lagged a write would silently stop mute from taking effect
+    expect(store.get().globalMuted).toBe(true);
+    store.update({ muted: { ...store.get().muted, slack: true } });
+    expect(store.get().muted.slack).toBe(true);
+  });
+
+  it('re-normalizes its own writes rather than trusting the patch', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    // the cap must still apply to a cached write, not just a file read
+    const allOn = Object.fromEntries(SERVICES.map((s) => [s.id, false])) as Settings['disabled'];
+    store.update({ disabled: allOn });
+    const s = store.get();
+    expect(s.order.filter((id) => !s.disabled[id])).toHaveLength(9);
+  });
+
+  it('invalidates the cache after the boot trim writes', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const allOn = Object.fromEntries(SERVICES.map((s) => [s.id, false]));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ disabled: allOn }));
+    const store = new SettingsStore(dir);
+    expect(store.bootTrimmed).toEqual(['zalo']);
+    expect(store.get().disabled.zalo).toBe(true);
+  });
+
+  // R4': update() looped conf.set per key, and each key is a full atomic write
+  // (4.96 ms measured). rememberSurface writes two keys on every service switch.
+  it('persists a multi-key patch as one write', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    expect(store.writeCount).toBe(0);
+    store.update({ lastActiveId: 'discord', lastHomeOpen: true });
+    expect(store.writeCount).toBe(1);
+    const reread = new SettingsStore(dir).get();
+    expect(reread.lastActiveId).toBe('discord');
+    expect(reread.lastHomeOpen).toBe(true);
+  });
+
+  // R4': zoom is the one setting on a key-repeat path (⌘+ held down), and
+  // losing the last step to a hard kill is harmless — unlike the remembered
+  // surface, which must stay immediate.
+  it('defers a deferred write until flush, while reading it back immediately', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.updateDeferred({ zoom: { ...store.get().zoom, slack: 1 } });
+    expect(store.get().zoom.slack).toBe(1); // read-your-writes from the cache
+    expect(new SettingsStore(dir).get().zoom.slack).toBe(0); // not on disk yet
+    store.flush();
+    expect(new SettingsStore(dir).get().zoom.slack).toBe(1);
+  });
+
+  it('coalesces repeated deferred writes into a single flush', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    // ⌘+ held down: four steps within ZOOM_MAX, so nothing clamps here
+    for (const level of [0.5, 1, 1.5, 2]) {
+      store.updateDeferred({ zoom: { ...store.get().zoom, slack: level } });
+    }
+    expect(store.writeCount).toBe(0); // nothing has touched the disk yet
+    store.flush();
+    expect(store.writeCount).toBe(1);
+    expect(new SettingsStore(dir).get().zoom.slack).toBe(2);
+  });
+
+  it('flushes a pending deferred write on dispose', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.updateDeferred({ zoom: { ...store.get().zoom, teams: 2 } });
+    store.dispose();
+    expect(new SettingsStore(dir).get().zoom.teams).toBe(2);
+  });
+
+  it('treats flush with nothing pending as a no-op', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.flush();
+    store.flush();
+    expect(store.writeCount).toBe(0);
+  });
+
+  it('lets an immediate update overtake a pending deferred one', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.updateDeferred({ zoom: { ...store.get().zoom, slack: 1 } });
+    store.update({ lastActiveId: 'slack' });
+    // the immediate write must carry the pending zoom with it, not drop it
+    const reread = new SettingsStore(dir).get();
+    expect(reread.lastActiveId).toBe('slack');
+    expect(reread.zoom.slack).toBe(1);
+  });
 });

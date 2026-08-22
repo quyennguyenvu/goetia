@@ -11,12 +11,15 @@ export async function confirmSignOut(ctx: AppContext, id: ServiceId): Promise<vo
   const { response } = await dialog.showMessageBox(ctx.win, {
     type: 'warning',
     message: `Sign out of ${name}?`,
-    detail: 'This clears its login on this device. An active call on this service would end.',
+    detail: 'This clears its login on this device and ends any call in progress.',
     buttons: ['Cancel', 'Sign Out'],
     defaultId: 0,
     cancelId: 0,
   });
   if (response !== 1) return;
+  // before the wipe, and unconditionally: the dialog above promises the call
+  // ends, and a call window runs in this very partition
+  ctx.views.closeCallWindows(id);
   await session.fromPartition(`persist:${id}`).clearStorageData();
   ctx.views.loadServiceUrl(id);
   ctx.broadcast();

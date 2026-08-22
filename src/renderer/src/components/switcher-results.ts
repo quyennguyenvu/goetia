@@ -43,3 +43,19 @@ export function relativeTime(at: number, now: number): string {
   if (d < 86_400_000) return `${Math.floor(d / 3_600_000)} h`;
   return `${Math.floor(d / 86_400_000)} d`;
 }
+
+/** ms until relativeTime() would read differently — the label's own granularity
+ *  rather than an arbitrary interval, so the switcher re-renders on the boundary
+ *  and not before. Floored at a second so a clock jump cannot spin it. */
+export function msUntilLabelChange(at: number, now: number): number {
+  const d = Math.max(0, now - at);
+  const step = d < 3_600_000 ? 60_000 : d < 86_400_000 ? 3_600_000 : 86_400_000;
+  return Math.max(1_000, step - (d % step));
+}
+
+/** Soonest label change across the shown rows, or null when there is nothing
+ *  to tick — an empty list must not schedule a timer at all. */
+export function nextLabelChange(ats: number[], now: number): number | null {
+  if (ats.length === 0) return null;
+  return Math.min(...ats.map((at) => msUntilLabelChange(at, now)));
+}

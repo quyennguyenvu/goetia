@@ -275,6 +275,18 @@ export default function SettingsView() {
                   />
                 </Row>
                 <Row
+                  label="Battery saver for Light Sleep"
+                  hint="Wake a quiet service less often, and least often on battery. Saves a lot of work; its badge can lag by up to an hour."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="peek-saver-enabled"
+                    disabled={!s.lightSleep}
+                    checked={s.peekSaver}
+                    onChange={(e) => update({ peekSaver: e.target.checked })}
+                  />
+                </Row>
+                <Row
                   label="Summoning hotkey"
                   hint={
                     state.summonHotkeyOk

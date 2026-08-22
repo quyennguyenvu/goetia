@@ -82,6 +82,11 @@ export interface Settings {
   /** Peek sleeping services on a schedule so badges and banners keep working
    *  while their views are destroyed. */
   lightSleep: boolean;
+  /** Trade badge freshness for battery: peek a service less often the longer
+   *  its count sits unchanged, and start at the longest interval on battery.
+   *  Off by default — a staler badge is a real cost, so it is the user's call.
+   *  See lib/peek-rules peekInterval. */
+  peekSaver: boolean;
   /** scheduled global mute: window + active days; see lib/quiet-hours-rules */
   quietHours: QuietHoursSchedule;
   /** start (epoch ms) of the one window the user dismissed by unmuting */
@@ -168,6 +173,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   hibernationMinutes: 30,
   lightSleep: true,
+  peekSaver: false,
   quietHours: {
     enabled: false,
     start: '22:00',

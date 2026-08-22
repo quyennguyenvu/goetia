@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_RECENTS,
+  msUntilLabelChange,
+  nextLabelChange,
   relativeTime,
   switcherRows,
 } from '../../src/renderer/src/components/switcher-results';
@@ -69,5 +71,54 @@ describe('relativeTime', () => {
     expect(relativeTime(0, 3_599_000)).toBe('59 m');
     expect(relativeTime(0, 3_600_000)).toBe('1 h');
     expect(relativeTime(0, 86_400_000)).toBe('1 d');
+  });
+});
+
+// S3: relativeTime was evaluated at render only, so "3 m" froze for as long as
+// the switcher stayed open. Ticking on the boundary beats an arbitrary interval.
+describe('msUntilLabelChange', () => {
+  const T = 1_760_000_000_000;
+
+  it('counts down to the minute a fresh entry stops being "now"', () => {
+    expect(relativeTime(T, T + 10_000)).toBe('now');
+    expect(msUntilLabelChange(T, T + 10_000)).toBe(50_000);
+    expect(relativeTime(T, T + 60_000)).toBe('1 m');
+  });
+
+  it('lands on the next minute boundary while minutes are shown', () => {
+    expect(msUntilLabelChange(T, T + 90_000)).toBe(30_000);
+    expect(relativeTime(T, T + 90_000)).toBe('1 m');
+    expect(relativeTime(T, T + 120_000)).toBe('2 m');
+  });
+
+  it('steps by the hour once hours are shown', () => {
+    const d = 3_600_000 + 600_000; // 1h10m
+    expect(relativeTime(T, T + d)).toBe('1 h');
+    expect(msUntilLabelChange(T, T + d)).toBe(3_600_000 - 600_000);
+  });
+
+  it('steps by the day once days are shown', () => {
+    const d = 86_400_000 + 3_600_000;
+    expect(relativeTime(T, T + d)).toBe('1 d');
+    expect(msUntilLabelChange(T, T + d)).toBe(86_400_000 - 3_600_000);
+  });
+
+  it('never returns a value tight enough to spin', () => {
+    // one millisecond short of a boundary, and a clock that has gone backwards
+    expect(msUntilLabelChange(T, T + 59_999)).toBe(1_000);
+    expect(msUntilLabelChange(T, T - 5_000)).toBeGreaterThanOrEqual(1_000);
+  });
+});
+
+describe('nextLabelChange', () => {
+  const T = 1_760_000_000_000;
+
+  it('is null with nothing to tick, so the switcher schedules no timer', () => {
+    expect(nextLabelChange([], T)).toBeNull();
+  });
+
+  it('takes the soonest change across the rows', () => {
+    // a 10s-old row changes in 50s; a 90s-old row changes in 30s
+    expect(nextLabelChange([T - 10_000, T - 90_000], T)).toBe(30_000);
   });
 });

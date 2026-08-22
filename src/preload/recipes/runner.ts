@@ -13,6 +13,13 @@ export const COUNT_TIMEOUT_MS = 8_000;
  *  chat can't fight the containment every tick. */
 export const SNAPBACK_MIN_INTERVAL_MS = 30_000;
 
+/** Consecutive skipped ticks before a count is forced anyway. The observer is
+ *  a cost optimization and nothing else: if it ever goes deaf, this bounds the
+ *  damage to latency (5 × ~2s = ~10s) rather than a badge that stops moving or
+ *  a banner that never fires. Kept small on purpose — Meta services synthesize
+ *  their notifications from this count, so it is not a place to be clever. */
+export const FORCE_RECOUNT_TICKS = 5;
+
 export function startRecipe(
   recipe: Recipe,
   doc: Document,
@@ -31,6 +38,43 @@ export function startRecipe(
   let lastKeepAlive = Number.NEGATIVE_INFINITY;
   let lastSnapBack = Number.NEGATIVE_INFINITY;
   let wasInChat = false;
+  // recount gating: a quiet list is not worth re-sweeping every tick
+  let dirty = true;
+  let skipped = 0;
+  let watched: Node | null = null;
+  let observer: MutationObserver | null = null;
+  let lastTitle: string | undefined;
+
+  /** Point the observer at the current subtree, re-binding when the page has
+   *  swapped it out (virtualized lists replace their container wholesale). A
+   *  re-target always marks dirty: the new subtree has not been counted. */
+  const retarget = (): void => {
+    if (!recipe.watch) return;
+    const Observer = (doc.defaultView as (Window & typeof globalThis) | null)?.MutationObserver;
+    if (!Observer) return; // no observer available: count every tick, as before
+    let target: Node | null = null;
+    try {
+      target = recipe.watch(doc);
+    } catch {
+      target = null; // a throwing watch() must never stop the counting below
+    }
+    if (target === watched && (!target || doc.contains(target))) return;
+    watched = target;
+    dirty = true;
+    observer?.disconnect();
+    observer = null;
+    if (!target) return;
+    observer = new Observer(() => {
+      dirty = true;
+    });
+    observer.observe(target, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+    });
+  };
+
   setIntervalFn(async () => {
     if (busy) return;
     busy = true;
@@ -70,6 +114,21 @@ export function startRecipe(
         // keep-alive is best-effort; counting below still decides staleness
       }
     }
+    // The count itself: skipped only while an observer is live and neither the
+    // watched subtree nor the title has moved. A new message necessarily
+    // mutates the DOM count() reads it from — if it didn't, count() could not
+    // have seen it either — and the title is checked because the "(n)" badge
+    // fallback lives outside any thread list.
+    retarget();
+    if (doc.title !== lastTitle) dirty = true;
+    if (observer && !dirty && skipped < FORCE_RECOUNT_TICKS) {
+      skipped++;
+      busy = false;
+      return;
+    }
+    skipped = 0;
+    dirty = false;
+    lastTitle = doc.title;
     try {
       const counts = await Promise.race([
         recipe.count(doc),

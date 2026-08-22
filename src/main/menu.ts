@@ -23,7 +23,10 @@ function setActiveZoom(ctx: AppContext, next: (current: number) => number): void
   const id = ctx.state.activeId;
   if (!ctx.views.has(id)) return;
   const s = ctx.settings.get();
-  ctx.settings.update({ zoom: { ...s.zoom, [id]: next(s.zoom[id]) } });
+  // deferred: ⌘+ is a key-repeat path and an atomic write costs ~5 ms. The
+  // level is live in the cache immediately, so applyZoom below still reads it;
+  // a hard kill inside the window loses one zoom step and nothing else.
+  ctx.settings.updateDeferred({ zoom: { ...s.zoom, [id]: next(s.zoom[id]) } });
   ctx.views.applyZoom(id);
 }
 

@@ -10,8 +10,22 @@ const DWELL_MS = 30_000;
 export class ResilienceManager {
   private attempts = new Map<ServiceId, number>();
   private dwellTimers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
+  /** every pending backoff reload, so quit can cancel them; a set rather than
+   *  a per-service slot so two crashes still schedule the two reloads they
+   *  always did */
+  private reloadTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(private ctx: AppContext) {}
+
+  /** Bounded timers: this is the one controller that used to leave both its
+   *  reload and dwell timers running past quit. */
+  dispose(): void {
+    for (const t of this.reloadTimers) clearTimeout(t);
+    this.reloadTimers.clear();
+    for (const t of this.dwellTimers.values()) clearTimeout(t);
+    this.dwellTimers.clear();
+    this.attempts.clear();
+  }
 
   private clearDwell(id: ServiceId): void {
     const t = this.dwellTimers.get(id);
@@ -27,7 +41,11 @@ export class ResilienceManager {
     this.ctx.state.setRuntime(id, { crashed: true });
     if (attempt >= MAX_AUTO_RELOADS) return; // give up; manual Retry only
     this.attempts.set(id, attempt + 1);
-    setTimeout(() => this.ctx.views.reload(id), backoffDelay(attempt));
+    const timer = setTimeout(() => {
+      this.reloadTimers.delete(timer);
+      this.ctx.views.reload(id);
+    }, backoffDelay(attempt));
+    this.reloadTimers.add(timer);
   }
 
   onLoadFailed(id: ServiceId): void {

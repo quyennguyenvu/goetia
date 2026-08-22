@@ -1,5 +1,5 @@
 import { app, type BrowserWindow, ipcMain, Menu, shell } from 'electron';
-import type { RendererToMain } from '../shared/ipc';
+import type { RendererInvoke, RendererToMain } from '../shared/ipc';
 import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
 import { activateService, performBannerAction, rememberSurface, setHomeOpen } from './activate';
@@ -43,11 +43,30 @@ export interface AppContext {
   setGlobalMuted(muted: boolean): void;
   /** quiet-hours engagement right now, override applied; late-bound in index.ts */
   quietNow(): boolean;
+  /** running on battery — Light Sleep's opt-in saver peeks less there;
+   *  late-bound in index.ts so hibernation.ts stays free of electron */
+  onBattery(): boolean;
   /** re-arm the boundary timer and re-apply mute after a schedule edit;
    *  late-bound in index.ts */
   quietScheduleChanged(): void;
   /** re-register the summon hotkey after a setting edit; late-bound in index.ts */
   summonHotkeyChanged(): void;
+}
+
+/** The one sender gate, shared by both wrappers below so neither transport can
+ *  drift from the other. */
+function senderAllowed(
+  ctx: AppContext,
+  channel: keyof RendererToMain | keyof RendererInvoke,
+  senderId: number,
+  payloadServiceId?: ServiceId,
+): boolean {
+  return ipcSenderAllowed({
+    channel,
+    fromShell: senderId === ctx.win.webContents.id,
+    senderServiceId: ctx.views.serviceIdForWebContentsId(senderId),
+    payloadServiceId,
+  });
 }
 
 function register(ctx: AppContext) {
@@ -56,21 +75,24 @@ function register(ctx: AppContext) {
     fn: (payload: RendererToMain[C]) => void,
   ): void => {
     ipcMain.on(channel, (e, payload) => {
-      const fromShell = e.sender.id === ctx.win.webContents.id;
-      const senderServiceId = ctx.views.serviceIdForWebContentsId(e.sender.id);
       const p = payload as { serviceId?: ServiceId };
-      if (
-        !ipcSenderAllowed({
-          channel,
-          fromShell,
-          senderServiceId,
-          payloadServiceId: p?.serviceId,
-        })
-      ) {
+      if (!senderAllowed(ctx, channel, e.sender.id, p?.serviceId)) {
         return; // drop spoofed / cross-service messages
       }
       fn(payload as RendererToMain[C]);
     });
+  };
+}
+
+/** invoke twin of register(): same gate, so a round-trip channel cannot be
+ *  added without one. `blocked` is what a rejected sender receives. */
+function registerInvoke(ctx: AppContext) {
+  return <C extends keyof RendererInvoke>(
+    channel: C,
+    blocked: RendererInvoke[C]['result'],
+    fn: () => RendererInvoke[C]['result'],
+  ): void => {
+    ipcMain.handle(channel, (e) => (senderAllowed(ctx, channel, e.sender.id) ? fn() : blocked));
   };
 }
 
@@ -83,6 +105,7 @@ function setServiceMuted(ctx: AppContext, serviceId: ServiceId, muted: boolean):
 
 export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter): void {
   const on = register(ctx);
+  const onInvoke = registerInvoke(ctx);
   on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
   on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));
@@ -189,21 +212,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
-  ipcMain.handle('activity:recent', (e) => {
-    const fromShell = e.sender.id === ctx.win.webContents.id;
-    const senderServiceId = ctx.views.serviceIdForWebContentsId(e.sender.id);
-    if (
-      !ipcSenderAllowed({
-        channel: 'activity:recent',
-        fromShell,
-        senderServiceId,
-        payloadServiceId: undefined,
-      })
-    ) {
-      return [];
-    }
-    return ctx.activity.recent();
-  });
+  onInvoke('activity:recent', [], () => ctx.activity.recent());
   on('activity:open', ({ entryId }) => {
     const entry = ctx.activity.get(entryId);
     if (!entry) return; // rotated out of the ring since the switcher fetched

@@ -15,6 +15,13 @@ export interface Recipe {
   chatPaths?: string[];
   /** Extract unread counts from the live page. Throwing marks counts stale. */
   count(doc: Document): Counts | Promise<Counts>;
+  /** The subtree `count()` reads, so the runner can skip a tick entirely while
+   *  nothing in it has changed. Worth declaring only for an expensive count()
+   *  — a cheap one is not worth an observer. Return null while the surface is
+   *  absent (logged out, still booting) and every tick counts, as before.
+   *  Correctness never rests on this: the runner forces a recount every
+   *  FORCE_RECOUNT_TICKS regardless, and watches the title separately. */
+  watch?(doc: Document): Node | null;
   /** Chat UI is rendered and usable — ends the shell's waking cover
    *  early. Absent: did-finish-load is the ready signal instead
    *  (ServiceMeta.waitForReady mirrors this). */

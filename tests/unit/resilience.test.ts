@@ -49,4 +49,31 @@ describe('ResilienceManager crash cap', () => {
     expect(reloads.length).toBeGreaterThan(5); // each dwell re-armed the budget
     vi.useRealTimers();
   });
+
+  // B5: the crash-reload timeout and the dwell timers were never cleared, and
+  // ResilienceManager was the one controller missing from before-quit.
+  it('cancels a pending auto-reload on dispose', () => {
+    vi.useFakeTimers();
+    const { ctx, reloads } = harness();
+    const r = new ResilienceManager(ctx);
+    r.onCrashed('messenger');
+    r.dispose();
+    vi.advanceTimersByTime(120_000);
+    expect(reloads).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it('cancels a pending dwell timer on dispose', () => {
+    vi.useFakeTimers();
+    const { ctx } = harness();
+    const r = new ResilienceManager(ctx);
+    r.onCrashed('messenger');
+    vi.advanceTimersByTime(60_000);
+    r.noteRecovered('messenger'); // arms the DWELL_MS forget timer
+    expect(() => {
+      r.dispose();
+      vi.advanceTimersByTime(60_000);
+    }).not.toThrow();
+    vi.useRealTimers();
+  });
 });

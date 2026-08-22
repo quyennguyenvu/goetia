@@ -16,12 +16,35 @@ import type { RailPosition, ServiceId } from '../shared/types';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
 import { isSafeExternalUrl } from './lib/external-url';
-import { viewBounds } from './lib/layout';
+import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
+import { NavigationAudit } from './lib/navigation-audit';
 import { isNavigationAllowed } from './lib/navigation-policy';
 import { permissionAllowed } from './lib/permission-policy';
 import { reloadAllowed } from './lib/reload-guard';
 
 const EDIT_LABELS = { cut: 'Cut', copy: 'Copy', paste: 'Paste', selectAll: 'Select All' } as const;
+
+/** Calls diagnosis (2026-08-16), off unless GOETIA_DEBUG_CALLS is set. Two of
+ *  these sat on hot paths: the permission handler fires per request, and the
+ *  call window's console-message listener forwards every line the page logs —
+ *  a cost paid on registration, so the diagnostic-only listeners below are not
+ *  attached at all when the flag is off. */
+const DEBUG_CALLS = Boolean(process.env.GOETIA_DEBUG_CALLS);
+
+/** Navigation containment is enforced unless explicitly switched off, which
+ *  exists only so a suspected false block can be confirmed as one. */
+const NAV_ENFORCED = process.env.GOETIA_NAV_ENFORCE !== 'off';
+
+/** `keepRendered` does two separable things: the preload spoof pins the page's
+ *  visibility, and setBackgroundThrottling(false) exempts its timers from
+ *  Chromium throttling. Only the first is what Zalo's unmount-when-hidden
+ *  behaviour needs; the second is what costs battery 24/7. `throttled` keeps
+ *  the spoof and drops the exemption, so the two can be told apart against a
+ *  live session before the default changes. */
+const KEEP_RENDERED_THROTTLED = process.env.GOETIA_KEEP_RENDERED === 'throttled';
+function debugCalls(message: string): void {
+  if (DEBUG_CALLS) console.error(`[calls-debug] ${message}`);
+}
 
 export interface ViewHooks {
   onLoading(id: ServiceId, loading: boolean): void;
@@ -40,6 +63,12 @@ export class ServiceViewManager {
   private layoutScheduled = false;
   private clickHideTimers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
   private lastRefreshAt = new Map<ServiceId, number>();
+  /** last rect actually applied; every view and the overlay share it */
+  private lastBounds: ViewBounds | null = null;
+  /** which unlisted origins each service reached — see lib/navigation-audit.ts */
+  private navAudit = new NavigationAudit();
+  /** the one contained window per service holding a refused navigation */
+  private containedWindows = new Map<ServiceId, BrowserWindow>();
   private callWindows = new Map<ServiceId, Set<BrowserWindow>>();
 
   constructor(
@@ -93,9 +122,8 @@ export class ServiceViewManager {
         serviceUrl,
         callOrigins: CALL_ORIGINS[id],
       });
-      // TEMPORARY calls diagnosis (2026-08-16) — do not commit.
-      console.error(
-        `[calls-debug] permission "${permission}" from "${details.requestingUrl ?? ''}" on ${id}: ${ok ? 'grant' : 'DENY'}`,
+      debugCalls(
+        `permission "${permission}" from "${details.requestingUrl ?? ''}" on ${id}: ${ok ? 'grant' : 'DENY'}`,
       );
       cb(ok);
     });
@@ -143,12 +171,10 @@ export class ServiceViewManager {
     const wc = view.webContents;
     wc.setAudioMuted(this.audioMuted(id)); // a fresh view starts unmuted
     wc.setZoomLevel(this.zoomLevel(id));
-    if (svc.keepRendered) wc.setBackgroundThrottling(false);
+    if (svc.keepRendered && !KEEP_RENDERED_THROTTLED) wc.setBackgroundThrottling(false);
     wc.setWindowOpenHandler(({ url }) => {
-      // TEMPORARY calls diagnosis (2026-08-16): remove after capturing the
-      // real call-popup URL — do not commit.
-      console.error(
-        `[calls-debug] window.open from ${id}: "${url}" -> ${
+      debugCalls(
+        `window.open from ${id}: "${url}" -> ${
           isCallPopup(id, url) || isBlankCallPopup(id, url) ? 'ALLOW' : 'deny'
         }`,
       );
@@ -181,8 +207,7 @@ export class ServiceViewManager {
         return { action: 'deny' };
       });
       child.webContents.on('will-navigate', (e, url) => {
-        // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
-        console.error(`[calls-debug] guest nav on ${id}: "${url}"`);
+        debugCalls(`guest nav on ${id}: "${url}"`);
         e.preventDefault();
         if (isCallPopup(id, url)) {
           this.openCallWindow(id, url);
@@ -191,8 +216,7 @@ export class ServiceViewManager {
         if (isSafeExternalUrl(url)) shell.openExternal(url);
         if (!child.isDestroyed()) child.close();
       });
-      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
-      child.on('closed', () => console.error(`[calls-debug] guest closed (${id})`));
+      if (DEBUG_CALLS) child.on('closed', () => debugCalls(`guest closed (${id})`));
     });
     wc.on('context-menu', (_e, params) => {
       const items = buildContextMenuTemplate({
@@ -217,6 +241,23 @@ export class ServiceViewManager {
       // F5 reload while focus is inside the service page (menu covers Cmd/Ctrl+R)
       if (input.type === 'keyDown' && input.key === 'F5') this.refresh(id);
     });
+    // Navigation containment, enforced. A service view must never carry an
+    // unlisted origin, because this view runs unsandboxed with the recipe
+    // preload. The refused URL is not dropped, though: ALLOWED_HOSTS cannot
+    // enumerate tenant SSO or ADFS hosts, so killing it outright would strand
+    // real logins. It goes to a hardened contained window instead, which hands
+    // back to this view the moment it reaches an allowed host. The audit still
+    // records every refusal so the list can be completed from evidence.
+    const containNavigation = (e: { preventDefault(): void }, url: string): void => {
+      if (isNavigationAllowed(id, url)) return;
+      const record = this.navAudit.note(id, url);
+      if (record) console.warn(`[nav] contained: ${record} (${url})`);
+      if (!NAV_ENFORCED) return;
+      e.preventDefault();
+      this.openContainedWindow(id, url);
+    };
+    wc.on('will-navigate', (e, url) => containNavigation(e, url));
+    wc.on('will-redirect', (e, url) => containNavigation(e, url));
     wc.on('did-start-loading', () => this.hooks.onLoading(id, true));
     wc.on('did-finish-load', () => {
       // re-assert: restarts, hibernation wakes, reloads and sign-outs all
@@ -228,8 +269,7 @@ export class ServiceViewManager {
       if (isMainFrame && !isSameDocument) this.hooks.onNavigate(id);
     });
     wc.on('render-process-gone', (_e, d) => {
-      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
-      console.error(`[calls-debug] service ${id} GONE reason=${d.reason} exit=${d.exitCode}`);
+      debugCalls(`service ${id} GONE reason=${d.reason} exit=${d.exitCode}`);
       this.hooks.onCrashed(id);
     });
     wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
@@ -244,16 +284,13 @@ export class ServiceViewManager {
     return view;
   }
 
-  /** The adopted call surface: a standalone hardened window (isolated,
-   *  sandboxed, no preload, no opener) in the service's own partition, so the
-   *  signed-in session and the session-level permission and display-media
-   *  handlers apply. Unlike the guest it replaces, it has no Node env to race
-   *  and no scripting contract with the opener page. Closed on service
-   *  destroy; switching services leaves a call running. */
-  private openCallWindow(id: ServiceId, url: string): void {
-    // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
-    console.error(`[calls-debug] adopting call for ${id}: "${url}"`);
-    const call = new BrowserWindow({
+  /** A hardened window in the service's partition: isolated, sandboxed, no
+   *  preload and no opener, so the signed-in session and the session-level
+   *  permission and display-media handlers still apply while the page gets
+   *  none of the recipe preload's reach. Both the adopted call surface and a
+   *  contained navigation are built on this. */
+  private hardenedWindow(id: ServiceId): BrowserWindow {
+    return new BrowserWindow({
       width: 1080,
       height: 720,
       backgroundColor: '#0F1115',
@@ -264,6 +301,52 @@ export class ServiceViewManager {
         nodeIntegration: false,
       },
     });
+  }
+
+  /** Somewhere the service view is not allowed to go — most often an SSO host
+   *  no static list could name. It opens here instead: same session, none of
+   *  the preload. As soon as it lands back on a host the policy allows, the
+   *  service view takes the URL over and this window closes, so a login that
+   *  detours through an unlisted provider still finishes in the right place.
+   *  One per service: a page that spams navigations replaces, never stacks. */
+  private openContainedWindow(id: ServiceId, url: string): void {
+    const existing = this.containedWindows.get(id);
+    if (existing && !existing.isDestroyed()) {
+      existing.loadURL(url);
+      existing.focus();
+      return;
+    }
+    const win = this.hardenedWindow(id);
+    this.containedWindows.set(id, win);
+    win.on('closed', () => {
+      if (this.containedWindows.get(id) === win) this.containedWindows.delete(id);
+    });
+    win.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+      if (isSafeExternalUrl(popupUrl)) shell.openExternal(popupUrl);
+      return { action: 'deny' };
+    });
+    // did-navigate, not will-navigate: the redirect chain must be allowed to
+    // run its course, and only where it actually lands matters
+    const handBack = (_e: unknown, landedUrl: string): void => {
+      if (!isNavigationAllowed(id, landedUrl)) return;
+      const wc = this.views.get(id)?.webContents;
+      if (wc && !wc.isDestroyed()) wc.loadURL(landedUrl);
+      if (!win.isDestroyed()) win.close();
+    };
+    win.webContents.on('did-navigate', handBack);
+    win.webContents.on('did-navigate-in-page', handBack);
+    win.loadURL(url);
+  }
+
+  /** The adopted call surface: a standalone hardened window (isolated,
+   *  sandboxed, no preload, no opener) in the service's own partition, so the
+   *  signed-in session and the session-level permission and display-media
+   *  handlers apply. Unlike the guest it replaces, it has no Node env to race
+   *  and no scripting contract with the opener page. Closed on service
+   *  destroy; switching services leaves a call running. */
+  private openCallWindow(id: ServiceId, url: string): void {
+    debugCalls(`adopting call for ${id}: "${url}"`);
+    const call = this.hardenedWindow(id);
     let open = this.callWindows.get(id);
     if (!open) {
       open = new Set();
@@ -271,8 +354,7 @@ export class ServiceViewManager {
     }
     open.add(call);
     call.on('closed', () => {
-      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
-      console.error(`[calls-debug] call window closed (${id})`);
+      debugCalls(`call window closed (${id})`);
       this.callWindows.get(id)?.delete(call);
     });
     // a call window is not a browser: no further popups, and every
@@ -282,33 +364,34 @@ export class ServiceViewManager {
       return { action: 'deny' };
     });
     call.webContents.on('will-navigate', (e, navUrl) => {
-      // TEMPORARY calls diagnosis (2026-08-16): remove before commit.
-      console.error(`[calls-debug] call window nav on ${id}: "${navUrl}"`);
+      debugCalls(`call window nav on ${id}: "${navUrl}"`);
       if (isCallPopup(id, navUrl) || isNavigationAllowed(id, navUrl)) return;
       e.preventDefault();
       if (isSafeExternalUrl(navUrl)) shell.openExternal(navUrl);
       if (!call.isDestroyed()) call.close();
     });
-    // TEMPORARY calls diagnosis (2026-08-16): surface what the call page
-    // does — remove with the other debug lines, do not commit.
-    call.webContents.on('did-finish-load', () =>
-      console.error(`[calls-debug] call window loaded: ${call.webContents.getURL()}`),
-    );
-    call.webContents.on('did-navigate', (_e, navUrl, code) =>
-      console.error(`[calls-debug] call window did-navigate ${code}: "${navUrl}"`),
-    );
-    call.webContents.on('page-title-updated', (_e, title) =>
-      console.error(`[calls-debug] call window title: "${title}"`),
-    );
-    call.webContents.on('did-fail-load', (_e, code, desc, failedUrl) =>
-      console.error(`[calls-debug] call window FAILED load ${code} "${desc}" ${failedUrl}`),
-    );
-    call.webContents.on('console-message', (event) =>
-      console.error(`[calls-debug] call js[${event.level}]: ${event.message.slice(0, 300)}`),
-    );
-    call.webContents.on('render-process-gone', (_e, d) =>
-      console.error(`[calls-debug] call window GONE reason=${d.reason} exit=${d.exitCode}`),
-    );
+    // Diagnostic-only: never attached unless the flag is on. console-message
+    // in particular means every line the call page logs crosses the boundary.
+    if (DEBUG_CALLS) {
+      call.webContents.on('did-finish-load', () =>
+        debugCalls(`call window loaded: ${call.webContents.getURL()}`),
+      );
+      call.webContents.on('did-navigate', (_e, navUrl, code) =>
+        debugCalls(`call window did-navigate ${code}: "${navUrl}"`),
+      );
+      call.webContents.on('page-title-updated', (_e, title) =>
+        debugCalls(`call window title: "${title}"`),
+      );
+      call.webContents.on('did-fail-load', (_e, code, desc, failedUrl) =>
+        debugCalls(`call window FAILED load ${code} "${desc}" ${failedUrl}`),
+      );
+      call.webContents.on('console-message', (event) =>
+        debugCalls(`call js[${event.level}]: ${event.message.slice(0, 300)}`),
+      );
+      call.webContents.on('render-process-gone', (_e, d) =>
+        debugCalls(`call window GONE reason=${d.reason} exit=${d.exitCode}`),
+      );
+    }
     call.loadURL(url);
   }
 
@@ -452,13 +535,29 @@ export class ServiceViewManager {
     }
     this.win.contentView.removeChildView(view);
     this.lastRefreshAt.delete(id);
+    this.closeCallWindows(id);
+    this.closeContainedWindow(id);
+    view.webContents.close();
+    this.views.delete(id);
+    if (this.activeId === id) this.activeId = null;
+  }
+
+  /** End every call this service has open. A call outlives a service switch —
+   *  but not the service being destroyed, and not a sign-out: leaving a call
+   *  running on credentials the user just revoked is the surprising state the
+   *  sign-out dialog already promised not to leave them in. */
+  closeCallWindows(id: ServiceId): void {
     for (const call of this.callWindows.get(id) ?? []) {
       if (!call.isDestroyed()) call.close();
     }
     this.callWindows.delete(id);
-    view.webContents.close();
-    this.views.delete(id);
-    if (this.activeId === id) this.activeId = null;
+  }
+
+  /** A contained navigation belongs to the view that triggered it. */
+  private closeContainedWindow(id: ServiceId): void {
+    const win = this.containedWindows.get(id);
+    if (win && !win.isDestroyed()) win.close();
+    this.containedWindows.delete(id);
   }
 
   reload(id: ServiceId): void {
@@ -517,6 +616,11 @@ export class ServiceViewManager {
   layout(): void {
     const [w, h] = this.win.getContentSize();
     const bounds = viewBounds(w, h, this.railPosition());
+    // a resize drag schedules a pass every ~16ms, and most recompute the rect
+    // every view already holds; create() sets a new view's bounds directly, so
+    // skipping here can never leave one unsized
+    if (sameBounds(this.lastBounds, bounds)) return;
+    this.lastBounds = bounds;
     for (const view of this.views.values()) view.setBounds(bounds);
     this.overlay?.setBounds(bounds);
   }

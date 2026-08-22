@@ -11,6 +11,9 @@ const allowed = new Set<string>(R2M_CHANNELS);
 const invokable = new Set<string>(INVOKE_CHANNELS);
 
 const api = {
+  /** A static process fact, so it is exposed once rather than carried in every
+   *  state broadcast. The shell needs it to skip work only Windows consumes. */
+  platform: process.platform as string,
   send<C extends keyof RendererToMain>(channel: C, payload: RendererToMain[C]): void {
     if (allowed.has(channel)) ipcRenderer.send(channel, payload);
   },

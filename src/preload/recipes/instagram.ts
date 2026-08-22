@@ -1,5 +1,5 @@
 import type { Counts } from '../../shared/types';
-import { countUnreadRows, synthFromRows } from './meta-unread';
+import { countUnreadRows, synthFromRows, watchRows } from './meta-unread';
 import { visiblyPresent } from './ready';
 import type { Recipe } from './types';
 
@@ -110,6 +110,10 @@ const instagram: Recipe = {
   },
   count(doc): Counts {
     return countUnreadRows(doc, THREAD_LINK, rowFor);
+  },
+  // same sweep as messenger's, so the same gating applies
+  watch(doc) {
+    return watchRows(doc, THREAD_LINK, rowFor);
   },
   synthNotification(doc) {
     return synthFromRows(doc, THREAD_LINK, rowFor);

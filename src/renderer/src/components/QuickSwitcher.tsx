@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { badgeLabel } from '../../../shared/badges';
 import type { ActivityEntryView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
-import { relativeTime, switcherRows } from './switcher-results';
+import { nextLabelChange, relativeTime, switcherRows } from './switcher-results';
 
 const logos = import.meta.glob<string>('../assets/logos/*.svg', {
   eager: true,
@@ -26,6 +26,7 @@ export default function QuickSwitcher() {
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const [recents, setRecents] = useState<ActivityEntryView[]>([]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
 
   const open = state?.switcherOpen ?? false;
@@ -34,6 +35,7 @@ export default function QuickSwitcher() {
     if (open) {
       setQuery('');
       setCursor(0);
+      setNowMs(Date.now());
       // one fetch per open — recents are never broadcast
       window.goetia
         .invoke('activity:recent')
@@ -42,6 +44,20 @@ export default function QuickSwitcher() {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
+
+  // Keep the timestamps honest while the switcher stays open: a clock that has
+  // stopped is worse than no clock. One timer, re-armed on each label boundary
+  // rather than a fixed interval, and none at all with nothing to age.
+  useEffect(() => {
+    if (!open) return;
+    const delay = nextLabelChange(
+      recents.map((r) => r.at),
+      nowMs,
+    );
+    if (delay === null) return;
+    const timer = setTimeout(() => setNowMs(Date.now()), delay);
+    return () => clearTimeout(timer);
+  }, [open, recents, nowMs]);
 
   const enabled = useMemo(
     () => (state ? state.services.filter((svc) => !state.settings.disabled[svc.id]) : []),
@@ -123,7 +139,7 @@ export default function QuickSwitcher() {
                 <img src={logos[`../assets/logos/${r.serviceId}.svg`]} alt="" className="h-5 w-5" />
                 <span className="flex-1 truncate text-text-1">{r.title}</span>
                 <span className="tabular text-[11px] text-text-2">
-                  {relativeTime(r.at, Date.now())}
+                  {relativeTime(r.at, nowMs)}
                   {r.silenced && <span title="Silenced by mute or quiet hours"> 🌙</span>}
                 </span>
               </button>

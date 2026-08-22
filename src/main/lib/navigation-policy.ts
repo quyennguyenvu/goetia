@@ -1,9 +1,18 @@
 import type { ServiceId } from '../../shared/types';
 
 /** Hosts each service's top-level view may navigate to (its own domain plus
- *  the hosts its login flow bounces through). Anything else opens in the OS
- *  browser instead of loading inside the app with the recipe preload.
- *  VERIFY LIVE per service before enforcing — auth hosts change. */
+ *  the hosts its login flow bounces through).
+ *
+ *  An entry starting with `.` is a suffix: `.slack.com` matches `slack.com`
+ *  and any subdomain of it, which is the only way to express per-workspace
+ *  hosts like `{team}.slack.com`. Suffixes never match a lookalike —
+ *  `evilslack.com` and `slack.com.evil.example` both fail.
+ *
+ *  This list is necessarily incomplete: tenant SSO and ADFS hosts are
+ *  per-organization arbitrary domains and cannot be enumerated. A navigation
+ *  it refuses is therefore NOT dead — it is adopted into a hardened contained
+ *  window (see ServiceViewManager), which is what makes enforcing this safe
+ *  before every service has had a live login pass. */
 const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   messenger: ['www.facebook.com', 'm.facebook.com', 'facebook.com', 'messenger.com'],
   // facebook hosts for the Log-in-with-Facebook bounce
@@ -20,27 +29,27 @@ const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   discord: ['discord.com', 'discordapp.com', 'canary.discord.com'],
   tiktok: ['www.tiktok.com', 'tiktok.com'],
   shopee: ['shopee.vn', 'accounts.shopee.vn'],
-  // per-user workspace hosts ({team}.slack.com) and the SSO bounce hosts
-  // (Google/Apple) can't be listed statically — needs suffix matching plus a
-  // live login pass before the guard can be wired for slack
-  slack: ['app.slack.com', 'slack.com', 'www.slack.com'],
-  // teams.live.com is where Microsoft sends personal accounts. Tenant SSO/ADFS
-  // hosts are per-organization and exact-host matching can't express them —
-  // needs a live tenant login before the guard can be wired for teams.
-  teams: [
-    'teams.microsoft.com',
-    'teams.live.com',
-    'login.microsoftonline.com',
-    'login.microsoft.com',
-    'login.live.com',
-  ],
+  // per-workspace hosts are {team}.slack.com, so slack needs the suffix form.
+  // Google/Apple SSO bounces stay unlisted and reach the contained window.
+  slack: ['.slack.com'],
+  // teams.live.com is where Microsoft sends personal accounts. Tenant SSO and
+  // ADFS hosts are per-organization arbitrary domains — inexpressible here, so
+  // they reach the contained window instead.
+  teams: ['teams.microsoft.com', '.live.com', '.microsoftonline.com', 'login.microsoft.com'],
 };
+
+function hostMatches(host: string, entry: string): boolean {
+  if (!entry.startsWith('.')) return host === entry;
+  // `.slack.com` covers slack.com itself and any subdomain, and nothing else:
+  // endsWith alone would also match `evilslack.com`
+  return host === entry.slice(1) || host.endsWith(entry);
+}
 
 export function isNavigationAllowed(id: ServiceId, url: string): boolean {
   try {
     const { protocol, host } = new URL(url);
     if (protocol !== 'https:' && protocol !== 'http:') return false;
-    return ALLOWED_HOSTS[id].includes(host);
+    return ALLOWED_HOSTS[id].some((entry) => hostMatches(host, entry));
   } catch {
     return false;
   }
