@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { activateService, performBannerAction, setHomeOpen } from '../../src/main/activate';
 import type { AppContext } from '../../src/main/ipc-handlers';
 import { MainState } from '../../src/main/state';
+import { DEFAULT_SETTINGS } from '../../src/shared/types';
 
 // activate.ts imports AppContext as a type only, so pulling it in here does not
 // load electron — a partial ctx with a real MainState is enough.
@@ -11,7 +12,7 @@ function makeCtx(state: MainState) {
   const ctx = {
     state,
     views,
-    settings: { update },
+    settings: { update, get: () => DEFAULT_SETTINGS },
     noteActivated: vi.fn(),
   } as unknown as AppContext;
   return { ctx, views, update };
@@ -52,7 +53,24 @@ describe('activateService', () => {
     state.homeOpen = true;
     const { ctx, update } = makeCtx(state);
     activateService(ctx, 'discord');
-    expect(update).toHaveBeenCalledWith({ lastActiveId: 'discord', lastHomeOpen: false });
+    expect(update).toHaveBeenCalledWith({
+      lastActiveId: 'discord',
+      lastHomeOpen: false,
+      lastUsedAt: expect.objectContaining({ discord: expect.any(Number) }),
+    });
+  });
+
+  it('stamps the usage clock at the activation instant', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_755_000_000_000);
+    const { ctx, update } = makeCtx(new MainState());
+    activateService(ctx, 'zalo');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastUsedAt: expect.objectContaining({ zalo: 1_755_000_000_000 }),
+      }),
+    );
+    vi.useRealTimers();
   });
 });
 
@@ -102,7 +120,7 @@ describe('performBannerAction', () => {
     const ctx = {
       state,
       views,
-      settings: { update: vi.fn() },
+      settings: { update: vi.fn(), get: () => DEFAULT_SETTINGS },
       noteActivated: vi.fn(),
     } as unknown as AppContext;
     return { ctx, views };

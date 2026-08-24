@@ -8,6 +8,8 @@ export interface RendererToMain {
   'service:reload': { serviceId: ServiceId };
   /** right-click on a rail tile: main pops the native per-service menu */
   'service:tileMenu': { serviceId: ServiceId };
+  /** Settings → Services row: wipe the service's login on this device */
+  'service:signOut': { serviceId: ServiceId };
   'global:setMuted': { muted: boolean };
   'switcher:setOpen': { open: boolean };
   'settings:setOpen': { open: boolean };
@@ -57,6 +59,7 @@ export const R2M_CHANNELS = [
   'service:reorder',
   'service:reload',
   'service:tileMenu',
+  'service:signOut',
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
@@ -91,6 +94,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'service:reorder',
   'service:reload',
   'service:tileMenu',
+  'service:signOut',
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',

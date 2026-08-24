@@ -117,6 +117,18 @@ export function welcomeSections(staged: ServiceId[], named: ServiceId[]): Welcom
   };
 }
 
+/** The staged list after the live summoned order changes under the board:
+ *  a clean board (staged equals the previous live order) follows the new
+ *  one, so a rail drag lands on the board without lighting the confirm; a
+ *  dirty board keeps its edit untouched. */
+export function followLiveOrder(
+  staged: ServiceId[],
+  prevLive: string,
+  nextLive: ServiceId[],
+): ServiceId[] {
+  return staged.join(',') === prevLive ? [...nextLive] : staged;
+}
+
 /** A key over the enabled *membership*, deliberately order-insensitive.
  *  Home reseeds its staged selection whenever this changes, so joining ids in
  *  `settings.order` would make a drag-reorder discard the user's picks and

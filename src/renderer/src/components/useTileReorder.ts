@@ -11,9 +11,17 @@ const DRAG_CURSOR = 'tile-dragging';
  *  one settings write, one full broadcast and one app-menu rebuild per
  *  crossing. The drag therefore runs on a local draft and reaches main once.
  *
- *  @param liveIds the ids this surface renders, from broadcast state
- *  @param order   the full `settings.order`, including disabled ids */
-export function useTileReorder(liveIds: ServiceId[], order: ServiceId[]) {
+ *  @param liveIds   the ids this surface renders, from broadcast state
+ *  @param order     the full `settings.order`, including disabled ids
+ *  @param intercept called at drag end with the merged order when the drag
+ *                   changed it; returning true defers the commit — the draft
+ *                   stays shown and nothing is sent until the caller either
+ *                   sends `service:reorder` itself or calls `cancelDraft` */
+export function useTileReorder(
+  liveIds: ServiceId[],
+  order: ServiceId[],
+  intercept?: (orderedIds: ServiceId[]) => boolean,
+) {
   const [draft, setDraft] = useState<ServiceId[] | null>(null);
   const keyAtDragStart = useRef('');
   const didDrag = useRef(false);
@@ -56,9 +64,9 @@ export function useTileReorder(liveIds: ServiceId[], order: ServiceId[]) {
           setDraft(null);
           return;
         }
-        window.goetia.send('service:reorder', {
-          orderedIds: applySubsetOrder(order, shown),
-        });
+        const orderedIds = applySubsetOrder(order, shown);
+        if (intercept?.(orderedIds)) return;
+        window.goetia.send('service:reorder', { orderedIds });
       },
     },
     /** true ⇒ this click is the tail of a drag and must be swallowed. Pointer
@@ -69,5 +77,7 @@ export function useTileReorder(liveIds: ServiceId[], order: ServiceId[]) {
       didDrag.current = false;
       return true;
     },
+    /** drop a deferred draft: the tiles snap back to the live order */
+    cancelDraft: () => setDraft(null),
   };
 }

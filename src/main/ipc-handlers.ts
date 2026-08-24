@@ -1,7 +1,7 @@
 import { app, type BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import type { RendererInvoke, RendererToMain } from '../shared/ipc';
 import { serviceById } from '../shared/services';
-import type { ServiceId } from '../shared/types';
+import type { ServiceId, Settings } from '../shared/types';
 import { activateService, performBannerAction, rememberSurface, setHomeOpen } from './activate';
 import { applyOverlay } from './badges';
 import { resolveActivation } from './lib/activation-rules';
@@ -37,6 +37,9 @@ export interface AppContext {
   /** stamps banner-grace so a peek view survives long enough to click;
    *  late-bound in index.ts */
   noteBannerFired(id: import('../shared/types').ServiceId): void;
+  /** disable services and run the full disabled side-effects tail; late-bound
+   *  in index.ts so hibernation.ts stays free of electron */
+  banishServices(ids: ServiceId[]): void;
   /** the one way to move global mute — bell, tray, menu and accelerator all
    *  land here so the pages, both menus' checkmarks and the shell agree;
    *  late-bound in index.ts */
@@ -96,6 +99,47 @@ function registerInvoke(ctx: AppContext) {
   };
 }
 
+/** Side-effects tail of a disabled-set change — shared by the settings:update
+ *  handler and auto-banish (via ctx.banishServices), so the two cannot drift. */
+export function applyDisabledChange(ctx: AppContext, before: Settings): void {
+  const after = ctx.settings.get();
+  for (const id of after.order) {
+    if (after.disabled[id] && ctx.views.has(id)) {
+      ctx.views.destroy(id);
+      ctx.waking.end(id, 'destroyed');
+      ctx.state.setRuntime(id, {
+        unread: { direct: 0, indirect: 0 },
+        crashed: false,
+        stale: false,
+        hibernated: false,
+        loading: false,
+        waking: false,
+      });
+    }
+    if (!after.disabled[id] && before.disabled[id] && after.neverHibernate[id]) {
+      ctx.views.ensure(id);
+    }
+  }
+  const next = resolveActivation({
+    order: after.order,
+    disabled: after.disabled,
+    activeId: ctx.state.activeId,
+    hasActiveView: ctx.views.has(ctx.state.activeId),
+  });
+  if (next) {
+    ctx.state.activeId = next;
+    ctx.noteActivated(next);
+    // Resolve now, present later. Showing a view here would cover the
+    // surface the user is standing on — this is the settings-modal bug.
+    ctx.views.activate(next, { show: !anyOverlayOpen(ctx.state) });
+  }
+  // also runs when next is null: banishing the last service leaves
+  // activeId pointing at a disabled one, which is exactly the unrestorable
+  // record that should reopen on Home
+  rememberSurface(ctx);
+  buildAppMenu(ctx);
+}
+
 function setServiceMuted(ctx: AppContext, serviceId: ServiceId, muted: boolean): void {
   const s = ctx.settings.get();
   ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
@@ -119,9 +163,11 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
         click: () => setServiceMuted(ctx, serviceId, !muted),
       },
       { type: 'separator' },
-      { label: 'Sign Out…', click: () => void confirmSignOut(ctx, serviceId) },
+      // quick and recoverable (login kept, re-summon on Home) — no confirm
+      { label: `Banish ${name}`, click: () => ctx.banishServices([serviceId]) },
     ]).popup({ window: ctx.win });
   });
+  on('service:signOut', ({ serviceId }) => void confirmSignOut(ctx, serviceId));
   on('service:reorder', ({ orderedIds }) => {
     ctx.settings.update({ order: orderedIds });
     buildAppMenu(ctx); // keep Cmd/Ctrl+1..9 aligned with the new order
@@ -154,43 +200,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     if ('railPosition' in patch) ctx.views.layout();
     if ('quietHours' in patch) ctx.quietScheduleChanged();
     if ('summonHotkey' in patch) ctx.summonHotkeyChanged();
-    if (patch.disabled) {
-      for (const id of after.order) {
-        if (after.disabled[id] && ctx.views.has(id)) {
-          ctx.views.destroy(id);
-          ctx.waking.end(id, 'destroyed');
-          ctx.state.setRuntime(id, {
-            unread: { direct: 0, indirect: 0 },
-            crashed: false,
-            stale: false,
-            hibernated: false,
-            loading: false,
-            waking: false,
-          });
-        }
-        if (!after.disabled[id] && before.disabled[id] && after.neverHibernate[id]) {
-          ctx.views.ensure(id);
-        }
-      }
-      const next = resolveActivation({
-        order: after.order,
-        disabled: after.disabled,
-        activeId: ctx.state.activeId,
-        hasActiveView: ctx.views.has(ctx.state.activeId),
-      });
-      if (next) {
-        ctx.state.activeId = next;
-        ctx.noteActivated(next);
-        // Resolve now, present later. Showing a view here would cover the
-        // surface the user is standing on — this is the settings-modal bug.
-        ctx.views.activate(next, { show: !anyOverlayOpen(ctx.state) });
-      }
-      // also runs when next is null: banishing the last service leaves
-      // activeId pointing at a disabled one, which is exactly the unrestorable
-      // record that should reopen on Home
-      rememberSurface(ctx);
-      buildAppMenu(ctx);
-    }
+    if (patch.disabled) applyDisabledChange(ctx, before);
     if (patch.neverHibernate) {
       for (const id of after.order) {
         if (after.neverHibernate[id] && !after.disabled[id]) {

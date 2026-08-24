@@ -15,13 +15,17 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
   };
   const ensured: ServiceId[] = [];
   const destroyed: ServiceId[] = [];
+  const banished: ServiceId[][] = [];
   const live = new Set<ServiceId>();
   const runtimes = new Map<
     ServiceId,
     { hibernated: boolean; unread: { direct: number; indirect: number } }
   >();
   const ctx = {
-    settings: { get: () => settings },
+    settings: {
+      get: () => settings,
+      update: (patch: Partial<Settings>) => Object.assign(settings, patch),
+    },
     state: {
       // never one of the peek candidates, so a peek is never "under the user"
       activeId: 'whatsapp' as ServiceId,
@@ -51,13 +55,20 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
       },
     },
     waking: { end: () => {} },
+    banishServices: (ids: ServiceId[]) => {
+      banished.push(ids);
+      settings.disabled = {
+        ...settings.disabled,
+        ...Object.fromEntries(ids.map((id) => [id, true])),
+      };
+    },
     onBattery: () => onBattery,
   } as unknown as ConstructorParameters<typeof HibernationController>[0];
   /** simulate a peek finding a new message before it reports */
   const arrive = (id: ServiceId) => {
     ctx.state.runtime(id).unread.direct += 1;
   };
-  return { ctx, ensured, destroyed, arrive };
+  return { ctx, ensured, destroyed, arrive, banished, settings };
 }
 
 /** start() defers the first sweep by BOOT_DELAY_MS (5 s). */
@@ -220,6 +231,105 @@ describe('HibernationController peek backoff', () => {
     expect(ensured).toEqual(['discord', 'instagram']); // nothing due inside 6× base
     vi.advanceTimersByTime(past(2));
     expect(ensured.length).toBeGreaterThan(2);
+    h.dispose();
+    vi.useRealTimers();
+  });
+});
+
+describe('HibernationController auto-banish', () => {
+  const HOUR = 3_600_000;
+  /** Light Sleep off keeps peeks out of these tests; 1h threshold. */
+  const banishHarness = (over: Partial<Settings> = {}) =>
+    harness({ lightSleep: false, autoBanish: { enabled: true, hours: 1 }, ...over });
+
+  it('banishes a service unused past the threshold, in one batch call', () => {
+    vi.useFakeTimers();
+    const { ctx, banished } = banishHarness({
+      lastUsedAt: {
+        ...DEFAULT_SETTINGS.lastUsedAt,
+        discord: Date.now() - 2 * HOUR,
+        instagram: Date.now(),
+      },
+    });
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(banished).toEqual([['discord']]); // instagram is fresh
+    h.dispose();
+    vi.useRealTimers();
+  });
+
+  it('batches every due service into one call, in rail order', () => {
+    vi.useFakeTimers();
+    const { ctx, banished } = banishHarness({
+      lastUsedAt: {
+        ...DEFAULT_SETTINGS.lastUsedAt,
+        discord: Date.now() - 2 * HOUR,
+        instagram: Date.now() - 3 * HOUR,
+      },
+    });
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(banished).toEqual([['discord', 'instagram']]);
+    h.dispose();
+    vi.useRealTimers();
+  });
+
+  it('seeds an unstamped clock instead of banishing it', () => {
+    vi.useFakeTimers();
+    const { ctx, banished, settings } = banishHarness(); // all lastUsedAt 0
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(banished).toEqual([]);
+    // the clock started at the first sweep — a full fresh window from here
+    expect(settings.lastUsedAt.discord).toBeGreaterThan(0);
+    expect(settings.lastUsedAt.instagram).toBeGreaterThan(0);
+    expect(settings.lastUsedAt.whatsapp).toBe(0); // disabled: not seeded
+    h.dispose();
+    vi.useRealTimers();
+  });
+
+  it('never banishes the active service', () => {
+    vi.useFakeTimers();
+    const { ctx, banished } = banishHarness({
+      lastUsedAt: { ...DEFAULT_SETTINGS.lastUsedAt, discord: Date.now() - 2 * HOUR },
+    });
+    ctx.state.activeId = 'discord';
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(banished).toEqual([]);
+    h.dispose();
+    vi.useRealTimers();
+  });
+
+  it('never banishes a kept-awake service', () => {
+    vi.useFakeTimers();
+    const { ctx, banished } = banishHarness({
+      neverHibernate: { ...DEFAULT_SETTINGS.neverHibernate, discord: true },
+      lastUsedAt: { ...DEFAULT_SETTINGS.lastUsedAt, discord: Date.now() - 2 * HOUR },
+    });
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(banished).toEqual([]);
+    h.dispose();
+    vi.useRealTimers();
+  });
+
+  it('does nothing while the feature is off — not even seeding', () => {
+    vi.useFakeTimers();
+    const { ctx, banished, settings } = banishHarness({
+      autoBanish: { enabled: false, hours: 1 },
+      lastUsedAt: { ...DEFAULT_SETTINGS.lastUsedAt, discord: Date.now() - 2 * HOUR },
+    });
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(banished).toEqual([]);
+    expect(settings.lastUsedAt.instagram).toBe(0); // no seeding write
     h.dispose();
     vi.useRealTimers();
   });

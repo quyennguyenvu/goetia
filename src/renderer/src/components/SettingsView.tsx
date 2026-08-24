@@ -36,7 +36,7 @@ function Row({
     <label className="flex items-center justify-between gap-4 py-2">
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-text-1">{label}</span>
-        {hint && <span className="text-text-2">{hint}</span>}
+        {hint && <span className="text-[11px] text-text-2">{hint}</span>}
       </span>
       {children}
     </label>
@@ -251,41 +251,6 @@ export default function SettingsView() {
                     onChange={(e) => update({ launchAtLogin: e.target.checked })}
                   />
                 </Row>
-                <Row label="Hibernate idle services after (minutes)">
-                  <input
-                    type="number"
-                    min={5}
-                    max={240}
-                    value={s.hibernationMinutes}
-                    onChange={(e) =>
-                      update({ hibernationMinutes: Math.max(5, Number(e.target.value) || 30) })
-                    }
-                    className="tabular w-20 rounded-ctl border border-border bg-bg-2 px-2 py-1 text-right text-text-1"
-                  />
-                </Row>
-                <Row
-                  label="Light Sleep"
-                  hint="Sleeping services wake hidden every few minutes so badges and banners stay current."
-                >
-                  <input
-                    type="checkbox"
-                    data-testid="light-sleep-enabled"
-                    checked={s.lightSleep}
-                    onChange={(e) => update({ lightSleep: e.target.checked })}
-                  />
-                </Row>
-                <Row
-                  label="Battery saver for Light Sleep"
-                  hint="Wake a quiet service less often, and least often on battery. Saves a lot of work; its badge can lag by up to an hour."
-                >
-                  <input
-                    type="checkbox"
-                    data-testid="peek-saver-enabled"
-                    disabled={!s.lightSleep}
-                    checked={s.peekSaver}
-                    onChange={(e) => update({ peekSaver: e.target.checked })}
-                  />
-                </Row>
                 <Row
                   label="Summoning hotkey"
                   hint={
@@ -389,9 +354,87 @@ export default function SettingsView() {
                           />
                           never hibernate
                         </label>
+                        <button
+                          type="button"
+                          data-testid={`signout-${svc.id}`}
+                          title="Clears this service's login on this device"
+                          onClick={() =>
+                            window.goetia.send('service:signOut', { serviceId: svc.id })
+                          }
+                          className="rounded-ctl border border-border bg-bg-2 px-2.5 py-1 text-text-1 transition-colors duration-120 hover:border-accent"
+                        >
+                          Sign out…
+                        </button>
                       </span>
                     </div>
                   ))}
+                <Row label="Hibernate idle services after (minutes)">
+                  <input
+                    type="number"
+                    min={5}
+                    max={240}
+                    value={s.hibernationMinutes}
+                    onChange={(e) =>
+                      update({ hibernationMinutes: Math.max(5, Number(e.target.value) || 30) })
+                    }
+                    className="tabular w-20 rounded-ctl border border-border bg-bg-2 px-2 py-1 text-right text-text-1"
+                  />
+                </Row>
+                <Row
+                  label="Banish unused services"
+                  hint="An unused service leaves the rail and returns to Home. Sign-in is kept."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="auto-banish-enabled"
+                    checked={s.autoBanish.enabled}
+                    onChange={(e) =>
+                      update({ autoBanish: { ...s.autoBanish, enabled: e.target.checked } })
+                    }
+                  />
+                </Row>
+                <Row label="After (hours)">
+                  <input
+                    type="number"
+                    data-testid="auto-banish-hours"
+                    min={1}
+                    max={720}
+                    disabled={!s.autoBanish.enabled}
+                    value={s.autoBanish.hours}
+                    onChange={(e) =>
+                      update({
+                        autoBanish: {
+                          ...s.autoBanish,
+                          hours: Math.max(1, Number(e.target.value) || 24),
+                        },
+                      })
+                    }
+                    className="tabular w-20 rounded-ctl border border-border bg-bg-2 px-2 py-1 text-right text-text-1 disabled:opacity-40"
+                  />
+                </Row>
+                <Row
+                  label="Light Sleep"
+                  hint="Sleeping services wake hidden every few minutes so badges and banners stay current."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="light-sleep-enabled"
+                    checked={s.lightSleep}
+                    onChange={(e) => update({ lightSleep: e.target.checked })}
+                  />
+                </Row>
+                <Row
+                  label="Battery saver for Light Sleep"
+                  hint="Wake a quiet service less often, and least often on battery. Saves a lot of work; its badge can lag by up to an hour."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="peek-saver-enabled"
+                    disabled={!s.lightSleep}
+                    checked={s.peekSaver}
+                    onChange={(e) => update({ peekSaver: e.target.checked })}
+                  />
+                </Row>
                 {/* composition lives on Home: an enable toggle behind a modal
                     is what let a view bury the modal it was toggled from */}
                 <div className="flex items-center justify-between gap-4 py-2.5">
@@ -522,7 +565,7 @@ export default function SettingsView() {
                   )}
                   <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
                   <p className="py-1">Esc — close this window</p>
-                  <p className="py-1">Right-click a tile — mute/unmute service</p>
+                  <p className="py-1">Right-click a tile — mute or banish service</p>
                   <p className="py-1">Drag tiles — reorder services</p>
                 </div>
               </Pane>

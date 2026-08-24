@@ -1,5 +1,6 @@
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
+import { shouldBanish } from './lib/banish-rules';
 import { BANNER_GRACE_MS, shouldHibernate } from './lib/hibernation-rules';
 import {
   PEEK_INTERVAL_MS,
@@ -108,6 +109,39 @@ export class HibernationController {
         this.ctx.waking.end(id, 'destroyed');
         this.ctx.state.setRuntime(id, { hibernated: true });
         this.lastPeekEndedAt.set(id, now);
+      }
+    }
+    if (s.autoBanish.enabled) {
+      // never-activated services start their unused clock at the first sweep —
+      // enabling the feature grants every service a full fresh window
+      const stamped = { ...s.lastUsedAt };
+      let seeded = false;
+      for (const id of s.order) {
+        if (!s.disabled[id] && !stamped[id]) {
+          stamped[id] = now;
+          seeded = true;
+        }
+      }
+      if (seeded) this.ctx.settings.update({ lastUsedAt: stamped });
+      const banishMs = s.autoBanish.hours * 3_600_000;
+      const due = s.order.filter((id) =>
+        shouldBanish(
+          {
+            disabled: s.disabled[id],
+            active: this.ctx.state.activeId === id,
+            neverHibernate: s.neverHibernate[id],
+            peeking: this.peeking?.id === id,
+            lastUsedAt: stamped[id],
+          },
+          now,
+          banishMs,
+        ),
+      );
+      if (due.length > 0) {
+        // one patch for the whole batch. `s` is stale past this point, so let
+        // the next sweep schedule peeks rather than peeking a banished service
+        this.ctx.banishServices(due);
+        return;
       }
     }
     if (!s.lightSleep) return;

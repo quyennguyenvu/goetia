@@ -5,11 +5,13 @@ import type { BannerClickAction } from './lib/notification-click';
 /** Remember the surface to restore on the next launch. Written on change, not
  *  at quit: force-quit, a crash, and an OS restart never run before-quit.
  *  Settings and the quick switcher are modals you pass through, so Home is the
- *  only overlay recorded. */
-export function rememberSurface(ctx: AppContext): void {
+ *  only overlay recorded. A service activation also resets the unused clock
+ *  auto-banish reads, in the same write. */
+export function rememberSurface(ctx: AppContext, usedId?: ServiceId): void {
   ctx.settings.update({
     lastActiveId: ctx.state.activeId,
     lastHomeOpen: ctx.state.homeOpen,
+    ...(usedId ? { lastUsedAt: { ...ctx.settings.get().lastUsedAt, [usedId]: Date.now() } } : {}),
   });
 }
 
@@ -35,7 +37,7 @@ export function activateService(ctx: AppContext, id: ServiceId): void {
   ctx.state.setRuntime(id, { hibernated: false });
   ctx.noteActivated(id);
   ctx.views.activate(id);
-  rememberSurface(ctx);
+  rememberSurface(ctx, id);
   // Broadcast the new activeId. setRuntime above only notifies when it changes
   // a field, so for an already-non-hibernated service it is a no-op and the
   // rail/content would not update until the next state change (e.g. a reload).

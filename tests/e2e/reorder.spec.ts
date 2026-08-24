@@ -45,6 +45,11 @@ const railOrder = (win: Page) =>
     .locator('[data-testid="service-tile"]')
     .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''));
 
+const boardOrder = (win: Page) =>
+  win
+    .locator('[data-testid="welcome-section-summoned"] [data-testid="pick-tile"]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('title') ?? ''));
+
 /** Home's tiles animate into place when the board opens — measure only once
  *  the geometry settles, or the drag grabs where a tile used to be. */
 async function stableBox(win: Page, selector: string) {
@@ -132,6 +137,73 @@ test('reorder: a rail drag reorders without activating the tile it dragged', asy
   await expect.poll(() => railOrder(win)).toEqual(['Zalo', 'Messenger']);
   // Zalo was dragged, not clicked: activation must not have followed it
   await expect(win.locator(active)).toHaveAttribute('aria-label', 'Messenger');
+
+  await app.close();
+});
+
+test('reorder: a rail drag while Home is open syncs a clean board silently', async () => {
+  const profile = makeProfile();
+  const { app, win } = await launch(profile);
+
+  await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
+  expect(await railOrder(win)).toEqual(['Messenger', 'Zalo']);
+
+  await win.locator('[data-testid="home-btn"]').click();
+  await expect(win.locator('[data-testid="welcome"]')).toBeVisible();
+  await expect.poll(() => boardOrder(win)).toEqual(['Messenger', 'Zalo']);
+
+  await drag(
+    win,
+    '[data-testid="service-tile"][aria-label="Zalo"]',
+    '[data-testid="service-tile"][aria-label="Messenger"]',
+  );
+  await expect.poll(() => railOrder(win)).toEqual(['Zalo', 'Messenger']);
+
+  // the board followed the rail silently: same order, no confirm lit up
+  await expect.poll(() => boardOrder(win)).toEqual(['Zalo', 'Messenger']);
+  await expect(win.getByRole('button', { name: 'Apply new order' })).toHaveCount(0);
+  await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
+
+  await app.close();
+});
+
+test('reorder: a rail drag over a dirty board asks before discarding', async () => {
+  const profile = makeProfile();
+  const { app, win } = await launch(profile);
+  const welcome = win.locator('[data-testid="welcome"]');
+  const prompt = win.locator('[data-testid="rail-reorder-prompt"]');
+  const zalo = '[data-testid="service-tile"][aria-label="Zalo"]';
+  const messenger = '[data-testid="service-tile"][aria-label="Messenger"]';
+
+  await expect(win.locator('[data-testid="service-tile"]')).toHaveCount(2);
+  await win.locator('[data-testid="home-btn"]').click();
+  await expect(welcome).toBeVisible();
+
+  // dirty the board: stage a banish, commit nothing
+  const summoned = welcome.locator('[data-testid="welcome-section-summoned"]');
+  await summoned.getByRole('button', { name: 'Messenger' }).click();
+  await expect(win.getByRole('button', { name: 'Banish 1 service' })).toBeEnabled();
+
+  // Keep editing: rail snaps back, the staged edit survives, still on Home
+  await drag(win, zalo, messenger);
+  await expect(prompt).toBeVisible();
+  await win.getByRole('button', { name: 'Keep editing' }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect.poll(() => railOrder(win)).toEqual(['Messenger', 'Zalo']);
+  await expect(win.getByRole('button', { name: 'Banish 1 service' })).toBeEnabled();
+  await expect(welcome).toBeVisible();
+
+  // same drag again, this time discard & reorder
+  await drag(win, zalo, messenger);
+  await expect(prompt).toBeVisible();
+  await win.getByRole('button', { name: 'Discard changes & reorder' }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect.poll(() => railOrder(win)).toEqual(['Zalo', 'Messenger']);
+
+  // the edit is gone and the board mirrors the new live order
+  await expect(summoned.getByRole('button', { name: 'Messenger' })).toBeVisible();
+  await expect.poll(() => boardOrder(win)).toEqual(['Zalo', 'Messenger']);
+  await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
 
   await app.close();
 });

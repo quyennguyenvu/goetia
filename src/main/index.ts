@@ -4,7 +4,7 @@ import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { HibernationController } from './hibernation';
-import { type AppContext, registerIpcHandlers } from './ipc-handlers';
+import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
 import { coalesce } from './lib/coalesce';
 import { audioMuted } from './lib/notification-rules';
@@ -240,6 +240,14 @@ app
         hibernation.noteUnreadReport(id),
       noteBannerFired: (id: Parameters<HibernationController['noteBannerFired']>[0]) =>
         hibernation.noteBannerFired(id),
+      banishServices: (ids) => {
+        const before = settings.get();
+        const disabled = { ...before.disabled };
+        for (const id of ids) disabled[id] = true;
+        settings.update({ disabled });
+        applyDisabledChange(ctx, before);
+        broadcast();
+      },
       setGlobalMuted: (muted) => {
         settings.update(
           muteToggleResult({

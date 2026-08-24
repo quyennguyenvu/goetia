@@ -42,6 +42,26 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(false);
   });
+  it('allows sign-out from the shell frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:signOut',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: 'telegram',
+      }),
+    ).toBe(true);
+  });
+  it('rejects sign-out from a service frame — even for its own id', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:signOut',
+        fromShell: false,
+        senderServiceId: 'telegram',
+        payloadServiceId: 'telegram',
+      }),
+    ).toBe(false);
+  });
   it('allows activity channels from the shell frame', () => {
     expect(
       ipcSenderAllowed({

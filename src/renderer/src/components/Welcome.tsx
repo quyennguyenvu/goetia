@@ -7,6 +7,7 @@ import {
   capBlocked,
   commitOrder,
   enabledKey,
+  followLiveOrder,
   MAX_SUMMONED,
   matchesQuery,
   summonDelta,
@@ -91,18 +92,52 @@ export default function Welcome() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Hoisted above the early return: the coordination effects need these on
+  // every render, and hooks may not sit behind a conditional return.
+  const liveSummoned = state
+    ? state.services.filter((svc) => !state.settings.disabled[svc.id]).map((svc) => svc.id)
+    : [];
+  const liveKey = liveSummoned.join(',');
+  // covers adds and removals too (the joins differ), so it doubles as `dirty`
+  const orderChanged = staged.join(',') !== liveKey;
+
+  // The rail reads this at drag end: a drop over a dirty board must ask first.
+  useEffect(() => {
+    useShell.getState().setHomeDirty(orderChanged);
+  }, [orderChanged]);
+  useEffect(() => () => useShell.getState().setHomeDirty(false), []);
+
+  // The rail prompt's "Discard changes & reorder": the same reseed the
+  // Discard button does, triggered from outside this component.
+  const discardTick = useShell((s) => s.homeDiscardTick);
+  const seenDiscard = useRef(discardTick);
+  useEffect(() => {
+    if (discardTick === seenDiscard.current) return;
+    seenDiscard.current = discardTick;
+    const s = useShell.getState().state;
+    if (!s) return;
+    setStaged(s.services.filter((svc) => !s.settings.disabled[svc.id]).map((svc) => svc.id));
+  }, [discardTick]);
+
+  // A rail drop while the board is clean lands here: follow the new live
+  // order silently so the board mirrors the drag and no confirm lights up.
+  // A dirty board is never clobbered — the rail prompt cleans it first.
+  const prevLive = useRef(liveKey);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: liveKey is the trigger; liveSummoned is the array it was joined from
+  useEffect(() => {
+    const prev = prevLive.current;
+    if (prev === liveKey) return;
+    prevLive.current = liveKey;
+    setStaged((cur) => followLiveOrder(cur, prev, liveSummoned));
+  }, [liveKey]);
+
   if (!state) return null;
 
   const stagedSet = new Set(staged);
-  const enabled = new Set<ServiceId>(
-    state.services.filter((svc) => !state.settings.disabled[svc.id]).map((svc) => svc.id),
-  );
+  const enabled = new Set<ServiceId>(liveSummoned);
   const order = state.services.map((svc) => svc.id);
-  const liveSummoned = order.filter((id) => enabled.has(id));
   const named = byName(state.services);
   const delta = summonDelta(order, enabled, stagedSet);
-  // covers adds and removals too (the joins differ), so it doubles as `dirty`
-  const orderChanged = staged.join(',') !== liveSummoned.join(',');
   const { label, disabled } = summonLabel(delta, enabled.size > 0, orderChanged);
   const atCap = staged.length >= MAX_SUMMONED;
 

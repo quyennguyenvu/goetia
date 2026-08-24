@@ -8,6 +8,7 @@ import {
   type Settings,
 } from '../shared/types';
 import { trimToCap } from '../shared/welcome';
+import { BANISH_MAX_HOURS, BANISH_MIN_HOURS } from './lib/banish-rules';
 import { clampZoom } from './lib/zoom-rules';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -59,6 +60,31 @@ function fillZoom(raw: unknown): Record<ServiceId, number> {
   >;
 }
 
+/** summonHotkey-style field-by-field coercion for the auto-banish block. */
+function fillAutoBanish(raw: unknown): Settings['autoBanish'] {
+  const d = DEFAULT_SETTINGS.autoBanish;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['autoBanish']>;
+  return {
+    enabled: typeof r.enabled === 'boolean' ? r.enabled : d.enabled,
+    hours:
+      typeof r.hours === 'number' && Number.isFinite(r.hours)
+        ? Math.min(Math.max(r.hours, BANISH_MIN_HOURS), BANISH_MAX_HOURS)
+        : d.hours,
+  };
+}
+
+/** Epoch-ms twin of fillZoom(): missing, corrupt, or non-positive stamps
+ *  coerce to 0 (= never used, never banishable). */
+function fillLastUsedAt(raw: unknown): Record<ServiceId, number> {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<ServiceId, number>>;
+  return Object.fromEntries(
+    SERVICES.map((s) => {
+      const v = r[s.id];
+      return [s.id, typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0];
+    }),
+  ) as Record<ServiceId, number>;
+}
+
 function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } {
   const ids = SERVICES.map((s) => s.id);
   const known = new Set<ServiceId>(ids);
@@ -92,6 +118,8 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
       disabled: capped.disabled,
       neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),
       zoom: fillZoom(raw.zoom),
+      autoBanish: fillAutoBanish(raw.autoBanish),
+      lastUsedAt: fillLastUsedAt(raw.lastUsedAt),
       quietHours: fillQuietHours(raw.quietHours),
       quietOverrideWindowStart:
         typeof raw.quietOverrideWindowStart === 'number' &&

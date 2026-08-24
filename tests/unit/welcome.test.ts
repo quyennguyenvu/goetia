@@ -5,6 +5,7 @@ import {
   capBlocked,
   commitOrder,
   enabledKey,
+  followLiveOrder,
   MAX_SUMMONED,
   matchesQuery,
   summonDelta,
@@ -300,5 +301,28 @@ describe('trimToCap', () => {
 describe('MAX_SUMMONED', () => {
   it('is nine', () => {
     expect(MAX_SUMMONED).toBe(9);
+  });
+});
+
+describe('followLiveOrder', () => {
+  const live = ['zalo', 'messenger'] as ServiceId[];
+
+  it('follows the new live order when the board was clean', () => {
+    const staged = ['messenger', 'zalo'] as ServiceId[];
+    expect(followLiveOrder(staged, 'messenger,zalo', live)).toEqual(live);
+  });
+
+  it('keeps a dirty board untouched, same reference', () => {
+    const dirty = ['zalo'] as ServiceId[];
+    expect(followLiveOrder(dirty, 'messenger,zalo', live)).toBe(dirty);
+  });
+
+  it('treats an empty board over an empty live order as clean', () => {
+    expect(followLiveOrder([], '', live)).toEqual(live);
+  });
+
+  it('returns a copy, never the live array itself', () => {
+    const staged = ['messenger', 'zalo'] as ServiceId[];
+    expect(followLiveOrder(staged, 'messenger,zalo', live)).not.toBe(live);
   });
 });

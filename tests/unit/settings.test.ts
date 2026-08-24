@@ -468,4 +468,48 @@ describe('SettingsStore', () => {
     expect(reread.lastActiveId).toBe('slack');
     expect(reread.zoom.slack).toBe(1);
   });
+
+  it('defaults auto-banish off at 24 hours with no usage stamps', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const s = new SettingsStore(dir).get();
+    expect(s.autoBanish).toEqual({ enabled: false, hours: 24 });
+    expect(Object.keys(s.lastUsedAt)).toHaveLength(SERVICES.length);
+    expect(Object.values(s.lastUsedAt).every((v) => v === 0)).toBe(true);
+  });
+
+  it('coerces a mangled autoBanish block field by field', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ autoBanish: { enabled: 'yes', hours: 9000 } }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.autoBanish.enabled).toBe(false); // junk -> default
+    expect(s.autoBanish.hours).toBe(720); // clamped to max
+  });
+
+  it('fills missing lastUsedAt keys and zeroes corrupt values', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ lastUsedAt: { zalo: 1000, discord: 'never', slack: -5 } }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.lastUsedAt.zalo).toBe(1000); // valid stamp survives
+    expect(s.lastUsedAt.discord).toBe(0); // corrupt string coerced
+    expect(s.lastUsedAt.slack).toBe(0); // negative coerced
+    expect(s.lastUsedAt.whatsapp).toBe(0); // missing key filled
+  });
+
+  it('round-trips lastUsedAt and autoBanish across instances', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    store.update({
+      autoBanish: { enabled: true, hours: 48 },
+      lastUsedAt: { ...store.get().lastUsedAt, discord: 123_456 },
+    });
+    const reread = new SettingsStore(dir).get();
+    expect(reread.autoBanish).toEqual({ enabled: true, hours: 48 });
+    expect(reread.lastUsedAt.discord).toBe(123_456);
+  });
 });

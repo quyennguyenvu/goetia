@@ -79,6 +79,13 @@ export interface Settings {
   /** Per-service Chromium zoom level (1.2^level); 0 = 100%. */
   zoom: Record<ServiceId, number>;
   hibernationMinutes: number;
+  /** Auto-disable (banish) a service untouched for `hours`; opt-in. The unused
+   *  clock is `lastUsedAt`, so it spans restarts and time while the app is
+   *  closed. See lib/banish-rules. */
+  autoBanish: { enabled: boolean; hours: number };
+  /** epoch ms of each service's last activation; 0 = never. Only activation
+   *  moves it — banners, badges and peeks never do. */
+  lastUsedAt: Record<ServiceId, number>;
   /** Peek sleeping services on a schedule so badges and banners keep working
    *  while their views are destroyed. */
   lightSleep: boolean;
@@ -172,6 +179,19 @@ export const DEFAULT_SETTINGS: Settings = {
     teams: 0,
   },
   hibernationMinutes: 30,
+  autoBanish: { enabled: false, hours: 24 },
+  lastUsedAt: {
+    whatsapp: 0,
+    messenger: 0,
+    instagram: 0,
+    telegram: 0,
+    discord: 0,
+    zalo: 0,
+    tiktok: 0,
+    shopee: 0,
+    slack: 0,
+    teams: 0,
+  },
   lightSleep: true,
   peekSaver: false,
   quietHours: {
