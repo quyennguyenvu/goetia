@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   capTrimMessage,
+  purgeToastMessage,
   shouldToast,
   TOAST_MS,
 } from '../../src/renderer/src/components/toast-rules';
@@ -44,5 +45,18 @@ describe('capTrimMessage', () => {
     expect(capTrimMessage(['Zalo', 'Shopee'])).toBe(
       'Zalo and Shopee were banished — nine services is the maximum. Summon them back any time from Home.',
     );
+  });
+});
+
+describe('purgeToastMessage', () => {
+  it('pluralizes the count', () => {
+    expect(purgeToastMessage(1)).toBe('Purged 1 login.');
+    expect(purgeToastMessage(10)).toBe('Purged 10 logins.');
+  });
+
+  // a cancelled sweep returns { purged: 0 } — the same shape a rejected
+  // sender gets — and must show nothing at all
+  it('says nothing when the sweep was cancelled', () => {
+    expect(purgeToastMessage(0)).toBeNull();
   });
 });

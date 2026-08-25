@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _electron as electron, expect, test } from '@playwright/test';
+import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test';
 import { SERVICES } from '../../src/shared/services';
 
 /** the launch profile below enables messenger + zalo; the rest stay unbound */
@@ -9,6 +9,18 @@ const UNBOUND = SERVICES.length - 2;
 
 const isShell = (p: { url(): string }) =>
   p.url().startsWith('file://') && !p.url().includes('loading.html');
+
+/** Service views are layered above the shell renderer, so one raised over a
+ *  shell surface is invisible to the DOM — the view layer is the only oracle
+ *  for "a service took the screen back". */
+async function visibleServiceUrls(app: ElectronApplication): Promise<string[]> {
+  const urls = await app.evaluate(({ BrowserWindow }) =>
+    (BrowserWindow.getAllWindows()[0].contentView.children as Electron.WebContentsView[])
+      .filter((v) => v.getVisible())
+      .map((v) => v.webContents.getURL()),
+  );
+  return urls.filter((u) => !u.includes('loading.html'));
+}
 
 async function launch() {
   const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-'));
@@ -34,7 +46,7 @@ async function launch() {
   return { app, win };
 }
 
-test('home: sigil toggles welcome and seeds the live selection', async () => {
+test('home: sigil opens welcome and seeds the live selection', async () => {
   const { app, win } = await launch();
   const welcome = win.locator('[data-testid="welcome"]');
   const home = win.locator('[data-testid="home-btn"]');
@@ -56,9 +68,35 @@ test('home: sigil toggles welcome and seeds the live selection', async () => {
   );
   await expect(win.getByRole('button', { name: 'No changes' })).toBeDisabled();
 
-  // toggling back off returns to the service
+  // a destination, not a toggle: clicking Home from Home stays on Home
   await home.click();
+  await expect(welcome).toBeVisible();
+  expect(await visibleServiceUrls(app)).toEqual([]);
+
+  // a service tile is the way back
+  await win.locator('[data-testid="service-tile"]').first().click();
   await expect(welcome).toHaveCount(0);
+  await app.close();
+});
+
+test('home: closing settings leaves Home on screen', async () => {
+  const { app, win } = await launch();
+  const welcome = win.locator('[data-testid="welcome"]');
+  const settings = win.locator('[data-testid="settings"]');
+
+  await win.locator('[data-testid="home-btn"]').click();
+  await expect(welcome).toBeVisible();
+
+  await win.locator('[data-testid="settings-btn"]').click();
+  await expect(settings).toBeVisible();
+  await win.keyboard.press('Escape');
+  await expect(settings).toHaveCount(0);
+
+  // the regression: closing the modal must not raise the last service over
+  // the Home it was opened from — Home is still the surface the user is on
+  await expect(welcome).toBeVisible();
+  expect(await visibleServiceUrls(app)).toEqual([]);
+  await expect(win.locator('[data-testid="home-btn"]')).toHaveAttribute('aria-current', 'page');
   await app.close();
 });
 
@@ -288,5 +326,28 @@ test('settings: composition is gone, Manage services… lands on home', async ()
   await win.locator('[data-testid="manage-services"]').click();
   await expect(pane).toHaveCount(0);
   await expect(win.locator('[data-testid="welcome"]')).toBeVisible();
+  await app.close();
+});
+
+test('home: the hero offers a purge sweep, painted danger red', async () => {
+  const { app, win } = await launch();
+  await win.locator('[data-testid="home-btn"]').click();
+
+  const purge = win.locator('[data-testid="purge-all-btn"]');
+  await expect(purge).toBeVisible();
+  await expect(purge).toHaveText('Purge all logins…');
+
+  // it must not read as brand orange — a destructive control is red
+  const token = await win.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--danger').trim(),
+  );
+  expect(token).not.toBe('');
+  const [r, g, b] = await purge.evaluate((el) => {
+    const m = getComputedStyle(el).color.match(/\d+/g) ?? [];
+    return m.slice(0, 3).map(Number);
+  });
+  expect(r).toBeGreaterThan(g + 40);
+  expect(r).toBeGreaterThan(b + 40);
+
   await app.close();
 });

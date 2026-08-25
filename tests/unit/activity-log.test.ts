@@ -54,4 +54,39 @@ describe('ActivityLog', () => {
     expect(log.get(id)?.href).toBe('/x');
     expect(log.get(999)).toBeUndefined();
   });
+
+  it('clears one service without touching the others', () => {
+    const log = new ActivityLog();
+    log.append(entry(1, { serviceId: 'telegram' }));
+    log.append(entry(2, { serviceId: 'messenger' }));
+    log.append(entry(3, { serviceId: 'telegram' }));
+
+    log.clear('telegram');
+
+    const rows = log.recent();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].serviceId).toBe('messenger');
+  });
+
+  it('clears every entry when given no service', () => {
+    const log = new ActivityLog();
+    log.append(entry(1, { serviceId: 'telegram' }));
+    log.append(entry(2, { serviceId: 'messenger' }));
+
+    log.clear();
+
+    expect(log.recent()).toHaveLength(0);
+  });
+
+  // ids are opaque handles the switcher holds across a purge; a cleared
+  // entry must resolve to undefined rather than to a recycled row
+  it('never reissues a cleared id', () => {
+    const log = new ActivityLog();
+    log.append(entry(1));
+    log.clear();
+    log.append(entry(2));
+
+    expect(log.get(1)).toBeUndefined();
+    expect(log.get(2)?.title).toBe('chat 2');
+  });
 });

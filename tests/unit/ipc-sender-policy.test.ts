@@ -42,23 +42,45 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(false);
   });
-  it('allows sign-out from the shell frame', () => {
+  it('allows a login purge from the shell frame', () => {
     expect(
       ipcSenderAllowed({
-        channel: 'service:signOut',
+        channel: 'service:purgeLogin',
         fromShell: true,
         senderServiceId: null,
         payloadServiceId: 'telegram',
       }),
     ).toBe(true);
   });
-  it('rejects sign-out from a service frame — even for its own id', () => {
+  it('rejects a login purge from a service frame — even for its own id', () => {
     expect(
       ipcSenderAllowed({
-        channel: 'service:signOut',
+        channel: 'service:purgeLogin',
         fromShell: false,
         senderServiceId: 'telegram',
         payloadServiceId: 'telegram',
+      }),
+    ).toBe(false);
+  });
+  it('allows the purge-all sweep from the shell frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'services:purgeAll',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: undefined,
+      }),
+    ).toBe(true);
+  });
+  // the sweep carries no serviceId to validate, so shell-only is the ONLY
+  // thing standing between a service page and every partition on disk
+  it('rejects the purge-all sweep from a service frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'services:purgeAll',
+        fromShell: false,
+        senderServiceId: 'telegram',
+        payloadServiceId: undefined,
       }),
     ).toBe(false);
   });

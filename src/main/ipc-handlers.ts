@@ -2,7 +2,13 @@ import { app, type BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import type { RendererInvoke, RendererToMain } from '../shared/ipc';
 import { serviceById } from '../shared/services';
 import type { ServiceId, Settings } from '../shared/types';
-import { activateService, performBannerAction, rememberSurface, setHomeOpen } from './activate';
+import {
+  activateService,
+  performBannerAction,
+  rememberSurface,
+  setHomeOpen,
+  setOverlayOpen,
+} from './activate';
 import { applyOverlay } from './badges';
 import { resolveActivation } from './lib/activation-rules';
 import type { ActivityLog } from './lib/activity-log';
@@ -13,8 +19,8 @@ import { anyOverlayOpen } from './lib/overlay-rules';
 import { releaseUrl } from './lib/update-check';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
+import { purgeAll, purgeLogin } from './purge';
 import type { SettingsStore } from './settings';
-import { confirmSignOut } from './signout';
 import type { MainState } from './state';
 import type { UpdateChecker } from './updates';
 import type { ServiceViewManager } from './views';
@@ -88,12 +94,13 @@ function register(ctx: AppContext) {
 }
 
 /** invoke twin of register(): same gate, so a round-trip channel cannot be
- *  added without one. `blocked` is what a rejected sender receives. */
+ *  added without one. `blocked` is what a rejected sender receives — always
+ *  synchronous, so a refusal never awaits. */
 function registerInvoke(ctx: AppContext) {
   return <C extends keyof RendererInvoke>(
     channel: C,
     blocked: RendererInvoke[C]['result'],
-    fn: () => RendererInvoke[C]['result'],
+    fn: () => RendererInvoke[C]['result'] | Promise<RendererInvoke[C]['result']>,
   ): void => {
     ipcMain.handle(channel, (e) => (senderAllowed(ctx, channel, e.sender.id) ? fn() : blocked));
   };
@@ -167,25 +174,15 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       { label: `Banish ${name}`, click: () => ctx.banishServices([serviceId]) },
     ]).popup({ window: ctx.win });
   });
-  on('service:signOut', ({ serviceId }) => void confirmSignOut(ctx, serviceId));
+  on('service:purgeLogin', ({ serviceId }) => void purgeLogin(ctx, serviceId));
   on('service:reorder', ({ orderedIds }) => {
     ctx.settings.update({ order: orderedIds });
     buildAppMenu(ctx); // keep Cmd/Ctrl+1..9 aligned with the new order
     ctx.broadcast();
   });
   on('global:setMuted', ({ muted }) => ctx.setGlobalMuted(muted));
-  on('switcher:setOpen', ({ open }) => {
-    ctx.state.switcherOpen = open;
-    if (open) ctx.views.hideActive();
-    else ctx.views.showActive();
-    ctx.state.touch();
-  });
-  on('settings:setOpen', ({ open }) => {
-    ctx.state.settingsOpen = open;
-    if (open) ctx.views.hideActive();
-    else ctx.views.showActive();
-    ctx.state.touch();
-  });
+  on('switcher:setOpen', ({ open }) => setOverlayOpen(ctx, 'switcherOpen', open));
+  on('settings:setOpen', ({ open }) => setOverlayOpen(ctx, 'settingsOpen', open));
   on('home:setOpen', ({ open }) => {
     setHomeOpen(ctx, open);
     // so Escape and the accelerators reach the shell, not the buried view
@@ -223,6 +220,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
   onInvoke('activity:recent', [], () => ctx.activity.recent());
+  onInvoke('services:purgeAll', { purged: 0 }, () => purgeAll(ctx));
   on('activity:open', ({ entryId }) => {
     const entry = ctx.activity.get(entryId);
     if (!entry) return; // rotated out of the ring since the switcher fetched

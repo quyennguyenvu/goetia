@@ -41,8 +41,8 @@ test('sleep settings live in Services; the hours input follows the toggle', asyn
   await expect(pane.getByText('Hibernate idle services after (minutes)')).toBeVisible();
   await expect(win.locator('[data-testid="light-sleep-enabled"]')).toBeVisible();
 
-  // sign-out moved here from the tile menu: one button per enabled service
-  await expect(pane.getByRole('button', { name: 'Sign out…' })).toHaveCount(2);
+  // the per-service login purge lives here: one button per enabled service
+  await expect(pane.getByRole('button', { name: 'Purge login…' })).toHaveCount(2);
 
   const hours = win.locator('[data-testid="auto-banish-hours"]');
   await expect(win.locator('[data-testid="auto-banish-enabled"]')).not.toBeChecked();

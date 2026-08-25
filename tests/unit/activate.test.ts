@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { activateService, performBannerAction, setHomeOpen } from '../../src/main/activate';
+import {
+  activateService,
+  performBannerAction,
+  setHomeOpen,
+  setOverlayOpen,
+} from '../../src/main/activate';
 import type { AppContext } from '../../src/main/ipc-handlers';
 import { MainState } from '../../src/main/state';
 import { DEFAULT_SETTINGS } from '../../src/shared/types';
@@ -97,6 +102,22 @@ describe('setHomeOpen', () => {
     expect(views.showActive).toHaveBeenCalled();
   });
 
+  it('stays put when home is re-opened from home', () => {
+    const state = new MainState();
+    state.activeId = 'discord';
+    state.homeOpen = true;
+    const cb = vi.fn();
+    state.onChange(cb);
+    const { ctx, views, update } = makeCtx(state);
+    setHomeOpen(ctx, true);
+    // the sigil is a destination, not a toggle: no service comes back, and a
+    // repeat click costs neither a settings write nor a broadcast
+    expect(state.homeOpen).toBe(true);
+    expect(views.showActive).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
   it('notifies subscribers', () => {
     const state = new MainState();
     const cb = vi.fn();
@@ -157,5 +178,57 @@ describe('performBannerAction', () => {
     const { ctx, views } = makeBannerCtx();
     performBannerAction(ctx, 'discord', { kind: 'replay', clickId: 7 });
     expect(views.sendReplayClick).toHaveBeenCalledWith('discord', 7);
+  });
+});
+
+describe('setOverlayOpen', () => {
+  it('hides the service view when a surface opens', () => {
+    const state = new MainState();
+    state.activeId = 'discord';
+    const { ctx, views } = makeCtx(state);
+    setOverlayOpen(ctx, 'settingsOpen', true);
+    expect(state.settingsOpen).toBe(true);
+    expect(views.hideActive).toHaveBeenCalled();
+    expect(views.showActive).not.toHaveBeenCalled();
+  });
+
+  it('presents the service again when the last surface closes', () => {
+    const state = new MainState();
+    state.activeId = 'discord';
+    state.settingsOpen = true;
+    const { ctx, views } = makeCtx(state);
+    setOverlayOpen(ctx, 'settingsOpen', false);
+    expect(views.showActive).toHaveBeenCalled();
+  });
+
+  it('leaves the view hidden when settings closes over an open home', () => {
+    const state = new MainState();
+    state.activeId = 'discord';
+    state.homeOpen = true;
+    state.settingsOpen = true;
+    const { ctx, views } = makeCtx(state);
+    setOverlayOpen(ctx, 'settingsOpen', false);
+    // home is still the surface on screen: raising the view would bury it
+    expect(state.homeOpen).toBe(true);
+    expect(views.showActive).not.toHaveBeenCalled();
+    expect(views.hideActive).toHaveBeenCalled();
+  });
+
+  it('leaves the view hidden when the switcher closes over an open home', () => {
+    const state = new MainState();
+    state.activeId = 'telegram';
+    state.homeOpen = true;
+    state.switcherOpen = true;
+    const { ctx, views } = makeCtx(state);
+    setOverlayOpen(ctx, 'switcherOpen', false);
+    expect(views.showActive).not.toHaveBeenCalled();
+  });
+
+  it('notifies subscribers', () => {
+    const state = new MainState();
+    const cb = vi.fn();
+    state.onChange(cb);
+    setOverlayOpen(makeCtx(state).ctx, 'settingsOpen', true);
+    expect(cb).toHaveBeenCalled();
   });
 });

@@ -155,6 +155,9 @@ export default function Welcome() {
     });
   // the same reseed the screen does on every visit, under the user's thumb
   const discard = () => setStaged(liveSummoned);
+  // PurgeConfirm owns the gate and the invoke; Home only poses the question.
+  const askPurgeAll = () =>
+    useShell.getState().setPurgeConfirm({ kind: 'all', count: state.services.length });
 
   const summonOne = (id: ServiceId) => setStaged([...staged, id]);
   const banishOne = (id: ServiceId) => setStaged(staged.filter((s) => s !== id));
@@ -284,6 +287,7 @@ export default function Welcome() {
         atCap={atCap}
         onSummon={summon}
         onDiscard={discard}
+        onPurgeAll={askPurgeAll}
       />
 
       {/* the board: min-h-0 is what lets the bands shrink instead of the page grow */}

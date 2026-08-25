@@ -11,6 +11,7 @@
   --accent-2: #c92a2a;
   --on-accent: #ffffff;
   --badge: #ff4d5e;
+  --danger: #d1293d;
   --warn: #f5a623;
   --ok: #34c77b;
 }
@@ -24,6 +25,7 @@
   --accent: #ff9e2c;
   --accent-2: #f04e3e;
   --on-accent: #15181f;
+  --danger: #ff5a6a;
 }
 
 @theme inline {
@@ -37,6 +39,7 @@
   --color-accent-2: var(--accent-2);
   --color-on-accent: var(--on-accent);
   --color-badge: var(--badge);
+  --color-danger: var(--danger);
   --color-warn: var(--warn);
   --color-ok: var(--ok);
   --radius-ctl: 6px;

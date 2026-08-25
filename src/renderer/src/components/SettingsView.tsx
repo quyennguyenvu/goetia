@@ -356,14 +356,16 @@ export default function SettingsView() {
                         </label>
                         <button
                           type="button"
-                          data-testid={`signout-${svc.id}`}
-                          title="Clears this service's login on this device"
+                          data-testid={`purge-${svc.id}`}
+                          title="Clears this service's saved login on this device. Your account stays active — nothing is signed out elsewhere."
                           onClick={() =>
-                            window.goetia.send('service:signOut', { serviceId: svc.id })
+                            useShell
+                              .getState()
+                              .setPurgeConfirm({ kind: 'one', id: svc.id, name: svc.name })
                           }
-                          className="rounded-ctl border border-border bg-bg-2 px-2.5 py-1 text-text-1 transition-colors duration-120 hover:border-accent"
+                          className="rounded-ctl bg-danger px-2.5 py-1 font-semibold text-white transition-opacity duration-120 hover:opacity-90"
                         >
-                          Sign out…
+                          Purge login…
                         </button>
                       </span>
                     </div>
@@ -553,7 +555,7 @@ export default function SettingsView() {
                 <div className="py-2 text-text-2">
                   <p className="py-1">⌘/Ctrl + 1…9 — jump to service</p>
                   <p className="py-1">⌘/Ctrl + K — quick switcher</p>
-                  <p className="py-1">⌘/Ctrl + 0 — home / all services</p>
+                  <p className="py-1">⌘/Ctrl + ⇧ + H — home / all services</p>
                   <p className="py-1">⌘/Ctrl + F — find a service (on home)</p>
                   <p className="py-1">⌘/Ctrl + , — settings</p>
                   <p className="py-1">⌘/Ctrl + ⇧ + M — mute / unmute everything</p>
@@ -564,6 +566,7 @@ export default function SettingsView() {
                     </p>
                   )}
                   <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
+                  <p className="py-1">⌘/Ctrl + = / − / 0 — zoom current service in / out / reset</p>
                   <p className="py-1">Esc — close this window</p>
                   <p className="py-1">Right-click a tile — mute or banish service</p>
                   <p className="py-1">Drag tiles — reorder services</p>

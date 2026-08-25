@@ -1,6 +1,7 @@
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
 import type { BannerClickAction } from './lib/notification-click';
+import { anyOverlayOpen } from './lib/overlay-rules';
 
 /** Remember the surface to restore on the next launch. Written on change, not
  *  at quit: force-quit, a crash, and an OS restart never run before-quit.
@@ -15,13 +16,36 @@ export function rememberSurface(ctx: AppContext, usedId?: ServiceId): void {
   });
 }
 
+/** Match the view layer to the shell's surfaces. Every surface toggle routes
+ *  here rather than pairing its own hide/show: closing one surface while
+ *  another is still open must leave the view down, or it buries what is left
+ *  on screen (settings closed over Home). */
+function presentSurface(ctx: AppContext): void {
+  if (anyOverlayOpen(ctx.state)) ctx.views.hideActive();
+  else ctx.views.showActive();
+}
+
+/** Open or close a modal surface (settings, quick switcher). */
+export function setOverlayOpen(
+  ctx: AppContext,
+  key: 'settingsOpen' | 'switcherOpen',
+  open: boolean,
+): void {
+  ctx.state[key] = open;
+  presentSurface(ctx);
+  ctx.state.touch();
+}
+
 /** Open or close Home. Both ⌘/Ctrl ⇧ H and the IPC handler route here so the
  *  surface is recorded however Home was reached. Focus stays with the caller:
- *  the two paths deliberately differ there. */
+ *  the two paths deliberately differ there. Home is a destination, not a
+ *  toggle — asking for the surface you are already on is a no-op, not a trip
+ *  back to the last service (2026-08-25, user decision). */
 export function setHomeOpen(ctx: AppContext, open: boolean): void {
+  const changed = ctx.state.homeOpen !== open;
   ctx.state.homeOpen = open;
-  if (open) ctx.views.hideActive();
-  else ctx.views.showActive();
+  presentSurface(ctx);
+  if (!changed) return; // a repeat click costs no settings write and no broadcast
   rememberSurface(ctx);
   ctx.state.touch();
 }

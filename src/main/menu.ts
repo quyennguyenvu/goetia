@@ -1,19 +1,17 @@
 import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
-import { activateService, setHomeOpen } from './activate';
+import { activateService, setHomeOpen, setOverlayOpen } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { serviceAccelerator } from './lib/service-accelerator';
 import { stepZoom } from './lib/zoom-rules';
 
 function openSettings(ctx: AppContext): void {
-  ctx.state.settingsOpen = true;
-  ctx.views.hideActive();
-  ctx.state.touch();
+  setOverlayOpen(ctx, 'settingsOpen', true);
   ctx.win.webContents.focus(); // so Escape closes the modal immediately
 }
 
-function toggleHome(ctx: AppContext): void {
-  setHomeOpen(ctx, !ctx.state.homeOpen);
+function goHome(ctx: AppContext): void {
+  setHomeOpen(ctx, true);
   ctx.win.webContents.focus();
 }
 
@@ -106,7 +104,7 @@ export function buildAppMenu(ctx: AppContext): void {
           accelerator: 'CmdOrCtrl+Shift+H',
           click: () => {
             ctx.win.show();
-            toggleHome(ctx);
+            goHome(ctx);
           },
         },
         { type: 'separator' as const },
@@ -128,11 +126,7 @@ export function buildAppMenu(ctx: AppContext): void {
           label: 'Quick Switcher',
           accelerator: 'CmdOrCtrl+K',
           click: () => {
-            const open = !ctx.state.switcherOpen;
-            ctx.state.switcherOpen = open;
-            if (open) ctx.views.hideActive();
-            else ctx.views.showActive();
-            ctx.state.touch();
+            setOverlayOpen(ctx, 'switcherOpen', !ctx.state.switcherOpen);
             ctx.win.webContents.focus();
           },
         },

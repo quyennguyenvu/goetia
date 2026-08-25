@@ -3,6 +3,8 @@ import { aggregateBadges, badgeLabel } from '../../shared/badges';
 import CapTrimToast from './components/CapTrimToast';
 import ContentPlaceholder from './components/ContentPlaceholder';
 import { overlayNeedsUpdate, renderOverlayDataUrl } from './components/overlay-badge';
+import PurgeConfirm from './components/PurgeConfirm';
+import PurgeToast from './components/PurgeToast';
 import QuickSwitcher from './components/QuickSwitcher';
 import Rail from './components/Rail';
 import SettingsView from './components/SettingsView';
@@ -56,10 +58,12 @@ export default function App() {
         {showWelcome ? <Welcome /> : <ContentPlaceholder />}
         <UpdateToast />
         <CapTrimToast />
+        <PurgeToast />
       </div>
       {pos === 'right' && <Rail />}
       <SettingsView />
       <QuickSwitcher />
+      <PurgeConfirm />
     </div>
   );
 }

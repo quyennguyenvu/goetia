@@ -15,3 +15,11 @@ export function capTrimMessage(names: string[]): string | null {
   const it = names.length === 1 ? 'it' : 'them';
   return `${list} ${verb} banished — nine services is the maximum. Summon ${it} back any time from Home.`;
 }
+
+/** Acknowledges a completed purge sweep. Null at zero: a cancelled sweep
+ *  returns the same { purged: 0 } a rejected sender would, and neither
+ *  deserves a toast. */
+export function purgeToastMessage(count: number): string | null {
+  if (count === 0) return null;
+  return `Purged ${count} ${count === 1 ? 'login' : 'logins'}.`;
+}

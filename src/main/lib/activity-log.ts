@@ -25,6 +25,15 @@ export class ActivityLog {
     if (this.entries.length > ACTIVITY_CAP) this.entries.shift();
   }
 
+  /** Drop one service's history, or all of it. A purge wipes the session
+   *  these titles came from, so leaving them would deep-link ⌘K rows into
+   *  threads that now resolve to a login page. `nextId` keeps counting, so a
+   *  switcher row held across a clear resolves to undefined, never to a
+   *  recycled entry. */
+  clear(id?: ServiceId): void {
+    this.entries = id ? this.entries.filter((e) => e.serviceId !== id) : [];
+  }
+
   get(id: number): ActivityEntry | undefined {
     return this.entries.find((e) => e.id === id);
   }

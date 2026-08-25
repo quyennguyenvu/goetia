@@ -9,7 +9,7 @@ export interface RendererToMain {
   /** right-click on a rail tile: main pops the native per-service menu */
   'service:tileMenu': { serviceId: ServiceId };
   /** Settings → Services row: wipe the service's login on this device */
-  'service:signOut': { serviceId: ServiceId };
+  'service:purgeLogin': { serviceId: ServiceId };
   'global:setMuted': { muted: boolean };
   'switcher:setOpen': { open: boolean };
   'settings:setOpen': { open: boolean };
@@ -59,7 +59,7 @@ export const R2M_CHANNELS = [
   'service:reorder',
   'service:reload',
   'service:tileMenu',
-  'service:signOut',
+  'service:purgeLogin',
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
@@ -80,10 +80,16 @@ export const R2M_CHANNELS = [
 export interface RendererInvoke {
   /** recents for the quick switcher: fetched once per open, never broadcast */
   'activity:recent': { result: ActivityEntryView[] };
+  /** Home's sweep: wipes every service's login, summoned and unbound.
+   *  Returns the count so the renderer can toast it — invoke rather than
+   *  send because the confirm is modal and the wipes are async, and a
+   *  one-shot acknowledgement has no business in every later broadcast. */
+  'services:purgeAll': { result: { purged: number } };
 }
 
 export const INVOKE_CHANNELS = [
   'activity:recent',
+  'services:purgeAll',
 ] as const satisfies readonly (keyof RendererInvoke)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -94,7 +100,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'service:reorder',
   'service:reload',
   'service:tileMenu',
-  'service:signOut',
+  'service:purgeLogin',
   'global:setMuted',
   'switcher:setOpen',
   'settings:setOpen',
@@ -105,4 +111,5 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'updates:openDownload',
   'activity:open',
   'activity:recent',
+  'services:purgeAll',
 ]);

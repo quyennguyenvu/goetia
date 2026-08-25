@@ -10,6 +10,7 @@ interface Props {
   atCap: boolean;
   onSummon(): void;
   onDiscard(): void;
+  onPurgeAll(): void;
 }
 
 /** The welcome hero, made permanent furniture: portal, wordmark, the cap
@@ -22,6 +23,7 @@ export default function HomeHero({
   atCap,
   onSummon,
   onDiscard,
+  onPurgeAll,
 }: Props) {
   return (
     <aside
@@ -88,6 +90,21 @@ export default function HomeHero({
         <br />
         ⌘/Ctrl ⇧ H returns you here
       </p>
+      {/* the only path to an unbound service's credentials, so it lives here
+          rather than in Settings — but unfilled and as far from the summon
+          CTA as the column allows */}
+      <div className="relative w-full border-t border-border pt-2">
+        <button
+          type="button"
+          data-testid="purge-all-btn"
+          title="Clears every saved login on this device — summoned and unbound. Your accounts stay active; nothing is signed out elsewhere."
+          onClick={onPurgeAll}
+          className="w-full text-center text-[11px] text-danger transition-opacity duration-120
+            hover:underline hover:opacity-90"
+        >
+          Purge all logins…
+        </button>
+      </div>
     </aside>
   );
 }

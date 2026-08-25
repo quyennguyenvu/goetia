@@ -103,7 +103,8 @@ export default function Rail() {
           aria-label="Home"
           aria-current={state.homeOpen ? 'page' : undefined}
           title="Home — all services (⌘⇧H)"
-          onClick={() => window.goetia.send('home:setOpen', { open: !state.homeOpen })}
+          // a destination, not a toggle: clicking Home from Home stays on Home
+          onClick={() => window.goetia.send('home:setOpen', { open: true })}
           className={`flex h-8 w-8 flex-none items-center justify-center rounded-[11px]
           transition-all duration-150 ease-out outline-none focus-visible:ring-2
           focus-visible:ring-accent ${

@@ -260,7 +260,7 @@ export class ServiceViewManager {
     wc.on('will-redirect', (e, url) => containNavigation(e, url));
     wc.on('did-start-loading', () => this.hooks.onLoading(id, true));
     wc.on('did-finish-load', () => {
-      // re-assert: restarts, hibernation wakes, reloads and sign-outs all
+      // re-assert: restarts, hibernation wakes, reloads and purges all
       // land here, and the persisted level must survive every one of them
       wc.setZoomLevel(this.zoomLevel(id));
       this.hooks.onLoading(id, false);
@@ -543,9 +543,9 @@ export class ServiceViewManager {
   }
 
   /** End every call this service has open. A call outlives a service switch —
-   *  but not the service being destroyed, and not a sign-out: leaving a call
-   *  running on credentials the user just revoked is the surprising state the
-   *  sign-out dialog already promised not to leave them in. */
+   *  but not the service being destroyed, and not a login purge: leaving a
+   *  call running on credentials the user just wiped is the surprising state
+   *  the purge dialog already promised not to leave them in. */
   closeCallWindows(id: ServiceId): void {
     for (const call of this.callWindows.get(id) ?? []) {
       if (!call.isDestroyed()) call.close();
@@ -584,7 +584,7 @@ export class ServiceViewManager {
     view.webContents.loadURL(serviceById(id).url);
   }
 
-  /** Post-sign-out reset: land a live view back on the chat URL. Not the ⌘R
+  /** Post-purge reset: land a live view back on the chat URL. Not the ⌘R
    *  path, so no reload-guard — and no ensure: a hibernated service must not
    *  wake just to show a login page. */
   loadServiceUrl(id: ServiceId): void {
