@@ -1,4 +1,5 @@
 import type { Counts } from '../../shared/types';
+import { nameMatches } from '../lib/conversation-open';
 import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
@@ -60,9 +61,47 @@ function readChats(database: IDBDatabase): Promise<WhatsAppChat[]> {
   });
 }
 
+/** The open chat's name, from the conversation header's chat-title span
+ *  (live DOM, 2026-08-27 dump). It carries no title attribute — the
+ *  span[title] beside it is the member list, which is what the first cut
+ *  pinned. web.whatsapp.com has no per-thread URL and titles itself only
+ *  "WhatsApp", so this is the one handle a pin can keep. */
+export function whatsAppConversation(doc: Document): string | null {
+  const span =
+    doc.querySelector('#main header [data-testid="conversation-info-header-chat-title"]') ??
+    doc.querySelector('#main header [role="button"] span[dir="auto"]');
+  const name = span?.textContent?.trim() ?? '';
+  return name === '' ? null : name;
+}
+
+/** Click the chat-list row named `name`. Rows are role=row grid cells whose
+ *  name is the span[title] in cell-frame-title; the message preview beneath
+ *  is a span[title] too, so the search is scoped to the title cell. The
+ *  press is replayed as mousedown → mouseup → click on the name itself: the
+ *  handler may sit on any wrapper between it and the row, and a bubbling
+ *  event crosses all of them. False when no row carries the name (scrolled
+ *  out of the virtual list, archived, renamed) — the caller decides then. */
+export function openWhatsAppConversation(doc: Document, name: string): boolean {
+  for (const row of doc.querySelectorAll('#pane-side [role="row"], #pane-side [role="listitem"]')) {
+    const span =
+      row.querySelector('[data-testid="cell-frame-title"] span[title]') ??
+      row.querySelector('span[dir="auto"][title]');
+    if (!span || !nameMatches(span.getAttribute('title')?.trim() ?? '', name)) continue;
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      span.dispatchEvent(
+        new MouseEvent(type, { bubbles: true, cancelable: true, view: doc.defaultView }),
+      );
+    }
+    return true;
+  }
+  return false;
+}
+
 const whatsapp: Recipe = {
   id: 'whatsapp',
   intervalMs: 2000,
+  conversation: whatsAppConversation,
+  openConversation: openWhatsAppConversation,
   // #pane-side (chat-list pane) mounts only after the logo+progress boot
   // screen finishes
   ready(doc) {

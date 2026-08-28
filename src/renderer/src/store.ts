@@ -6,6 +6,15 @@ export type PurgeRequest =
   | { kind: 'one'; id: ServiceId; name: string }
   | { kind: 'all'; count: number };
 
+/** The last Done/unpin on Home, with the id Undo restores. The pin is gone
+ *  from ShellState by the time the toast renders, so it carries the service
+ *  for its label itself. */
+export interface PinToastState {
+  message: string;
+  undoId: number;
+  serviceId: ServiceId;
+}
+
 interface ShellStore {
   state: ShellState | null;
   setState(s: ShellState): void;
@@ -29,6 +38,10 @@ interface ShellStore {
    *  already-confirmed decision, never the question. */
   purgeConfirm: PurgeRequest | null;
   setPurgeConfirm(request: PurgeRequest | null): void;
+  /** renderer-local like purgeToast: the toast acknowledges the renderer's
+   *  own click, and Undo needs only the id it just sent */
+  pinToast: PinToastState | null;
+  setPinToast(t: PinToastState | null): void;
 }
 
 export const useShell = create<ShellStore>((set) => ({
@@ -44,11 +57,18 @@ export const useShell = create<ShellStore>((set) => ({
   setPurgeToast: (purgeToast) => set({ purgeToast }),
   purgeConfirm: null,
   setPurgeConfirm: (purgeConfirm) => set({ purgeConfirm }),
+  pinToast: null,
+  setPinToast: (pinToast) => set({ pinToast }),
 }));
 
-export function connectShell(): () => void {
+/** Subscribe the store to main's broadcasts. `apply` lets the caller wrap
+ *  the store write — App uses it to make a pin-count change land without
+ *  layout animation. */
+export function connectShell(
+  apply: (commit: () => void, s: ShellState) => void = (commit) => commit(),
+): () => void {
   return window.goetia.onState((s) => {
     document.documentElement.dataset.theme = s.theme;
-    useShell.getState().setState(s);
+    apply(() => useShell.getState().setState(s), s);
   });
 }

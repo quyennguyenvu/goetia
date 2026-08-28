@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   capTrimMessage,
+  pinRemovedMessage,
   purgeToastMessage,
   shouldToast,
   TOAST_MS,
 } from '../../src/renderer/src/components/toast-rules';
+
+describe('pinRemovedMessage', () => {
+  it('tells Done and unpin apart — same effect, different intent', () => {
+    expect(pinRemovedMessage('done')).toBe('Done — nice.');
+    expect(pinRemovedMessage('unpin')).toBe('Unpinned.');
+  });
+});
 
 describe('shouldToast', () => {
   it('announces a version the shell has not shown yet', () => {

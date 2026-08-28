@@ -19,6 +19,7 @@ import { anyOverlayOpen } from './lib/overlay-rules';
 import { releaseUrl } from './lib/update-check';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
+import type { PinStore } from './pins';
 import { purgeAll, purgeLogin } from './purge';
 import type { SettingsStore } from './settings';
 import type { MainState } from './state';
@@ -35,6 +36,8 @@ export interface AppContext {
   updates: UpdateChecker;
   /** banner history behind the switcher's Recent section; in-memory only */
   activity: ActivityLog;
+  /** the pinboard; persisted, see pins.ts */
+  pins: PinStore;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -234,7 +237,35 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     });
     performBannerAction(ctx, entry.serviceId, action);
   });
-  on('service:keepalive-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
+  // every mutation broadcasts only when the store actually changed — a stale
+  // renderer's no-op must not cost a fan-out
+  on('pins:reorder', ({ ids }) => {
+    if (ctx.pins.reorder(ids)) ctx.broadcast();
+  });
+  on('pins:unpin', ({ id }) => {
+    if (ctx.pins.unpin(id)) ctx.broadcast();
+  });
+  on('pins:restore', ({ id }) => {
+    if (ctx.pins.restore(id)) ctx.broadcast();
+  });
+  on('pins:setNote', ({ id, note }) => {
+    if (ctx.pins.setNote(id, note)) ctx.broadcast();
+  });
+  on('pins:open', ({ id }) => {
+    const pin = ctx.pins.get(id);
+    if (!pin) return; // removed since Home rendered the row
+    const meta = serviceById(pin.serviceId);
+    // the recents path, verbatim: the href is validated now, not at pin time
+    const action = resolveBannerClick({
+      disabled: ctx.settings.get().disabled[pin.serviceId],
+      hasView: ctx.views.has(pin.serviceId),
+      href: pin.href,
+      serviceUrl: meta.url,
+      chatPaths: meta.chatPaths,
+    });
+    performBannerAction(ctx, pin.serviceId, action, pin.conversation || undefined);
+  });
+  on('service:trusted-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
   on('updates:check', () => void ctx.updates.check('manual'));
   on('updates:openDownload', () => {
     // the URL is built here from a version main validated — the renderer

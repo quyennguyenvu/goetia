@@ -36,7 +36,7 @@ export function setOverlayOpen(
   ctx.state.touch();
 }
 
-/** Open or close Home. Both ⌘/Ctrl ⇧ H and the IPC handler route here so the
+/** Open or close Home. Both ⌘/Ctrl ⇧ G and the IPC handler route here so the
  *  surface is recorded however Home was reached. Focus stays with the caller:
  *  the two paths deliberately differ there. Home is a destination, not a
  *  toggle — asking for the surface you are already on is a no-op, not a trip
@@ -75,10 +75,14 @@ export function performBannerAction(
   ctx: AppContext,
   id: ServiceId,
   action: BannerClickAction,
+  /** a pin's conversation name, for sites whose URL cannot single out a thread */
+  conversation?: string,
 ): void {
   if (action.kind === 'show-only') return;
   activateService(ctx, id);
   if (action.kind === 'navigate') ctx.views.openConversation(id, action.url);
-  if (action.kind === 'open-in-page') ctx.views.sendOpenConversation(id, action.href, action.url);
+  if (action.kind === 'open-in-page') {
+    ctx.views.sendOpenConversation(id, action.href, action.url, conversation);
+  }
   if (action.kind === 'replay') ctx.views.sendReplayClick(id, action.clickId);
 }

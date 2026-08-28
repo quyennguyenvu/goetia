@@ -12,6 +12,9 @@ const base: ContextMenuInfo = {
   selectionText: '',
   linkURL: '',
   imageURL: '',
+  pageTitle: '',
+  serviceOrigin: 'https://chat.zalo.me',
+  pinsFull: false,
 };
 
 const info = (over: Partial<ContextMenuInfo> = {}): ContextMenuInfo => ({ ...base, ...over });
@@ -34,12 +37,16 @@ describe('buildContextMenuTemplate', () => {
     ]);
   });
 
-  it('offers Copy alone for a bare selection outside an editable field', () => {
+  it('offers Copy and Pin Message for a bare selection outside an editable field', () => {
     expect(
       buildContextMenuTemplate(
         info({ selectionText: 'hello', editFlags: { ...noEdit, canCopy: true } }),
       ),
-    ).toEqual([{ kind: 'edit', action: 'copy', enabled: true }]);
+    ).toEqual([
+      { kind: 'edit', action: 'copy', enabled: true },
+      { kind: 'separator' },
+      { kind: 'pin-message', text: 'hello', href: null, enabled: true },
+    ]);
   });
 
   it('treats a whitespace-only selection as no selection', () => {
@@ -93,7 +100,11 @@ describe('buildContextMenuTemplate', () => {
           editFlags: { ...noEdit, canCopy: true },
         }),
       ),
-    ).toEqual([{ kind: 'edit', action: 'copy', enabled: true }]);
+    ).toEqual([
+      { kind: 'edit', action: 'copy', enabled: true },
+      { kind: 'separator' },
+      { kind: 'pin-message', text: 'goetya', href: null, enabled: true },
+    ]);
   });
 
   it('offers copy and open for a web link', () => {
@@ -115,6 +126,72 @@ describe('buildContextMenuTemplate', () => {
     expect(buildContextMenuTemplate(info({ imageURL: 'https://cdn.example.com/a.png' }))).toEqual([
       { kind: 'copy-image' },
       { kind: 'save-image', url: 'https://cdn.example.com/a.png' },
+    ]);
+  });
+
+  it('pins the trimmed selection, sitting between the edit and link sections', () => {
+    const items = buildContextMenuTemplate(
+      info({
+        isEditable: true,
+        editFlags: allEdit,
+        selectionText: '  quoted text ',
+        linkURL: 'https://example.com/x',
+      }),
+    );
+    expect(items.map((i) => i.kind)).toEqual([
+      'edit',
+      'edit',
+      'edit',
+      'edit',
+      'separator',
+      'pin-message',
+      'separator',
+      'copy-link',
+      'open-link',
+    ]);
+    expect(items[5]).toEqual({
+      kind: 'pin-message',
+      text: 'quoted text',
+      href: null,
+      enabled: true,
+    });
+  });
+
+  it('without a selection, pins a same-origin link titled by the page', () => {
+    expect(
+      buildContextMenuTemplate(
+        info({ linkURL: 'https://chat.zalo.me/#/thread/9', pageTitle: 'Zalo — Mẹ' }),
+      ),
+    ).toEqual([
+      {
+        kind: 'pin-message',
+        text: 'Zalo — Mẹ',
+        href: 'https://chat.zalo.me/#/thread/9',
+        enabled: true,
+      },
+      { kind: 'separator' },
+      { kind: 'copy-link', url: 'https://chat.zalo.me/#/thread/9' },
+      { kind: 'open-link', url: 'https://chat.zalo.me/#/thread/9' },
+    ]);
+  });
+
+  it('never pins a cross-origin link, a bad link, or a link on an untitled page', () => {
+    for (const over of [
+      { linkURL: 'https://example.com/x', pageTitle: 'Zalo' },
+      { linkURL: 'not a url', pageTitle: 'Zalo' },
+      { linkURL: 'https://chat.zalo.me/x', pageTitle: '   ' },
+    ]) {
+      expect(buildContextMenuTemplate(info(over)).some((i) => i.kind === 'pin-message')).toBe(
+        false,
+      );
+    }
+  });
+
+  it('shows the item disabled at the cap — the cap is visible, not silent', () => {
+    expect(buildContextMenuTemplate(info({ selectionText: 'x', pinsFull: true }))).toEqual([
+      { kind: 'edit', action: 'copy', enabled: false },
+      { kind: 'separator' },
+      { kind: 'pin-message', text: 'x', href: null, enabled: false },
     ]);
   });
 

@@ -1,49 +1,28 @@
 import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
-import { activateService, setHomeOpen, setOverlayOpen } from './activate';
+import { openSettings, runShellCommand } from './commands';
 import type { AppContext } from './ipc-handlers';
 import { serviceAccelerator } from './lib/service-accelerator';
-import { stepZoom } from './lib/zoom-rules';
+import { ACCELERATORS, devtoolsAccelerator } from './lib/shortcuts';
 
-function openSettings(ctx: AppContext): void {
-  setOverlayOpen(ctx, 'settingsOpen', true);
-  ctx.win.webContents.focus(); // so Escape closes the modal immediately
-}
-
-function goHome(ctx: AppContext): void {
-  setHomeOpen(ctx, true);
-  ctx.win.webContents.focus();
-}
-
-/** Zoom acts on the active service view; with no view anywhere (fresh
- *  install on Home) it is a silent no-op. Persist first, then re-apply. */
-function setActiveZoom(ctx: AppContext, next: (current: number) => number): void {
-  const id = ctx.state.activeId;
-  if (!ctx.views.has(id)) return;
-  const s = ctx.settings.get();
-  // deferred: ⌘+ is a key-repeat path and an atomic write costs ~5 ms. The
-  // level is live in the cache immediately, so applyZoom below still reads it;
-  // a hard kill inside the window loses one zoom step and nothing else.
-  ctx.settings.updateDeferred({ zoom: { ...s.zoom, [id]: next(s.zoom[id]) } });
-  ctx.views.applyZoom(id);
-}
-
+// Every chord here is also intercepted inside the service views
+// (lib/shortcuts.ts), so items only name the command; commands.ts runs it.
 export function buildAppMenu(ctx: AppContext): void {
   const s = ctx.settings.get();
   const order = s.order.filter((id) => !s.disabled[id]);
+  const run = (command: Parameters<typeof runShellCommand>[1]) => () =>
+    runShellCommand(ctx, command);
   const settingsItem: Electron.MenuItemConstructorOptions = {
     label: 'Settings…',
-    accelerator: 'CmdOrCtrl+,',
-    click: () => openSettings(ctx),
+    accelerator: ACCELERATORS.settings,
+    click: run({ kind: 'settings' }),
   };
   const muteItem: Electron.MenuItemConstructorOptions = {
     label: 'Mute All Notifications',
-    accelerator: 'CmdOrCtrl+Shift+M',
+    accelerator: ACCELERATORS.mute,
     type: 'checkbox',
     checked: s.globalMuted || ctx.quietNow(),
-    // the item's own `checked` is stale the moment mute moves elsewhere; read
-    // effective silence instead, and let setGlobalMuted rebuild both menus
-    click: () => ctx.setGlobalMuted(!(ctx.settings.get().globalMuted || ctx.quietNow())),
+    click: run({ kind: 'mute' }),
   };
   const checkUpdatesItem: Electron.MenuItemConstructorOptions = {
     label: 'Check for Updates…',
@@ -75,60 +54,77 @@ export function buildAppMenu(ctx: AppContext): void {
           },
         ]
       : []),
-    { role: 'editMenu' },
+    {
+      // spelled out rather than role: 'editMenu' so Pin Selection can sit
+      // with the other selection verbs
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(process.platform === 'darwin'
+          ? [{ role: 'pasteAndMatchStyle' as const }, { role: 'delete' as const }]
+          : []),
+        { role: 'selectAll' },
+        { type: 'separator' },
+        {
+          // the second way in, for pages that own right-click (Discord)
+          label: 'Pin Selection',
+          accelerator: ACCELERATORS.pinSelection,
+          click: run({ kind: 'pin-selection' }),
+        },
+      ],
+    },
     {
       label: 'View',
       submenu: [
         {
           label: 'Zoom In',
-          accelerator: 'CmdOrCtrl+=',
-          click: () => setActiveZoom(ctx, (z) => stepZoom(z, 1)),
+          accelerator: ACCELERATORS.zoomIn,
+          click: run({ kind: 'zoom', step: 1 }),
         },
         {
           label: 'Zoom Out',
-          accelerator: 'CmdOrCtrl+-',
-          click: () => setActiveZoom(ctx, (z) => stepZoom(z, -1)),
+          accelerator: ACCELERATORS.zoomOut,
+          click: run({ kind: 'zoom', step: -1 }),
         },
         {
           label: 'Actual Size',
-          accelerator: 'CmdOrCtrl+0',
-          click: () => setActiveZoom(ctx, () => 0),
+          accelerator: ACCELERATORS.zoomReset,
+          click: run({ kind: 'zoom', step: 0 }),
+        },
+        { type: 'separator' },
+        {
+          // the service page on screen, or the shell surface covering it
+          label: 'Toggle Developer Tools',
+          accelerator: devtoolsAccelerator(process.platform),
+          click: run({ kind: 'devtools' }),
         },
       ],
     },
     {
       label: 'Go',
       submenu: [
-        {
-          label: 'Home',
-          accelerator: 'CmdOrCtrl+Shift+H',
-          click: () => {
-            ctx.win.show();
-            goHome(ctx);
-          },
-        },
+        { label: 'Home', accelerator: ACCELERATORS.home, click: run({ kind: 'home' }) },
         { type: 'separator' as const },
-        ...order.map((id, i) => ({
+        ...order.map((id, index) => ({
           label: serviceById(id).name,
-          accelerator: serviceAccelerator(i),
-          click: () => {
-            ctx.win.show();
-            activateService(ctx, id);
-          },
+          accelerator: serviceAccelerator(index),
+          click: run({ kind: 'service', index }),
         })),
         { type: 'separator' as const },
         {
           label: 'Reload Service',
-          accelerator: 'CmdOrCtrl+R',
-          click: () => ctx.views.refresh(ctx.state.activeId),
+          accelerator: ACCELERATORS.reload[0],
+          click: run({ kind: 'reload' }),
         },
         {
           label: 'Quick Switcher',
-          accelerator: 'CmdOrCtrl+K',
-          click: () => {
-            setOverlayOpen(ctx, 'switcherOpen', !ctx.state.switcherOpen);
-            ctx.win.webContents.focus();
-          },
+          accelerator: ACCELERATORS.switcher,
+          click: run({ kind: 'switcher' }),
         },
         ...(process.platform !== 'darwin'
           ? [{ type: 'separator' as const }, muteItem, checkUpdatesItem, settingsItem]

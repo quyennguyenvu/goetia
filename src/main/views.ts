@@ -11,6 +11,7 @@ import {
   type WebContents,
   WebContentsView,
 } from 'electron';
+import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
@@ -21,6 +22,7 @@ import { NavigationAudit } from './lib/navigation-audit';
 import { isNavigationAllowed } from './lib/navigation-policy';
 import { permissionAllowed } from './lib/permission-policy';
 import { reloadAllowed } from './lib/reload-guard';
+import { type ShellCommand, shellCommandFor } from './lib/shortcuts';
 
 const EDIT_LABELS = { cut: 'Cut', copy: 'Copy', paste: 'Paste', selectAll: 'Select All' } as const;
 
@@ -55,6 +57,30 @@ export interface ViewHooks {
   onNavigate(id: ServiceId): void;
   onCrashed(id: ServiceId): void;
   onLoadFailed(id: ServiceId): void;
+  /** "Pin Message" from the page's context menu or the Pin Selection
+   *  shortcut — captured here in main, so the service preload needs no
+   *  channel for it. `title` is document.title, the conversation's best
+   *  generic hint. */
+  onPinMessage(
+    id: ServiceId,
+    text: string,
+    href: string,
+    title: string,
+    conversation: string | null,
+  ): void;
+  /** the pinboard is at capacity, so the item renders disabled */
+  pinsFull(): boolean;
+  /** a Goetia chord pressed inside the page (lib/shortcuts.ts) — the page
+   *  never sees it, and neither does the menu accelerator */
+  onShellCommand(command: ShellCommand): void;
+}
+
+/** Detached always: docked devtools would shrink the host's web contents
+ *  while the views keep laying out to the window, and overlap it. */
+export function toggleDetachedDevTools(wc: WebContents): void {
+  if (wc.isDestroyed()) return;
+  if (wc.isDevToolsOpened()) wc.closeDevTools();
+  else wc.openDevTools({ mode: 'detach' });
 }
 
 export class ServiceViewManager {
@@ -232,14 +258,25 @@ export class ServiceViewManager {
         selectionText: params.selectionText,
         linkURL: params.linkURL,
         imageURL: params.mediaType === 'image' ? params.srcURL : '',
+        pageTitle: wc.getTitle(),
+        serviceOrigin: new URL(serviceById(id).url).origin,
+        pinsFull: this.hooks.pinsFull(),
       });
       if (items.length === 0) return;
-      const template = items.map((item) => this.menuItemFor(item, wc, params));
+      const template = items.map((item) => this.menuItemFor(id, item, wc, params));
       Menu.buildFromTemplate(template).popup({ window: this.win });
     });
-    wc.on('before-input-event', (_e, input) => {
-      // F5 reload while focus is inside the service page (menu covers Cmd/Ctrl+R)
-      if (input.type === 'keyDown' && input.key === 'F5') this.refresh(id);
+    wc.on('before-input-event', (e, input) => {
+      // Goetia's chords win over the page. The page gets a key before the
+      // menu and may swallow it (Discord bound the old ⌘⇧H), so a shell chord is
+      // taken here — preventDefault also drops the menu accelerator, so the
+      // hook runs the command. Repeats: zoom and reload (the reload guard
+      // rate-limits a held F5) may repeat; a held ⌘⇧G opens Home once.
+      const command = shellCommandFor(input, process.platform);
+      if (!command) return;
+      e.preventDefault();
+      if (input.isAutoRepeat && command.kind !== 'zoom' && command.kind !== 'reload') return;
+      this.hooks.onShellCommand(command);
     });
     // Navigation containment, enforced. A service view must never carry an
     // unlisted origin, because this view runs unsandboxed with the recipe
@@ -399,6 +436,7 @@ export class ServiceViewManager {
    *  outside world, and the builder emits it solely for isSafeExternalUrl
    *  URLs — the same gate as the window-open handler above. */
   private menuItemFor(
+    id: ServiceId,
     item: ContextMenuItem,
     wc: WebContents,
     params: ContextMenuParams,
@@ -427,15 +465,76 @@ export class ServiceViewManager {
         return { label: 'Copy Image', click: () => wc.copyImageAt(params.x, params.y) };
       case 'save-image':
         return { label: 'Save Image As…', click: () => wc.downloadURL(item.url) };
+      case 'pin-message':
+        return {
+          label: item.enabled ? 'Pin Message' : `Pin Message — ${PIN_CAP} max`,
+          enabled: item.enabled,
+          // pageURL is the document at right-click time — the conversation
+          // the selection was read in
+          click: () => void this.capturePin(id, wc, item.text, item.href ?? params.pageURL),
+        };
       case 'separator':
         return { type: 'separator' };
     }
+  }
+
+  /** The Pin Selection shortcut: pin whatever is selected in the service
+   *  page. Exists because some sites own right-click (Discord draws its own
+   *  menu on messages and swallows ours), so the context menu cannot be the
+   *  only way in. The selection is read with executeJavaScript rather than a
+   *  preload channel: no new service-side IPC, and the text is treated as
+   *  page content downstream either way. */
+  async pinSelection(id: ServiceId): Promise<void> {
+    const wc = this.views.get(id)?.webContents;
+    if (!wc || wc.isDestroyed() || this.hooks.pinsFull()) return;
+    let text: unknown;
+    try {
+      text = await wc.executeJavaScript('String(document.getSelection() ?? "")', true);
+    } catch {
+      return; // page is mid-navigation; nothing to pin
+    }
+    if (typeof text !== 'string' || text.trim() === '' || wc.isDestroyed()) return;
+    await this.capturePin(id, wc, text, wc.getURL());
+  }
+
+  /** Both capture doors end here: the title is the generic conversation
+   *  hint, and the recipe's own name (WhatsApp) is fetched from the page —
+   *  the one thing that can later open a thread whose URL is shared by all. */
+  private async capturePin(
+    id: ServiceId,
+    wc: WebContents,
+    text: string,
+    href: string,
+  ): Promise<void> {
+    const title = wc.getTitle();
+    let conversation: unknown = null;
+    try {
+      conversation = await wc.executeJavaScript(
+        'globalThis.__goetia?.conversation?.() ?? null',
+        true,
+      );
+    } catch {
+      // page mid-navigation: the title alone will have to do
+    }
+    if (wc.isDestroyed()) return;
+    this.hooks.onPinMessage(
+      id,
+      text,
+      href,
+      title,
+      typeof conversation === 'string' && conversation.trim() !== '' ? conversation : null,
+    );
   }
 
   /** Trusted synthetic click; page-JS clicks are untrusted and e.g. Zalo's
    *  session-activation button ignores them. Input only reaches visible
    *  widgets, so a hidden view is flashed visible underneath the active one
    *  (attached at the bottom of the z-order) for the click. */
+  toggleDevTools(id: ServiceId): void {
+    const view = this.views.get(id);
+    if (view) toggleDetachedDevTools(view.webContents);
+  }
+
   trustedClick(id: ServiceId, x: number, y: number): void {
     const view = this.views.get(id);
     if (!view) return;
@@ -608,9 +707,11 @@ export class ServiceViewManager {
 
   /** Banner click, lane B on a live view: route in-page — a loadURL here
    *  would reboot the SPA and raise the waking cover for a thread switch. */
-  sendOpenConversation(id: ServiceId, href: string, url: string): void {
+  sendOpenConversation(id: ServiceId, href: string, url: string, conversation?: string): void {
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) wc.send('notification:openConversation', { href, url });
+    if (wc && !wc.isDestroyed()) {
+      wc.send('notification:openConversation', { href, url, conversation });
+    }
   }
 
   layout(): void {

@@ -17,6 +17,7 @@ import {
 import { useShell } from '../store';
 import HomeHero from './welcome/HomeHero';
 import PickTile from './welcome/PickTile';
+import PinnedBand from './welcome/PinnedBand';
 import ServiceBand from './welcome/ServiceBand';
 
 const DRAG_CURSOR = 'tile-dragging';
@@ -278,7 +279,10 @@ export default function Welcome() {
   );
 
   return (
-    <div data-testid="welcome" className="flex min-h-0 flex-1 bg-bg-0">
+    // min-w-0 too: a flex item's automatic minimum width is its content's
+    // min-content width, so one nowrap pin row would size the whole page —
+    // and keep re-sizing it under a drag (2026-08-27)
+    <div data-testid="welcome" className="flex min-h-0 min-w-0 flex-1 bg-bg-0">
       <HomeHero
         staged={staged.length}
         label={label}
@@ -292,6 +296,11 @@ export default function Welcome() {
 
       {/* the board: min-h-0 is what lets the bands shrink instead of the page grow */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3.5 px-6 py-4">
+        <PinnedBand
+          pins={state.pins}
+          services={state.services}
+          disabled={state.settings.disabled}
+        />
         <ServiceBand
           testid="welcome-section-summoned"
           label="Summoned"
@@ -307,7 +316,7 @@ export default function Welcome() {
           label="Unbound"
           count={sections.unbound.length}
           aside={sections.unbound.length > 0 ? search : undefined}
-          className="flex-1"
+          className="min-h-[128px] flex-1"
         >
           {sections.unbound.length === 0 ? (
             emptyLine('Every one is bound.')

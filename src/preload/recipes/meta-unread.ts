@@ -1,4 +1,5 @@
 import type { Counts } from '../../shared/types';
+import { urlKey } from '../lib/conversation-open';
 import { textWithEmoji } from './emoji-text';
 import { unreadFromTitle } from './title';
 
@@ -86,18 +87,42 @@ export function synthFromRows(
   for (const link of doc.querySelectorAll(linkSelector)) {
     const row = rowFor(link);
     if (!isUnreadRow(row, win)) continue;
-    // real text carries dir="auto"; presence labels ("Active now") don't
-    let spans = [...row.querySelectorAll('span[dir="auto"]')];
-    if (spans.length === 0) spans = [...row.querySelectorAll('span')];
-    const texts = spans
-      .map((s) => textWithEmoji(s))
-      .filter((t, i, all) => t && t !== '·' && t !== all[i - 1]);
+    const texts = rowTexts(row);
     if (texts.length === 0) return null;
     return {
       title: texts[0],
       body: (texts[1] ?? '').replace(/\s*·\s*\S{1,4}$/u, ''),
       href: link.getAttribute('href') ?? undefined,
     };
+  }
+  return null;
+}
+
+/** A row's texts in reading order — [name, preview, time]. Real text carries
+ *  dir="auto"; presence labels ("Active now") don't. */
+function rowTexts(row: Element): string[] {
+  let spans = [...row.querySelectorAll('span[dir="auto"]')];
+  if (spans.length === 0) spans = [...row.querySelectorAll('span')];
+  return spans
+    .map((s) => textWithEmoji(s))
+    .filter((t, i, all) => t && t !== '·' && t !== all[i - 1]);
+}
+
+/** Name of the thread open right now: the row whose link is the document
+ *  URL. Meta sites title themselves only "Messenger", so the thread list is
+ *  the one place the name is written down. Null on the inbox, and when the
+ *  thread was reached by URL and its row is not rendered. */
+export function conversationFromRows(
+  doc: Document,
+  linkSelector: string,
+  rowFor: (link: Element) => Element,
+): string | null {
+  const here = doc.defaultView?.location.href ?? '';
+  const hereKey = urlKey(here, here);
+  if (hereKey === null) return null;
+  for (const link of doc.querySelectorAll(linkSelector)) {
+    if (urlKey(link.getAttribute('href') ?? '', here) !== hereKey) continue;
+    return rowTexts(rowFor(link))[0] ?? null;
   }
   return null;
 }

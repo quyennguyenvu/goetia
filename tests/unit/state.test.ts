@@ -55,6 +55,15 @@ describe('MainState', () => {
     expect(s.capTrimmed).toEqual(['zalo']);
   });
 
+  it('snapshots pins, defaulting to empty', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).pins).toEqual([]);
+    const pins = [
+      { id: 1, serviceId: 'zalo' as const, text: 'x', note: '', conversation: '', at: 1 },
+    ];
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false, pins).pins).toEqual(pins);
+  });
+
   it('starts with no update known', () => {
     const s = new MainState();
     expect(s.update).toEqual({ status: 'idle', latest: null, announce: null });

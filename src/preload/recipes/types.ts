@@ -42,4 +42,15 @@ export interface Recipe {
    *  rises while the page is unfocused. `href`: the conversation's own link,
    *  so the banner click can land on the thread (validated in main). */
   synthNotification?(doc: Document): { title: string; body: string; href?: string } | null;
+  /** Name of the conversation open right now, for sites whose URL and title
+   *  carry no thread identity (WhatsApp, Zalo) — a pin's row label and the
+   *  only handle `openConversation` can use. Cheap and synchronous; null
+   *  when no thread is open. */
+  conversation?(doc: Document): string | null;
+  /** Open the named conversation in-page. `true`: done (its chat-list row
+   *  was clicked). A point: the row is on screen at these view coordinates
+   *  but the site ignores synthetic clicks (Zalo, like its keepAlive), so
+   *  main must click there. `false`: no row carries the name — the caller
+   *  falls back to the URL. */
+  openConversation?(doc: Document, name: string): boolean | { x: number; y: number };
 }

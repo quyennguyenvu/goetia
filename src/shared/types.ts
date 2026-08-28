@@ -26,6 +26,21 @@ export interface ActivityEntryView {
   at: number;
 }
 
+/** What Home renders per pin. Hrefless like ActivityEntryView: the
+ *  conversation URL stays in main and is re-validated at open time. */
+export interface PinView {
+  id: number;
+  serviceId: ServiceId;
+  /** the captured selection — the "message" */
+  text: string;
+  /** the user's brief description, '' until edited */
+  note: string;
+  /** the conversation the message was pinned in, best-effort from the page
+   *  title; '' when the title carried nothing beyond the service's name */
+  conversation: string;
+  at: number;
+}
+
 export type UpdateStatus = 'idle' | 'checking' | 'current' | 'available' | 'error';
 
 export interface UpdateState {
@@ -236,6 +251,8 @@ export interface ShellState {
   homeOpen: boolean;
   /** ids the summon cap banished at startup; the shell toasts them once */
   capTrimmed: ServiceId[];
+  /** the pinboard in priority order; pins[0] is the one in progress */
+  pins: PinView[];
   theme: 'light' | 'dark'; // effective theme (system already resolved)
   settings: Settings; // raw preferences, for the settings form
   version: string;

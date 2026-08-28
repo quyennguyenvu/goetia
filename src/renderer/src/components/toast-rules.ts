@@ -23,3 +23,8 @@ export function purgeToastMessage(count: number): string | null {
   if (count === 0) return null;
   return `Purged ${count} ${count === 1 ? 'login' : 'logins'}.`;
 }
+
+/** Done and unpin remove the same pin; the copy tells the intents apart. */
+export function pinRemovedMessage(kind: 'done' | 'unpin'): string {
+  return kind === 'done' ? 'Done — nice.' : 'Unpinned.';
+}

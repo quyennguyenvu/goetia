@@ -98,6 +98,10 @@ body {
 .hero-glow {
   animation: hero-glow 3.6s ease-in-out infinite;
 }
+/* two breaths, then still: the rail's pin tally saying "a pin just landed" */
+.tally-pulse {
+  animation: tile-breathe 0.8s ease-in-out 2;
+}
 @keyframes hero-glow {
   0%,
   100% {

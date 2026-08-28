@@ -32,7 +32,17 @@ export interface RendererToMain {
   };
   /** open a recents row: main resolves the stored entry and re-validates */
   'activity:open': { entryId: number };
-  'service:keepalive-click': { serviceId: ServiceId; x: number; y: number };
+  /** Home's pinboard. All shell-only; ids are opaque handles into PinStore
+   *  and hrefs never cross IPC — main re-validates at open time. */
+  'pins:reorder': { ids: number[] };
+  'pins:unpin': { id: number };
+  /** undo the most recent unpin/Done */
+  'pins:restore': { id: number };
+  'pins:setNote': { id: number; note: string };
+  'pins:open': { id: number };
+  /** a recipe asks for a trusted click at a point in its own view: keep-alive
+   *  buttons and Zalo's conversation rows ignore synthetic events */
+  'service:trusted-click': { serviceId: ServiceId; x: number; y: number };
   'service:ready': { serviceId: ServiceId };
   'updates:check': Record<string, never>;
   'updates:openDownload': Record<string, never>;
@@ -50,7 +60,7 @@ export interface MainToService {
   'notification:replayClick': { clickId: number };
   /** banner click on a live view: route to the thread in-page (anchor click),
    *  falling back to a full navigation to `url` if the anchor is gone */
-  'notification:openConversation': { href: string; url: string };
+  'notification:openConversation': { href: string; url: string; conversation?: string };
 }
 
 export const R2M_CHANNELS = [
@@ -70,7 +80,12 @@ export const R2M_CHANNELS = [
   'unread:stale',
   'notification:fired',
   'activity:open',
-  'service:keepalive-click',
+  'pins:reorder',
+  'pins:unpin',
+  'pins:restore',
+  'pins:setNote',
+  'pins:open',
+  'service:trusted-click',
   'service:ready',
   'updates:check',
   'updates:openDownload',
@@ -112,4 +127,9 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'activity:open',
   'activity:recent',
   'services:purgeAll',
+  'pins:reorder',
+  'pins:unpin',
+  'pins:restore',
+  'pins:setNote',
+  'pins:open',
 ]);

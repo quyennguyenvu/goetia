@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ServiceId, ServiceMeta } from '../../../shared/types';
 import { useShell } from '../store';
+import Portal from './Portal';
 import { capTrimMessage, TOAST_MS } from './toast-rules';
 
 // stable empties: a selector that returns a fresh [] on every snapshot makes
@@ -57,7 +58,8 @@ export default function CapTrimToast() {
           onBlur={() => setPaused(false)}
           className="toast-in pointer-events-auto relative flex w-[340px] max-w-full items-start gap-3 overflow-hidden rounded-modal border border-border bg-bg-1 p-3.5 text-left shadow-[0_8px_32px_rgba(0,0,0,.4)]"
         >
-          <span className="h-7 w-7 flex-none rounded-tile bg-gradient-to-br from-[#FFB43D] via-[#FF8A2A] to-[#F04E3E]" />
+          {/* the app speaking, so its sigil — not a blank ember square */}
+          <Portal className="h-7 w-7 flex-none" />
           <span className="min-w-0 text-text-1">{showing}</span>
           <span
             aria-hidden="true"

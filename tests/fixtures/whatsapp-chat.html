@@ -1,0 +1,85 @@
+<title>WhatsApp</title>
+<!-- Shape of the logged-in web.whatsapp.com DOM (2026-08-27 dump), synthetic
+     content. The open chat's name is the header's chat-title span (no title
+     attribute — the span[title] beside it is the member list); chat-list rows
+     are role=row cells whose name is a span[dir=auto][title] inside
+     cell-frame-title, while the preview beneath also carries a title. -->
+<div id="app">
+  <div id="side">
+    <header data-testid="chatlist-header"><h1>Chats</h1></header>
+    <div id="pane-side">
+      <div role="grid" aria-label="Chat list">
+        <div role="row" data-testid="list-item-0">
+          <div role="gridcell" tabindex="0">
+            <div tabindex="-1" aria-selected="false">
+              <div data-testid="cell-frame-container">
+                <div><div><div><div><img alt="" aria-hidden="true" src="" /></div></div></div></div>
+                <div>
+                  <div role="gridcell" aria-colindex="2">
+                    <div data-testid="cell-frame-title"><div><div><span dir="auto" title="Design team">Design team</span></div></div></div>
+                    <div data-testid="cell-frame-primary-detail"><span>22:09</span></div>
+                  </div>
+                  <div data-testid="cell-frame-secondary">
+                    <div><span title="‪ok see you there‬" data-testid="last-msg-status"><span dir="ltr">ok see you there</span></span></div>
+                    <div role="gridcell" aria-colindex="1"><span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div role="row" data-testid="list-item-1">
+          <div role="gridcell" tabindex="0">
+            <div tabindex="-1" aria-selected="false">
+              <div data-testid="cell-frame-container">
+                <div><div><div><div><img alt="" aria-hidden="true" src="" /></div></div></div></div>
+                <div>
+                  <div role="gridcell" aria-colindex="2">
+                    <div data-testid="cell-frame-title"><span dir="auto" title="Alice Nguyen">Alice Nguyen</span></div>
+                    <div data-testid="cell-frame-primary-detail"><span>16:40</span></div>
+                  </div>
+                  <div data-testid="cell-frame-secondary">
+                    <!-- a preview that happens to read like another chat's name -->
+                    <div><span title="Design team" data-testid="last-msg-status"><div><span dir="auto">You</span></div><span>:&nbsp;</span><span dir="ltr">Design team</span></span></div>
+                    <div role="gridcell" aria-colindex="1"><span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div role="row" data-testid="list-item-2">
+          <div role="gridcell" tabindex="0">
+            <div tabindex="-1" aria-selected="true">
+              <div data-testid="cell-frame-container">
+                <div><div><div><div><img alt="" aria-hidden="true" src="" /></div></div></div></div>
+                <div>
+                  <div role="gridcell" aria-colindex="2">
+                    <div data-testid="cell-frame-title"><span dir="auto" title="Weekend hikers — Sunday 6am carpool from the north gate, bring water and a headlamp">Weekend hikers — Sunday 6am carpool from the north gate, bring water and a headlamp</span></div>
+                    <div data-testid="cell-frame-primary-detail"><span>09:12</span></div>
+                  </div>
+                  <div data-testid="cell-frame-secondary">
+                    <div><span title="‪see you all there‬" data-testid="last-msg-status"><span dir="ltr">see you all there</span></span></div>
+                    <div role="gridcell" aria-colindex="1"><span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="main" data-testid="conversation-panel-wrapper">
+    <header data-testid="conversation-header">
+      <div>
+        <div aria-label="Profile details" title="Profile details" role="button"><div><div><div><svg aria-hidden="true" height="40" width="40"></svg></div></div></div></div>
+        <div role="button" tabindex="0" data-testid="conversation-info-header" data-tab="6">
+          <div><div><span data-testid="conversation-info-header-chat-title" dir="auto">Weekend hikers — Sunday 6am carpool from the north gate, bring water and a headlamp</span></div></div>
+          <div data-testid="chat-subtitle"><span data-testid="selectable-text" title="Alice, Bob, Chi, You">Alice, Bob, Chi, You</span></div>
+        </div>
+      </div>
+      <div><button aria-label="Search" type="button"></button></div>
+    </header>
+  </div>
+</div>

@@ -1,5 +1,5 @@
 import type { Counts } from '../../shared/types';
-import { countUnreadRows, synthFromRows, watchRows } from './meta-unread';
+import { conversationFromRows, countUnreadRows, synthFromRows, watchRows } from './meta-unread';
 import { visiblyPresent } from './ready';
 import type { Recipe } from './types';
 
@@ -107,6 +107,10 @@ const instagram: Recipe = {
   // thread links — the waking cover must stay up there
   ready(doc) {
     return visiblyPresent(doc, doc.querySelector(THREAD_LINK));
+  },
+  // the pin's row label: this site's title never names the thread
+  conversation(doc) {
+    return conversationFromRows(doc, THREAD_LINK, rowFor);
   },
   count(doc): Counts {
     return countUnreadRows(doc, THREAD_LINK, rowFor);

@@ -15,7 +15,8 @@
       "!node_modules",
       "!pnpm-lock.yaml",
       "!resources",
-      "!tests/fixtures"
+      "!tests/fixtures",
+      "!temp"
     ]
   }
 }

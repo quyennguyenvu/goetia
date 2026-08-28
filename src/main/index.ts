@@ -3,6 +3,7 @@ import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor } from 'elec
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
+import { runShellCommand } from './commands';
 import { HibernationController } from './hibernation';
 import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
@@ -14,6 +15,7 @@ import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
 import { buildAppMenu } from './menu';
 import { NotificationRouter } from './notifications';
+import { PinStore } from './pins';
 import { QuietHoursController } from './quiet-hours';
 import { ResilienceManager } from './resilience';
 import { SettingsStore } from './settings';
@@ -67,6 +69,7 @@ app
     }
 
     const settings = new SettingsStore(app.getPath('userData'));
+    const pins = new PinStore(app.getPath('userData'));
     const state = new MainState();
     const win = createWindow();
 
@@ -98,6 +101,14 @@ app
           waking.end(id, 'load-failed');
           resilience?.onLoadFailed(id);
         },
+        onPinMessage: (id, text, href, title, conversation) => {
+          if (pins.pin({ serviceId: id, text, href, title, conversation, at: Date.now() })) {
+            broadcast();
+          }
+        },
+        pinsFull: () => pins.isFull(),
+        // ctx is assembled below; a key event cannot arrive before it exists
+        onShellCommand: (command) => runShellCommand(ctx, command),
       },
       () => settings.get().railPosition,
       (id) => {
@@ -177,7 +188,7 @@ app
       const s = settings.get();
       win.webContents.send(
         'shell:state',
-        state.snapshot(s, effectiveTheme(), app.getVersion(), quiet.quietNow()),
+        state.snapshot(s, effectiveTheme(), app.getVersion(), quiet.quietNow(), pins.views()),
       );
       const summary = aggregateBadges(s.order.map((id) => state.runtime(id).unread));
       // setBadgeCount and setToolTip are platform calls; only make them when
@@ -233,6 +244,7 @@ app
       waking,
       updates,
       activity: new ActivityLog(),
+      pins,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),

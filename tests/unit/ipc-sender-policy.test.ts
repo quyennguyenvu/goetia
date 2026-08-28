@@ -150,4 +150,32 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(false);
   });
+  it('keeps every pins:* channel shell-only', () => {
+    const channels = [
+      'pins:reorder',
+      'pins:unpin',
+      'pins:restore',
+      'pins:setNote',
+      'pins:open',
+    ] as const;
+    for (const channel of channels) {
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: true,
+          senderServiceId: null,
+          payloadServiceId: undefined,
+        }),
+      ).toBe(true);
+      // a service frame naming itself is still refused: only the shell pins
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: false,
+          senderServiceId: 'zalo',
+          payloadServiceId: 'zalo',
+        }),
+      ).toBe(false);
+    }
+  });
 });

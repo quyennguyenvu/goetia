@@ -1,8 +1,10 @@
+import { useInstantLayoutTransition } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { aggregateBadges, badgeLabel } from '../../shared/badges';
 import CapTrimToast from './components/CapTrimToast';
 import ContentPlaceholder from './components/ContentPlaceholder';
 import { overlayNeedsUpdate, renderOverlayDataUrl } from './components/overlay-badge';
+import PinToast from './components/PinToast';
 import PurgeConfirm from './components/PurgeConfirm';
 import PurgeToast from './components/PurgeToast';
 import QuickSwitcher from './components/QuickSwitcher';
@@ -16,7 +18,24 @@ export default function App() {
   const state = useShell((s) => s.state);
   const sentOverlay = useRef<number | null>(null);
 
-  useEffect(() => connectShell(), []);
+  // A pin leaving the board shrinks the Pinned band in one frame, and Motion
+  // would then animate every layout-tracked tile below it (Summoned's
+  // Reorder items) from its old spot — tiles drifting outside a band that
+  // has already moved. Skip the layout pass for broadcasts that change the
+  // pin set; every other broadcast keeps its animations.
+  const instant = useInstantLayoutTransition();
+  const pinKey = useRef<string | null>(null);
+  useEffect(
+    () =>
+      connectShell((commit, s) => {
+        const key = s.pins.map((p) => p.id).join(',');
+        const changed = pinKey.current !== null && key !== pinKey.current;
+        pinKey.current = key;
+        if (changed) instant(commit);
+        else commit();
+      }),
+    [instant],
+  );
 
   // Windows taskbar overlay: drawn here (main has no canvas), applied in main.
   // Redrawn only when the count moves — the effect sees a fresh snapshot object
@@ -59,6 +78,7 @@ export default function App() {
         <UpdateToast />
         <CapTrimToast />
         <PurgeToast />
+        <PinToast />
       </div>
       {pos === 'right' && <Rail />}
       <SettingsView />

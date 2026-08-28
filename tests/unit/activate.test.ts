@@ -171,6 +171,25 @@ describe('performBannerAction', () => {
       'telegram',
       '#123',
       'https://t.example/#123',
+      undefined,
+    );
+  });
+
+  // a pin from a URL-less site rides its conversation name along, so the
+  // preload can open the thread by clicking its row
+  it('passes a pin conversation through to the in-page open', () => {
+    const { ctx, views } = makeBannerCtx();
+    performBannerAction(
+      ctx,
+      'whatsapp',
+      { kind: 'open-in-page', href: 'https://web.whatsapp.com/', url: 'https://web.whatsapp.com/' },
+      'FULL TEAM - Ticketbox',
+    );
+    expect(views.sendOpenConversation).toHaveBeenCalledWith(
+      'whatsapp',
+      'https://web.whatsapp.com/',
+      'https://web.whatsapp.com/',
+      'FULL TEAM - Ticketbox',
     );
   });
 

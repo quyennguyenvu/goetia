@@ -1,5 +1,12 @@
 import { serviceById } from '../shared/services';
-import type { ServiceId, ServiceRuntime, Settings, ShellState, UpdateState } from '../shared/types';
+import type {
+  PinView,
+  ServiceId,
+  ServiceRuntime,
+  Settings,
+  ShellState,
+  UpdateState,
+} from '../shared/types';
 
 const defaultRuntime = (): ServiceRuntime => ({
   unread: { direct: 0, indirect: 0 },
@@ -84,6 +91,7 @@ export class MainState {
     theme: 'light' | 'dark',
     version: string,
     quietActive: boolean,
+    pins: PinView[] = [],
   ): ShellState {
     const runtime = {} as ShellState['runtime'];
     for (const id of settings.order) runtime[id] = { ...this.runtime(id) };
@@ -99,6 +107,7 @@ export class MainState {
       settingsOpen: this.settingsOpen,
       homeOpen: this.homeOpen,
       capTrimmed: [...this.capTrimmed],
+      pins,
       theme,
       settings,
       version,

@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { ACCELERATORS, devtoolsAccelerator } from '../../../shared/shortcuts';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
@@ -66,6 +67,35 @@ function Pane({
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+/** platform label for a table chord — '⇧⌘G' here, 'Ctrl+Shift+G' on Windows */
+const key = (accelerator: string) => comboLabel(accelerator, isMac);
+
+function ShortcutGroup({
+  title,
+  rows,
+  last,
+}: {
+  title: string;
+  rows: [string, string][];
+  last?: boolean;
+}) {
+  return (
+    <div className={`py-3 ${last ? '' : 'border-b border-border'}`}>
+      <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-2">
+        {title}
+      </h3>
+      <dl className="grid grid-cols-[minmax(120px,max-content)_1fr] gap-x-4 gap-y-1">
+        {rows.map(([chord, action]) => (
+          <div key={chord} className="contents">
+            <dt className="tabular text-text-1">{chord}</dt>
+            <dd className="text-text-2">{action}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -552,25 +582,66 @@ export default function SettingsView() {
 
             {active === 'shortcuts' && (
               <Pane title="Shortcuts">
-                <div className="py-2 text-text-2">
-                  <p className="py-1">⌘/Ctrl + 1…9 — jump to service</p>
-                  <p className="py-1">⌘/Ctrl + K — quick switcher</p>
-                  <p className="py-1">⌘/Ctrl + ⇧ + H — home / all services</p>
-                  <p className="py-1">⌘/Ctrl + F — find a service (on home)</p>
-                  <p className="py-1">⌘/Ctrl + , — settings</p>
-                  <p className="py-1">⌘/Ctrl + ⇧ + M — mute / unmute everything</p>
-                  {s.summonHotkey.enabled && (
-                    <p className="py-1">
-                      {comboLabel(s.summonHotkey.accelerator, isMac)} (system-wide) — summon /
-                      dismiss Goetia
-                    </p>
-                  )}
-                  <p className="py-1">⌘/Ctrl + R or F5 — reload current service</p>
-                  <p className="py-1">⌘/Ctrl + = / − / 0 — zoom current service in / out / reset</p>
-                  <p className="py-1">Esc — close this window</p>
-                  <p className="py-1">Right-click a tile — mute or banish service</p>
-                  <p className="py-1">Drag tiles — reorder services</p>
-                </div>
+                <p className="pt-3 text-[11px] text-text-2">
+                  Goetia's keys work inside every chat page, even where the site binds the same
+                  chord. Home and Pin are on the left half of the keyboard so they can be pressed
+                  with the mouse in the other hand.
+                </p>
+                <ShortcutGroup
+                  title="Navigate"
+                  rows={[
+                    [`${key('CmdOrCtrl+1')}…9`, 'jump to a service'],
+                    [
+                      key(ACCELERATORS.switcher),
+                      'quick switcher — services and recent conversations',
+                    ],
+                    [key(ACCELERATORS.home), 'Home — all services and the pinboard'],
+                    [key(ACCELERATORS.findService), 'find a service (on Home)'],
+                    ['Esc', 'close this window, or leave Home'],
+                  ]}
+                />
+                <ShortcutGroup
+                  title="Pins"
+                  rows={[
+                    [key(ACCELERATORS.pinSelection), 'pin the selected text to the pinboard'],
+                    ['Right-click a message', 'Pin Message — where the site allows our menu'],
+                    ['Drag ⠿ on Home', 'reprioritize — the top pin is in progress'],
+                  ]}
+                />
+                <ShortcutGroup
+                  title="Service page"
+                  rows={[
+                    [`${key(ACCELERATORS.reload[0])} or F5`, 'reload the current service'],
+                    [
+                      `${key(ACCELERATORS.zoomIn)} / ${key(ACCELERATORS.zoomOut)} / ${key(ACCELERATORS.zoomReset)}`,
+                      'zoom in / out / actual size (remembered per service)',
+                    ],
+                    [key(devtoolsAccelerator(isMac ? 'darwin' : 'win32')), 'developer tools'],
+                  ]}
+                />
+                <ShortcutGroup
+                  title="Notifications"
+                  rows={[
+                    [key(ACCELERATORS.mute), 'mute / unmute everything'],
+                    ...(s.summonHotkey.enabled
+                      ? [
+                          [
+                            `${comboLabel(s.summonHotkey.accelerator, isMac)} (system-wide)`,
+                            'summon / dismiss Goetia',
+                          ] as [string, string],
+                        ]
+                      : []),
+                  ]}
+                />
+                <ShortcutGroup
+                  title="Rail"
+                  last
+                  rows={[
+                    [key(ACCELERATORS.settings), 'settings'],
+                    ['Right-click a tile', 'mute or banish the service'],
+                    ['Drag tiles', 'reorder services'],
+                  ]}
+                />
               </Pane>
             )}
 

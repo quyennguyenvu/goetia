@@ -88,7 +88,7 @@ export default function HomeHero({
           </>
         )}
         <br />
-        ⌘/Ctrl ⇧ H returns you here
+        ⌘/Ctrl ⇧ G returns you here
       </p>
       {/* the only path to an unbound service's credentials, so it lives here
           rather than in Settings — but unfilled and as far from the summon
