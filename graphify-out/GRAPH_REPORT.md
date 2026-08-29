@@ -1,146 +1,159 @@
-# Graph Report - .  (2026-08-25)
+# Graph Report - .  (2026-08-29)
 
 ## Corpus Check
-- 170 files · ~278,290 words
+- 56 files · ~303,547 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1662 nodes · 2812 edges · 172 communities (124 shown, 48 thin omitted)
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 269 edges (avg confidence: 0.84)
-- Token cost: 822,936 input · 0 output
+- 1853 nodes · 3204 edges · 187 communities (129 shown, 58 thin omitted)
+- Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 355 edges (avg confidence: 0.85)
+- Token cost: 180,756 input · 0 output
 
 ## Community Hubs (Navigation)
+- Pinned Messages Store & Rules
+- WhatsApp/Zalo Conversation Open
+- Shell Shortcuts & Settings View
 - Hibernation & Peeks
-- Home Screen Components
+- Call Policy & Permissions
 - Guardrail Invariants
-- Startup Surface & View Manager
 - Biome Lint Config
-- Chat-Only Recipe Principles
 - Update Check & Versioning
-- State Broadcast & Shell Wiring
+- Startup Surface & View Manager
 - Security Hardening Design
-- Service Catalog & Icons
-- Settings View UI
-- Welcome Confirm Flow
-- Loading Overlay & IPC Sender Policy
-- Quiet Hours Scheduling
-- Post-Ship Hardening Decisions
-- Activation & Surface Routing
-- Recipe Runner & Containment Tests
-- Rail Badges (Light Theme)
+- Product Docs & Feature Inventory
 - Process Boundary Invariants
-- Rail Badges (Dark Theme)
-- Goetia v1 Implementation Plan
-- TypeScript Config
-- IPC Handlers & AppContext
-- Call Policy & Layout
-- MainState Runtime Store
-- Ready Poll & Slack/Telegram Recipes
-- Home Overlay Activation Rules
-- Discord & WhatsApp Recipes
 - Meta Recipes (Instagram/Messenger)
-- Toast & Placeholder Components
-- Release Workflow & Fuses
-- Mute & Notification Invariants
+- Welcome Confirm Flow
+- Service Catalog & Default Settings
+- IPC Channels & Shell State
+- Quiet Hours Scheduling
+- MainState Runtime Store
+- Post-Ship Hardening Decisions
+- Welcome Sections & Summon Labels
+- Recipe Runner & Containment Tests
+- State Broadcast & Shell Wiring
+- Rail Badges (Light Theme)
+- Service Tile Components
+- Settings Migrations & Zoom
+- Rail Badges (Dark Theme)
+- Service Context Menu Builder
+- TypeScript Config
+- SettingsStore Implementation
+- Activation & Surface Routing
 - Check-for-Updates Plan
-- Unread Counting Optimizations
 - Summon Cap & Home Redesign
 - App Icon & Ember Branding
-- Preload Notify/WebAuthn Shims
-- Shopee & Zalo Recipes
+- Ready Poll & Discord/Telegram Recipes
 - Home Board Ordering Plan
+- Unread Counting Optimizations
 - Slack & Teams Service Design
 - Dev Dependencies
 - Quick Switcher (Dark)
 - Settings Screenshot (Light)
 - Welcome Screenshot (Dark)
 - Welcome Screenshot (Light)
-- Notification Throttle & Toast Rules
-- Peek Discipline & Overlay Guard
+- Startup Surface Restore
+- Notification Rules & Router
+- Resilience Manager
 - Quick Switcher (Light)
 - Settings Screenshot (Dark)
 - README Showcase & Media Capture
 - Media Capture Scripts
-- Service Context Menu Builder
+- Toast & Placeholder Components
 - Quick Switcher Component
+- Fuses, Signing & Gatekeeper
 - Welcome Screen Plan
 - Home Composition Plan
+- Notification Throttle & Toast Rules
 - Package Scripts
-- Main Entry & Summon Hotkey
-- Activation Rules & Reorder
-- Calls, Permissions & External Links
+- Shell Store & App Root
 - Notification Icons Design
 - Recipe Selector Calibration
-- Telegram/WhatsApp/Zalo Icons
-- Settings Migrations & Zoom
-- View Hooks & Lifecycle
-- Service Tile Components
-- Chat Client Design Spec
-- Context Menu & Sign-Out Design
-- Light Sleep & Banner Click
-- Rail Component & Reorder Prompt
 - Teams Hosts & Call Windows
-- Notification Rules & Router
-- SettingsStore Implementation
+- Tray Template Icons
+- Telegram/WhatsApp/Zalo Icons
+- Shell Commands & App Menu
+- Emoji Text Extraction
+- Shopee & Zalo Recipes
+- Release Workflow & Tray
+- Chat Client Design Spec
+- Home Overlay Activation Rules
+- Light Sleep & Banner Click
+- IPC Handlers & AppContext
+- View Hooks & Lifecycle
+- Chat-Only Recipe Principles
+- TikTok, Icons & Home Board Plans
+- Home Pinned & Service Bands
+- Recipe Interface & Slack
+- Banner Click Resolution
+- Reload Guard & Back Affordance
 - Banner SVG & Wordmark
 - Slack Service Plan
 - Drag-to-Reorder Design
+- Context Menu & Sign-Out Design
 - Package Metadata
 - Brand Squircle Icon System
 - Badge Aggregation
-- Activity Log
-- Resilience Manager
+- Purge Confirm & Copy
 - Reorder E2E Spec
 - Waking Overlay (Dark)
 - Waking Overlay (Light)
+- Goetia v1 Implementation Plan
 - Reload Guard & Auto-Banish
-- Navigation Policy & Hosts
+- Activity Log
 - Recipe Index & Teams Recipe
-- App Shell & Overlay Badge
-- Purge Confirm & Copy
 - Release CI Workflow
+- Rail Component & Pin Tally
 - Shopee Chat Focus Design
 - Quiet Hours & Summon Hotkey Design
-- Tray Template Icons
-- Tray Creation & Mute
 - Notification Icon Build Script
 - LoadingOverlay Class
+- Notification Shim
+- PinRow Callback Props
 - Renderer Shell Store
-- Packaging & Gatekeeper
-- Overlay Invariant Bugs
+- Navigation Audit
+- Pin Capture Wiring
+- Pin Toast & Acknowledgement
 - Screenshot Shot Types
 - Release Shell Script
-- Banner Click Resolution
-- Waking Rules
-- Emoji Text Extraction
-- Messenger Fixtures & Synth
+- Notification Icon Resolution
+- Loading Screen API
+- HomeHero Component
+- Shortcuts E2E Spec
+- Mute & Notification Invariants
 - Slack Notification Icons
 - Teams macOS Icon
 - TikTok Icons & Logo
 - Notification Throttle
-- Permission Policy
+- Summon Hotkey
+- Rail Reorder Prompt
 - Restart E2E Spec
+- Detached DevTools Toggle
 - Instagram macOS Icon
 - Teams Notification Icon
-- Navigation Audit
+- Coalesce Helper
 - Overlay Rules
+- WebAuthn Block Shim
 - TikTok Recipe & Synth Test
 - Loading HTML Page
 - Teams Logo SVG
+- App Shell & Overlay Badge
 - Update Toast Rules
 - Banish E2E Spec
 - Purge E2E Spec
 - Updates E2E Spec
 - Release Notes Preamble
+- Packaging & Gatekeeper
 - Slack Notification Icon
 - Tray Template SVG
 - Backoff Helper
-- External URL Guard
 - User Agent Helper
-- Visibility Spoof
 - Shell HTML Document
 - Instagram Logo SVG
 - Fuzzy Matching
+- Activation Rules & Reorder
+- SummonGauge Component
+- Peek E2E Spec
 - conf Dependency
 - Tray Quit & Crash Dwell
 - README Banner Assets
@@ -149,7 +162,7 @@
 - electron-builder Dependency
 - electron-vite Dependency
 - happy-dom Dependency
-- Playwright Dependency
+- Motion Dependency
 - react Dependency
 - react-dom Dependency
 - resvg Dependency
@@ -168,6 +181,7 @@
 - Viber Exclusion
 - Bounded Ready Poll
 - Coalesced Resize Layout
+- Calls, Permissions & External Links
 - pnpm Build Allowlist
 - Blank Fixture
 - Telegram Fixture
@@ -175,37 +189,37 @@
 - Zalo Fixture
 
 ## God Nodes (most connected - your core abstractions)
-1. `ServiceId` - 96 edges
-2. `ServiceViewManager` - 35 edges
-3. `Recipe` - 28 edges
-4. `AppContext` - 27 edges
-5. `registerIpcHandlers()` - 24 edges
-6. `MainState` - 22 edges
-7. `useShell` - 21 edges
-8. `serviceById()` - 19 edges
-9. `Settings` - 18 edges
-10. `HibernationController` - 15 edges
+1. `ServiceId` - 108 edges
+2. `ServiceViewManager` - 40 edges
+3. `PinStore` - 31 edges
+4. `Recipe` - 30 edges
+5. `Pinned messages design spec (2026-08-25)` - 29 edges
+6. `AppContext` - 28 edges
+7. `registerIpcHandlers()` - 25 edges
+8. `useShell` - 25 edges
+9. `MainState` - 23 edges
+10. `Settings` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `chatPaths containment` --shares_data_with--> `resolveBannerClick()`  [INFERRED]
+  CLAUDE.md → src/main/lib/notification-click.ts
+- `Board snaps as one when the pin set changes` --rationale_for--> `Welcome()`  [INFERRED]
+  docs/superpowers/specs/2026-08-25-pinned-messages-design.md → src/renderer/src/components/Welcome.tsx
 - `createTray()` --references--> `Windows Tray Icon (orange ring mark)`  [INFERRED]
   src/main/tray.ts → resources/tray/tray-win.png
-- `createTray()` --references--> `macOS Tray Template Icon @2x (monochrome ring-and-dot glyph, Retina)`  [INFERRED]
-  src/main/tray.ts → resources/tray/trayTemplate@2x.png
-- `Emoji delivered as <img alt> inside the row preview` --conceptually_related_to--> `textWithEmoji()`  [INFERRED]
-  tests/fixtures/messenger-reaction.html → src/preload/recipes/emoji-text.ts
 - `discord.html fixture (guild badges + dot title)` --references--> `discord`  [INFERRED]
   tests/fixtures/discord.html → src/preload/recipes/discord.ts
 - `shopee.html fixture (expanded mini-chat, header badge 31)` --shares_data_with--> `chatHeader()`  [INFERRED]
   tests/fixtures/shopee.html → src/preload/recipes/shopee.ts
 
 ## Import Cycles
-- 3-file cycle: `src/main/activate.ts -> src/main/ipc-handlers.ts -> src/main/menu.ts -> src/main/activate.ts`
-- 3-file cycle: `src/main/activate.ts -> src/main/ipc-handlers.ts -> src/main/notifications.ts -> src/main/activate.ts`
+- 3-file cycle: `src/main/commands.ts -> src/main/ipc-handlers.ts -> src/main/menu.ts -> src/main/commands.ts`
+- 4-file cycle: `src/main/activate.ts -> src/main/ipc-handlers.ts -> src/main/menu.ts -> src/main/commands.ts -> src/main/activate.ts`
 
 ## Hyperedges (group relationships)
-- **The 60s hibernation sweep: hibernate → peek → banish** — claude_light_sleep_peeks, claude_peek_saver, claude_auto_banish_invariant, docs_superpowers_plans_2026_08_16_light_sleep_peekrules, docs_superpowers_plans_2026_08_23_auto_banish_unused_services_shouldbanish, docs_superpowers_plans_2026_08_17_banner_to_conversation_grace [EXTRACTED 1.00]
-- **Effective silence: one decision pair feeding every banner and audio surface** — claude_mute_means_silence, claude_quiet_hours_scheduled_mute, claude_one_sound_per_message, claude_set_global_muted_choke_point, docs_superpowers_plans_2026_08_16_quiet_hours_rules, docs_superpowers_plans_2026_08_16_quiet_hours_controller [EXTRACTED 1.00]
-- **Containment ring around the unsandboxed service view** — claude_process_boundaries, claude_navigation_containment, claude_ipc_sender_policy, claude_permission_allowlist, claude_external_links_policy, claude_call_popup_guest_adoption, claude_electron_fuses, claude_renderer_csp [EXTRACTED 1.00]
+- **Pin capture flow: context menu to rail tally** — src_main_lib_context_menu_pin, src_main_lib_context_menu_buildcontextmenutemplate, src_main_views_serviceviewmanager, src_main_views_serviceviewmanager_menuitemfor, src_main_views_viewhooks_onpinmessage, src_main_pins_pinstore_pin, src_main_state_mainstate_snapshot, src_renderer_src_components_rail_rail [EXTRACTED 1.00]
+- **Pin open flow: Home row to in-page conversation** — src_renderer_src_components_welcome_pinnedband_pinnedband, src_main_ipc_handlers_registeripchandlers, src_main_lib_notification_click_resolvebannerclick, src_main_activate_performbanneraction, src_preload_lib_conversation_open_openconversationinpage, claude_conversation_recipe_hooks, claude_trusted_click_channel [INFERRED 0.85]
+- **Notification silence rules (mute, quiet hours, sound, badges)** — claude_one_sound_per_message, claude_mute_means_silence, claude_quiet_hours_scheduled_mute, src_main_lib_notification_rules_shouldnotify, src_main_lib_notification_rules_audiomuted, src_main_lib_notification_rules_soundoptions, src_shared_badges_aggregatebadges [EXTRACTED 1.00]
 - **Chat-only containment: CSS is cosmetic, chatPaths contains, reload is the escape** — docs_superpowers_specs_2026_08_13_microsoft_teams_service_design_hash_aware_chatpaths, docs_superpowers_specs_2026_08_13_microsoft_teams_service_design_no_css, docs_superpowers_specs_2026_08_12_slack_service_design_slack_chat_only_css, docs_superpowers_specs_2026_08_13_service_back_affordance_design_no_back_affordance, docs_superpowers_specs_2026_08_14_reload_guard_design_reload_guard [INFERRED 0.85]
 - **Awareness while asleep: peeks, banner grace, deep routing and the remembered banner stream** — docs_superpowers_specs_2026_08_16_light_sleep_and_notification_click_through_design_peek_lifecycle, docs_superpowers_specs_2026_08_17_banner_to_conversation_design_banner_grace, docs_superpowers_specs_2026_08_17_banner_to_conversation_design_resolve_banner_click, docs_superpowers_specs_2026_08_17_zoom_signout_and_recents_design_activity_log, docs_superpowers_specs_2026_08_16_quiet_hours_design_quiet_hours [INFERRED 0.85]
 - **Call containment: inert guest, adopted hardened window, widened media permissions, mac entitlements** — docs_superpowers_specs_2026_08_16_calls_and_screen_share_design_call_policy, docs_superpowers_specs_2026_08_16_calls_and_screen_share_design_inert_guest, docs_superpowers_specs_2026_08_16_calls_and_screen_share_design_call_window_adoption, docs_superpowers_specs_2026_08_16_calls_and_screen_share_design_permission_call_origins, docs_superpowers_specs_2026_08_16_calls_and_screen_share_design_mac_entitlements [EXTRACTED 1.00]
@@ -248,465 +262,481 @@
 - **macOS -mac icon variants sharing the inset-padding convention** — resources_notification_icons_telegram_mac_icon, resources_notification_icons_whatsapp_mac_icon, resources_notification_icons_zalo_mac_icon, resources_notification_icons_telegram_mac_platform_variant_convention [INFERRED 0.85]
 - **Per-service visual identity assets across renderer UI and OS notifications** — src_renderer_src_assets_logos_shopee_shopee, resources_notification_icons_telegram_icon, resources_notification_icons_whatsapp_icon, resources_notification_icons_zalo_icon, src_renderer_src_assets_logos_shopee_service_identity_asset_pipeline [INFERRED 0.75]
 
-## Communities (172 total, 48 thin omitted)
+## Communities (187 total, 58 thin omitted)
 
-### Community 0 - "Hibernation & Peeks"
-Cohesion: 0.11
-Nodes (12): DEBUG_PEEKS, HibernationController, BanishCandidate, shouldBanish(), HibernationCandidate, shouldHibernate(), PeekCandidate, peekInterval() (+4 more)
+### Community 0 - "Pinned Messages Store & Rules"
+Cohesion: 0.06
+Nodes (43): Home is a destination, not a toggle, Pins are the user's todo list, on Home, Recents are the banner stream remembered, Pinned messages (feature entry), v0.9 Zoom, Sign-Out, and Quick-Switcher Recents Plan, switcher-results ranking, zoom-rules (clampZoom, stepZoom), Pinned Messages Implementation Plan (2026-08-26) (+35 more)
 
-### Community 1 - "Home Screen Components"
-Cohesion: 0.14
-Nodes (17): Props, Props, Props, SummonGauge(), Welcome(), buildDisabledPatch(), byName(), capBlocked() (+9 more)
+### Community 1 - "WhatsApp/Zalo Conversation Open"
+Cohesion: 0.06
+Nodes (39): Recipe conversation()/openConversation() hooks, keepRendered is two mechanisms, service:trusted-click channel, Keep-alive trusted clicks, Open matches by resolved URL, no-op when already there, WhatsApp conversation()/openConversation() hooks, WhatsApp showed the member list and never jumped, Zalo: openConversation returns a point for a trusted click (+31 more)
 
-### Community 2 - "Guardrail Invariants"
-Cohesion: 0.09
-Nodes (29): Auto-banish as a hibernation sweep step, Banner click lands in the conversation, chatPaths containment (SPA snapback), Home is a destination, not a toggle, Single throttled notification path, Purge and banish are orthogonal axes, Recents are the banner stream remembered, Launch restores the surface you left (+21 more)
+### Community 2 - "Shell Shortcuts & Settings View"
+Cohesion: 0.08
+Nodes (29): Left-hand chords for mouse-paired actions, Goetia's chords win inside a page, Shell shortcuts win inside pages (feature entry), Chords moved to the left hand, Chords intercepted in before-input-event, README shortcuts list, sameBounds(), ViewBounds (+21 more)
 
-### Community 3 - "Startup Surface & View Manager"
-Cohesion: 0.14
-Nodes (3): StartupSurface, ServiceViewManager, ServiceId
-
-### Community 4 - "Biome Lint Config"
-Cohesion: 0.07
-Nodes (26): css, parser, files, includes, formatter, indentStyle, indentWidth, lineWidth (+18 more)
-
-### Community 5 - "Chat-Only Recipe Principles"
+### Community 3 - "Hibernation & Peeks"
 Cohesion: 0.10
-Nodes (27): Adding a service checklist, Chat ONLY product principle, count() cost and settlement rules, Recipe hideChrome per-tick hook, Build from source via corepack pnpm, ferdium-recipes (Apache-2.0) as recipe source, Recipe framework and runner, Service loading screen (waking overlay) plan (+19 more)
+Nodes (13): Auto-banish is the hibernation sweep, one step later, DEBUG_PEEKS, HibernationController, BanishCandidate, shouldBanish(), HibernationCandidate, shouldHibernate(), PeekCandidate (+5 more)
 
-### Community 6 - "Update Check & Versioning"
+### Community 4 - "Call Policy & Permissions"
+Cohesion: 0.08
+Nodes (26): Adding a service checklist, Call popups: hidden inert guest, adopted into a hardened call window, Minimal macOS entitlements, External links policy, Permission allowlist, ferdium-recipes (Apache-2.0) as recipe source, Update check (feature entry), buildContextMenuTemplate pure builder (+18 more)
+
+### Community 5 - "Guardrail Invariants"
+Cohesion: 0.08
+Nodes (31): Single throttled notification path, Purge confirm is an in-app modal, Purge and banish are orthogonal axes, HomeHero + SummonGauge single layout, MAX_SUMMONED / capBlocked / trimToCap, Home Redesign and Summon Cap Implementation Plan, ctx.noteUnreadReport late-bound hook, peek-rules scheduling helper (+23 more)
+
+### Community 6 - "Biome Lint Config"
+Cohesion: 0.07
+Nodes (27): css, parser, files, includes, formatter, indentStyle, indentWidth, lineWidth (+19 more)
+
+### Community 7 - "Update Check & Versioning"
 Cohesion: 0.14
 Nodes (9): compareVersions(), isNewer(), parseLatestRelease(), parts(), releaseUrl(), UpdateChecker, UpdateCheckerDeps, harness() (+1 more)
 
-### Community 7 - "State Broadcast & Shell Wiring"
-Cohesion: 0.11
-Nodes (25): Bounded timers and listener teardown, Report on change only, Regression: switching services didn't update the UI, MainState snapshot and broadcast pipeline, Quick switcher, fuzzyScore and app menu accelerators, SettingsStore over conf, Tray, close-to-tray and autostart, keepAlive opens the collapsed pill (+17 more)
-
-### Community 8 - "Security Hardening Design"
+### Community 9 - "Security Hardening Design"
 Cohesion: 0.10
 Nodes (25): Accepted residual risk, Hardening & remediation design, Electron fuses block, External URL scheme allowlist, IPC sender/origin validation, Pure lib/ helper testing strategy, Navigation containment guard, Per-field settings normalize coercion (+17 more)
 
-### Community 9 - "Service Catalog & Icons"
-Cohesion: 0.13
-Nodes (13): iconFileName(), resolveIcons(), Slack Logo SVG (renderer asset), Slack Brand Mark (four-lozenge hash), Monochrome 24x24 Service Glyph Convention, SERVICES, isShell(), launch() (+5 more)
+### Community 10 - "Product Docs & Feature Inventory"
+Cohesion: 0.10
+Nodes (24): Product principle: chat ONLY, chatPaths containment, Recipe hideChrome hook, Light Sleep peeks, One sound per message, peekSaver backoff, Build from source via corepack pnpm, Regression fixed 2026-08-07: switching services didn't update the UI (+16 more)
 
-### Community 10 - "Settings View UI"
+### Community 11 - "Process Boundary Invariants"
 Cohesion: 0.11
-Nodes (16): close(), DAY_LABELS, DAY_ORDER, isMac, SectionId, SECTIONS, SettingsView(), updateStatusLine() (+8 more)
+Nodes (24): IPC sender policy, Process boundaries, Renderer CSP, WebAuthn/passkey blocking shim, chromeUserAgent strips Electron tokens, Hibernation controller and rules, Typed IPC contract, Notification pipeline and shouldNotify (+16 more)
 
-### Community 11 - "Welcome Confirm Flow"
+### Community 12 - "Meta Recipes (Instagram/Messenger)"
+Cohesion: 0.16
+Nodes (10): link(), instagram, conversationFromRows(), countUnreadRows(), isUnreadRow(), rowTexts(), synthFromRows(), watchRows() (+2 more)
+
+### Community 13 - "Welcome Confirm Flow"
 Cohesion: 0.13
-Nodes (22): buildDisabledPatch, Welcome confirm flow, Portal.tsx, Service picker grid, Welcome.tsx, Escape leaves Home, Seeded, staged picker, summonDelta (+14 more)
+Nodes (23): buildDisabledPatch, Welcome confirm flow, resolveActivation, Service picker grid, Escape leaves Home, Seeded, staged picker, Settings loses the enable toggle, summonDelta (+15 more)
 
-### Community 12 - "Loading Overlay & IPC Sender Policy"
+### Community 14 - "Service Catalog & Default Settings"
 Cohesion: 0.13
-Nodes (15): ipcSenderAllowed(), BG, LoadingState, api, GoetiaLoadingApi, LoadingState, allowed, api (+7 more)
+Nodes (12): Slack Logo SVG (renderer asset), Slack Brand Mark (four-lozenge hash), Monochrome 24x24 Service Glyph Convention, serviceById(), SERVICES, DEFAULT_SETTINGS, isShell(), launch() (+4 more)
 
-### Community 13 - "Quiet Hours Scheduling"
+### Community 15 - "IPC Channels & Shell State"
+Cohesion: 0.15
+Nodes (17): Tile reorder never streams to IPC, Task 1: shared types, constants and IPC channels, Five shell-only pins:* channels and ShellState.pins, ipcSenderAllowed(), BG, LoadingState, allowed, api (+9 more)
+
+### Community 16 - "Quiet Hours Scheduling"
 Cohesion: 0.16
 Nodes (11): minutesOf(), muteToggleResult(), nextBoundary(), quietNow(), quietWindowFor(), windowStartingOn(), QuietHoursController, QuietHoursSchedule (+3 more)
 
-### Community 14 - "Post-Ship Hardening Decisions"
+### Community 17 - "MainState Runtime Store"
+Cohesion: 0.18
+Nodes (7): defaultRuntime(), MainState, WakingTracker, Props, PinView, ServiceRuntime, UpdateState
+
+### Community 18 - "Post-Ship Hardening Decisions"
 Cohesion: 0.11
 Nodes (21): Permission handler origin check, Release supply-chain SHA pinning and provenance, Renderer CSP tightening, Chat ONLY principle (post-ship), chatPaths containment, TikTok chat service, The GitHub request belongs in main, Claims first, screenshots as proof (+13 more)
 
-### Community 15 - "Activation & Surface Routing"
-Cohesion: 0.21
-Nodes (12): activateService(), performBannerAction(), presentSurface(), rememberSurface(), setHomeOpen(), setOverlayOpen(), applyDisabledChange(), serviceAccelerator() (+4 more)
+### Community 19 - "Welcome Sections & Summon Labels"
+Cohesion: 0.16
+Nodes (13): serviceAccelerator(), buildDisabledPatch(), byName(), capBlocked(), commitOrder(), enabledKey(), followLiveOrder(), matchesQuery() (+5 more)
 
-### Community 16 - "Recipe Runner & Containment Tests"
+### Community 20 - "Recipe Runner & Containment Tests"
 Cohesion: 0.19
 Nodes (10): startRecipe(), harness(), harness(), hashRouted, recipe, harness(), harness(), once() (+2 more)
 
-### Community 17 - "Rail Badges (Light Theme)"
+### Community 21 - "State Broadcast & Shell Wiring"
+Cohesion: 0.15
+Nodes (20): Bounded timers and listeners, Report on change only, MainState snapshot and broadcast pipeline, Quick switcher, fuzzyScore and app menu accelerators, SettingsStore over conf, startReadyPoll in the service preload, keepAlive opens the collapsed pill, connectShell returns its unsubscribe (+12 more)
+
+### Community 22 - "Rail Badges (Light Theme)"
 Cohesion: 0.14
 Nodes (20): Active Service Highlight, Discord Service, Home Sigil, Icon-Only Minimal Chrome, Instagram Service, Light Theme, Messenger Service, Muted Service Indicator (+12 more)
 
-### Community 18 - "Process Boundary Invariants"
-Cohesion: 0.14
-Nodes (19): IPC channel classification and sender check, keepRendered is two mechanisms, not one, Navigation containment and the contained window fallback, Process boundaries (shell sandboxed, views not), Renderer CSP lockdown, WebAuthn/passkey blocking shim, Navigation guard not yet wired (superseded), chromeUserAgent strips Electron tokens (+11 more)
+### Community 23 - "Service Tile Components"
+Cohesion: 0.17
+Nodes (9): endsWake(), WakeEnd, logos, Props, logos, PickTile(), Props, ServiceMeta (+1 more)
 
-### Community 19 - "Rail Badges (Dark Theme)"
+### Community 24 - "Settings Migrations & Zoom"
+Cohesion: 0.17
+Nodes (15): clampZoom(), stepZoom(), fillAutoBanish(), fillLastUsedAt(), fillQuietHours(), fillSummonHotkey(), fillZoom(), normalize() (+7 more)
+
+### Community 25 - "Rail Badges (Dark Theme)"
 Cohesion: 0.14
 Nodes (19): Active Service Highlight, Amber Monochrome Icon Treatment, Badge Stays Visible While Muted, Dark Theme Rail Styling, Discord, Home Sigil, Instagram, Messenger (+11 more)
 
-### Community 20 - "Goetia v1 Implementation Plan"
-Cohesion: 0.12
-Nodes (19): Design tokens and reduced-motion kill switch, Typed IPC contract, Agents never commit (plan-wide constraint), Notification pipeline and shouldNotify, Goetia v1 implementation plan, Single-window shell with a view per service, Build-time tile rasteriser, Assets shipped outside the asar (+11 more)
+### Community 26 - "Service Context Menu Builder"
+Cohesion: 0.18
+Nodes (15): Task 4: context-menu pin-message item, buildContextMenuTemplate(), ContextMenuInfo, ContextMenuItem, edit(), image(), pin(), sameOrigin() (+7 more)
 
-### Community 21 - "TypeScript Config"
+### Community 27 - "TypeScript Config"
 Cohesion: 0.11
 Nodes (18): DOM, DOM.Iterable, ES2022, src, tests, vite/client, compilerOptions, jsx (+10 more)
 
-### Community 22 - "IPC Handlers & AppContext"
-Cohesion: 0.23
-Nodes (9): AppContext, register(), registerInvoke(), registerIpcHandlers(), senderAllowed(), setServiceMuted(), purgeAll(), purgeLogin() (+1 more)
-
-### Community 23 - "Call Policy & Layout"
-Cohesion: 0.19
-Nodes (12): CALL_ORIGINS, CALL_POPUPS, CallPopupRule, isBlankCallPopup(), isCallPopup(), sameBounds(), ViewBounds, reloadAllowed() (+4 more)
-
-### Community 24 - "MainState Runtime Store"
-Cohesion: 0.22
-Nodes (5): defaultRuntime(), MainState, WakingTracker, ServiceRuntime, UpdateState
-
-### Community 25 - "Ready Poll & Slack/Telegram Recipes"
-Cohesion: 0.12
-Nodes (6): startReadyPoll(), slack, telegram, Recipe, base, doc
-
-### Community 26 - "Home Overlay Activation Rules"
-Cohesion: 0.14
-Nodes (18): resolveActivation, Startup zero-view guard, Welcome is derived, not flagged, activateService clears homeOpen, anyOverlayOpen, Home accelerator (CmdOrCtrl+0), home:setOpen channel, homeOpen shell surface (+10 more)
-
-### Community 27 - "Discord & WhatsApp Recipes"
-Cohesion: 0.14
-Nodes (12): discord, visiblyPresent(), unreadFromTitle(), countWhatsAppChats(), whatsapp, WhatsAppChat, discord.html fixture (guild badges + dot title), Orphan numberBadge exclusion (badge must be nested in lowerBadge) (+4 more)
-
-### Community 28 - "Meta Recipes (Instagram/Messenger)"
+### Community 28 - "SettingsStore Implementation"
 Cohesion: 0.20
-Nodes (6): instagram, countUnreadRows(), isUnreadRow(), synthFromRows(), watchRows(), Counts
+Nodes (6): Fresh installs start with every service disabled, resolveActivation(), StartupSurface, deepFreeze(), SettingsStore, Settings
 
-### Community 29 - "Toast & Placeholder Components"
-Cohesion: 0.22
-Nodes (10): CapTrimToast(), NO_IDS, NO_SERVICES, ContentPlaceholder(), PurgeToast(), capTrimMessage(), purgeToastMessage(), shouldToast() (+2 more)
+### Community 29 - "Activation & Surface Routing"
+Cohesion: 0.26
+Nodes (12): No view visible while an overlay is open, Launch restores the surface you left, activateService(), performBannerAction(), presentSurface(), rememberSurface(), setHomeOpen(), setOverlayOpen() (+4 more)
 
-### Community 30 - "Release Workflow & Fuses"
-Cohesion: 0.13
-Nodes (17): Electron fuses invariant, Badge aggregation across dock, overlay and rail, E2E smoke test and packaging targets, Arch-suffixed dmg artifact names, Release workflow implementation plan, publish: null plus --publish never, Two-phase build matrix and release job, Tag-matches-package.json guard (+9 more)
-
-### Community 31 - "Mute & Notification Invariants"
-Cohesion: 0.15
-Nodes (17): Mute means silence, never blindness, One sound per message, Quiet hours as a scheduled global mute, Reload is the only way back, ResilienceManager crash-count dwell, ctx.setGlobalMuted single choke point, Manual-only verification areas, Feature inventory & verification status (+9 more)
-
-### Community 32 - "Check-for-Updates Plan"
+### Community 30 - "Check-for-Updates Plan"
 Cohesion: 0.18
 Nodes (17): Announce gate (latest vs announce), The update fetch lives in main, Settings gear update dot, Check for Updates Implementation Plan, Automatic checks fail silently, shouldToast / TOAST_MS, update-check pure version logic, UpdateChecker (+9 more)
 
-### Community 33 - "Unread Counting Optimizations"
-Cohesion: 0.14
-Nodes (17): Single badge-label formatter, Single-pass Messenger count(), Runner count() timeout race, Stale-report dedup and no-op setRuntime, hideChrome recipe hook, meta-unread.ts shared Meta heuristics, Rail space reclaim, Structural nav-rail computation (+9 more)
-
-### Community 34 - "Summon Cap & Home Redesign"
+### Community 31 - "Summon Cap & Home Redesign"
 Cohesion: 0.15
 Nodes (17): capBlocked picker rule, Discard replaces Dispel, HomeHero fixed left column, MAX_SUMMONED cap of 9, SummonGauge ring, trimToCap and normalize() enforcement, followLiveOrder (clean board follows silently), homeDirty / discardHomeDraft store fields (+9 more)
 
-### Community 35 - "App Icon & Ember Branding"
+### Community 32 - "App Icon & Ember Branding"
 Cohesion: 0.15
 Nodes (17): Goetia App Icon (glowing timer/orbit ring on dark squircle), Arc Gradient A (red #E23D28 to orange #FF7A1F), Arc Gradient B (orange #FF7A1F to yellow #FFD34D), White-Hot Core, Core Radial Gradient (white-hot to ember orange), macOS-style Dark Squircle App Icon Design, Ember Dissolve Trail, Ember Portal v2 Design (+9 more)
 
-### Community 36 - "Preload Notify/WebAuthn Shims"
-Cohesion: 0.16
-Nodes (7): openConversationInPage(), installNotificationShim(), NotificationShimHandle, NotifyForward, installWebAuthnBlock(), arg, serviceId
-
-### Community 37 - "Shopee & Zalo Recipes"
+### Community 33 - "Ready Poll & Discord/Telegram Recipes"
 Cohesion: 0.15
-Nodes (10): chatHeader(), shopee, zalo, shopee-collapsed.html fixture (collapsed pill badge 5), Collapsed pill as keep-alive click target (single wrapper child = not ready), shopee.html fixture (expanded mini-chat, header badge 31), Shopee mini-chat expanded state (wrapper has header + body children), zalo-dormant.html fixture (idle-deactivation activation modal) (+2 more)
+Nodes (10): discord, startReadyPoll(), visiblyPresent(), telegram, discord.html fixture (guild badges + dot title), Orphan numberBadge exclusion (badge must be nested in lowerBadge), whatsapp.html fixture (pane-side mount + '(3)' title), base (+2 more)
 
-### Community 38 - "Home Board Ordering Plan"
+### Community 34 - "Home Board Ordering Plan"
 Cohesion: 0.19
 Nodes (16): Home board layout, byName, matchesQuery substring filter, moveTo drag index arithmetic, PickTile, Home Board and Service Ordering Plan, ServiceBand, summonOrder append-on-summon (+8 more)
 
-### Community 39 - "Slack & Teams Service Design"
+### Community 35 - "Unread Counting Optimizations"
+Cohesion: 0.15
+Nodes (16): Single badge-label formatter, Single-pass Messenger count(), TikTok synthNotification, Instagram synthNotification, meta-unread.ts shared Meta heuristics, Rail space reclaim, Structural nav-rail computation, StyleX atomic class .x132t2bv (+8 more)
+
+### Community 36 - "Slack & Teams Service Design"
 Cohesion: 0.18
 Nodes (15): firstRunUrl and lib/start-url.ts (superseded), Slack chat-only CSS, Slack ALLOWED_HOSTS entry, Slack recipe count(), Slack service (ninth service), Hash-aware chatPaths, Teams keeps its app bar (no css), Teams recipe count() (+7 more)
 
-### Community 40 - "Dev Dependencies"
+### Community 37 - "Dev Dependencies"
 Cohesion: 0.13
-Nodes (15): @biomejs/biome, motion, devDependencies, @biomejs/biome, motion, tailwindcss, typescript, @vitejs/plugin-react (+7 more)
+Nodes (15): @biomejs/biome, devDependencies, @biomejs/biome, @playwright/test, tailwindcss, typescript, @vitejs/plugin-react, vitest (+7 more)
 
-### Community 41 - "Quick Switcher (Dark)"
+### Community 38 - "Quick Switcher (Dark)"
 Cohesion: 0.18
 Nodes (15): Quick Switcher (dark) screenshot, Dark theme surface, Discord, Instagram, Matches ranked first, other services still listed, Messenger, Cmd+1..9 service accelerators, Quick Switcher overlay (+7 more)
 
-### Community 42 - "Settings Screenshot (Light)"
+### Community 39 - "Settings Screenshot (Light)"
 Cohesion: 0.16
 Nodes (15): Settings (Light Theme) Screenshot, Appearance Pane, Grouped Card Row Layout, Settings Category Sidebar, General Pane, Light Theme, Menu Position Setting, Settings Has No Service Enable Toggle (+7 more)
 
-### Community 43 - "Welcome Screenshot (Dark)"
+### Community 40 - "Welcome Screenshot (Dark)"
 Cohesion: 0.16
 Nodes (15): Goetia Welcome Screen (Dark Theme Screenshot), Chat-Only Principle Tagline ("All your chats. Nothing else."), Dark Theme with Ember/Amber Accent, Find a Service Search Field, Hibernation Hint ("Signs in once · idle chats sleep"), Home (Welcome Screen), Home Shortcut Hint (⌘/Ctrl 0 returns you here), Service Board (Summon/Banish Editor) (+7 more)
 
-### Community 44 - "Welcome Screenshot (Light)"
+### Community 41 - "Welcome Screenshot (Light)"
 Cohesion: 0.15
 Nodes (15): Welcome Screen Screenshot (Light Theme), Bell and Gear Controls, Chat Only · No Feeds, No Shops, Home / Welcome Screen, ⌘/Ctrl 0 Returns You Here, Signs In Once · Idle Chats Sleep, Light Theme Palette (Warm Orange Accent), Service Board (Summoned / Unbound) (+7 more)
 
-### Community 45 - "Notification Throttle & Toast Rules"
+### Community 42 - "Startup Surface Restore"
 Cohesion: 0.14
-Nodes (15): Per-service notification rate limit, TikTok synthNotification, Announce gate, Settings.lastNotifiedVersion, Timer-driven dismissal under reduced motion, Self-dismissing UpdateToast, shouldToast, Silent automatic failures (+7 more)
+Nodes (15): Settings.lastNotifiedVersion, Portal.tsx, Startup zero-view guard, Welcome.tsx, Welcome is derived, not flagged, activateService clears homeOpen, Settings.lastActiveId, Settings.lastHomeOpen (+7 more)
 
-### Community 46 - "Peek Discipline & Overlay Guard"
-Cohesion: 0.18
-Nodes (14): Light Sleep peek discipline, Views layer above the shell: overlay guard, peekSaver adaptive backoff, Tile reorder never streams to IPC, Ember Portal branding, HomeHero + SummonGauge single layout, MAX_SUMMONED / capBlocked / trimToCap, Home Redesign and Summon Cap Implementation Plan (+6 more)
+### Community 43 - "Notification Rules & Router"
+Cohesion: 0.27
+Nodes (8): Mute means silence, never blindness, Quiet hours are a scheduled global mute, ctx.setGlobalMuted is the only global-mute path, audioMuted(), notificationTitle(), shouldNotify(), soundOptions(), NotificationRouter
 
-### Community 47 - "Quick Switcher (Light)"
+### Community 44 - "Resilience Manager"
+Cohesion: 0.20
+Nodes (5): ResilienceManager forgets crashes only after DWELL_MS, Crash resilience, Crash resilience with exponential backoff, Crash-reload cap survives post-load crashes, ResilienceManager
+
+### Community 45 - "Quick Switcher (Light)"
 Cohesion: 0.18
 Nodes (14): Quick Switcher (light theme) screenshot, Per-service accelerator hints (⌘1…⌘9), Discord, Instagram, Light theme palette, Messenger, Substring query filter ("s"), Quick Switcher overlay (+6 more)
 
-### Community 48 - "Settings Screenshot (Dark)"
+### Community 46 - "Settings Screenshot (Dark)"
 Cohesion: 0.18
 Nodes (14): Settings (Dark Theme) Screenshot, Appearance Section, Dark Theme, General Section, Menu Position Setting, Settings Has No Service Enable Toggle, Notifications Section, Shell Overlay Surface (+6 more)
 
-### Community 49 - "README Showcase & Media Capture"
+### Community 47 - "README Showcase & Media Capture"
 Cohesion: 0.21
 Nodes (14): LoadingOverlay WebContentsView, docs/media/banner.svg, capture-media.mjs capture driver, Capture matrix (SHOTS), Screenshots show Goetia's own chrome only, docs/DEVELOPING.md split, MD033 inline-HTML allowlist, README Showcase Implementation Plan (+6 more)
 
-### Community 50 - "Media Capture Scripts"
+### Community 48 - "Media Capture Scripts"
 Cohesion: 0.23
 Nodes (9): capture(), isShell(), SURFACES, ALL_SERVICE_IDS, NINE_UP, settingsFor(), SHOTS, SURFACES (+1 more)
 
-### Community 51 - "Service Context Menu Builder"
-Cohesion: 0.21
-Nodes (10): buildContextMenuTemplate(), ContextMenuInfo, ContextMenuItem, edit(), image(), link(), spelling(), allEdit (+2 more)
+### Community 49 - "Toast & Placeholder Components"
+Cohesion: 0.23
+Nodes (8): CapTrimToast(), NO_IDS, NO_SERVICES, capTrimMessage(), pinRemovedMessage(), shouldToast(), UpdateToast(), logos
 
-### Community 52 - "Quick Switcher Component"
+### Community 50 - "Quick Switcher Component"
 Cohesion: 0.29
 Nodes (9): logos, QuickSwitcher(), msUntilLabelChange(), nextLabelChange(), relativeTime(), switcherRows(), SwitcherService, ActivityEntryView (+1 more)
 
-### Community 53 - "Welcome Screen Plan"
+### Community 51 - "Fuses, Signing & Gatekeeper"
+Cohesion: 0.21
+Nodes (13): Electron fuses, Goetia engineering guardrails (CLAUDE.md), Packaging: ad-hoc signing and Gatekeeper, Code signing and notarization plan, Signing prerequisites and cost, Designated requirement stability explains the keychain prompt, Turning the cookie-encryption fuse off is not an option, Open question: fuse flipping vs signing order (+5 more)
+
+### Community 52 - "Welcome Screen Plan"
 Cohesion: 0.24
 Nodes (13): buildDisabledPatch, Welcome visibility is derived, not a flag, Welcome Screen Implementation Plan, Portal (shared ember-portal component), Welcome component, summonDelta / summonLabel, Three non-overlapping selling-point cards, Dispel button (+5 more)
 
-### Community 54 - "Home Composition Plan"
+### Community 53 - "Home Composition Plan"
 Cohesion: 0.28
 Nodes (13): resolveActivation, anyOverlayOpen predicate, Composition lives on Home, not Settings, homeOpen shell surface, Home Screen and Service Composition Plan, Rail home sigil and the ⌘/Ctrl 0 accelerator, activate(id, { show: false }) — resolve without revealing, Settings.lastActiveId + lastHomeOpen (+5 more)
+
+### Community 54 - "Notification Throttle & Toast Rules"
+Cohesion: 0.17
+Nodes (13): Per-service notification rate limit, Runner count() timeout race, Stale-report dedup and no-op setRuntime, Announce gate, Timer-driven dismissal under reduced motion, Self-dismissing UpdateToast, shouldToast, Silent automatic failures (+5 more)
 
 ### Community 55 - "Package Scripts"
 Cohesion: 0.15
 Nodes (13): scripts, build, dev, e2e, icons, lint, media, package:mac (+5 more)
 
-### Community 56 - "Main Entry & Summon Hotkey"
-Cohesion: 0.19
-Nodes (4): e2eUpdate, userDataArg, coalesce(), SummonHotkey
+### Community 56 - "Shell Store & App Root"
+Cohesion: 0.31
+Nodes (6): App(), ContentPlaceholder(), logos, PurgeToast(), connectShell(), useShell
 
-### Community 57 - "Activation Rules & Reorder"
-Cohesion: 0.22
-Nodes (3): applySubsetOrder(), DEFAULT_SETTINGS, UpdateStatus
-
-### Community 58 - "Calls, Permissions & External Links"
-Cohesion: 0.21
-Nodes (12): Call popup: inert guest adopted into a hardened window, Minimal mac entitlements, External links: isSafeExternalUrl gate, Origin-checked permission allowlist, buildContextMenuTemplate pure builder, Service-View Context Menu Implementation Plan, call-policy (CALL_POPUPS, CALL_ORIGINS, isCallPopup), setDisplayMediaRequestHandler with useSystemPicker (+4 more)
-
-### Community 59 - "Notification Icons Design"
+### Community 57 - "Notification Icons Design"
 Cohesion: 0.23
 Nodes (12): Slack logo and notification icons, Graphite minimal design system, Notification router, Unisolated per-service preload, We do not own the banner layout, Brand-colour tile notification icon, build-notification-icons.mjs, extraResources over asarUnpack (+4 more)
 
-### Community 60 - "Recipe Selector Calibration"
+### Community 58 - "Recipe Selector Calibration"
 Cohesion: 0.17
 Nodes (12): TikTok bot-detection risk, data-e2e selector surface, Messages nav-badge count source, Rejected: chat-list scan, Live selector recalibration (2026-08-07), Never hide the side-nav container itself, Instagram calibration caveat, tiktok.html recipe fixture (+4 more)
+
+### Community 59 - "Teams Hosts & Call Windows"
+Cohesion: 0.17
+Nodes (12): Origin-exact permission caveat (teams.live.com), Teams ALLOWED_HOSTS and tenant SSO gap, WebAuthn/passkey block shim, buildContextMenuTemplate, Open Link in Browser hand-off, isBlankCallPopup (about:blank popups), call-policy.ts (CALL_POPUPS / CALL_ORIGINS / isCallPopup), Call URL adoption into a hardened call window (+4 more)
+
+### Community 60 - "Tray Template Icons"
+Cohesion: 0.17
+Nodes (11): Goetia, Windows Tray Icon (orange ring mark), Goetia Windows Tray Icon, macOS Template Image Convention (monochrome icon auto-tinted by menu bar theme), macOS Tray Template Icon @2x (monochrome ring-and-dot glyph, Retina), macOS Tray Template Icon, macOS Template Image Convention, Goetia macOS Template Tray Icon (+3 more)
 
 ### Community 61 - "Telegram/WhatsApp/Zalo Icons"
 Cohesion: 0.27
 Nodes (12): Telegram Notification Icon (blue rounded-square badge, white circle, paper-plane glyph, full bleed), Telegram macOS Notification Icon (blue squircle, white circle, paper-plane glyph, inset padding), macOS Notification Icon Variant Convention (-mac suffix pairs), Per-Service Notification Icon Asset Set, Brand-Color Squircle Icon Design Language, WhatsApp Notification Icon (green rounded-square badge, white speech-bubble handset glyph, full bleed), WhatsApp macOS Notification Icon (green squircle, white speech-bubble handset glyph, inset padding), Zalo Notification Icon (blue rounded-square badge, white 'Zalo' wordmark, full bleed) (+4 more)
 
-### Community 62 - "Settings Migrations & Zoom"
+### Community 62 - "Shell Commands & App Menu"
 Cohesion: 0.33
-Nodes (9): clampZoom(), stepZoom(), fillAutoBanish(), fillLastUsedAt(), fillQuietHours(), fillSummonHotkey(), fillZoom(), normalize() (+1 more)
+Nodes (7): openSettings(), runShellCommand(), setActiveZoom(), e2eUpdate, userDataArg, buildAppMenu(), toggleDetachedDevTools()
 
-### Community 63 - "View Hooks & Lifecycle"
-Cohesion: 0.24
-Nodes (5): debugCalls(), ViewHooks, serviceById(), allFalse, url()
+### Community 63 - "Emoji Text Extraction"
+Cohesion: 0.23
+Nodes (7): collect(), glyph(), textWithEmoji(), messenger, messenger.html fixture (chat-row unread oracle), Emoji delivered as <img alt> inside the row preview, messenger-reaction.html fixture (synthesized reaction notification)
 
-### Community 64 - "Service Tile Components"
-Cohesion: 0.21
-Nodes (6): logos, Props, logos, PickTile(), Props, ServiceMeta
+### Community 64 - "Shopee & Zalo Recipes"
+Cohesion: 0.23
+Nodes (9): chatHeader(), shopee, shopee-collapsed.html fixture (collapsed pill badge 5), Collapsed pill as keep-alive click target (single wrapper child = not ready), shopee.html fixture (expanded mini-chat, header badge 31), Shopee mini-chat expanded state (wrapper has header + body children), zalo-dormant.html fixture (idle-deactivation activation modal), Zalo idle-deactivation (app unmounted behind 'Kích hoạt' modal, counts freeze) (+1 more)
 
-### Community 65 - "Chat Client Design Spec"
+### Community 65 - "Release Workflow & Tray"
+Cohesion: 0.18
+Nodes (11): Badge aggregation across dock, overlay and rail, E2E smoke test and packaging targets, Tray, close-to-tray and autostart, Arch-suffixed dmg artifact names, Release workflow implementation plan, publish: null plus --publish never, Two-phase build matrix and release job, Tag-matches-package.json guard (+3 more)
+
+### Community 66 - "Chat Client Design Spec"
 Cohesion: 0.29
 Nodes (11): Badge shot seeds neverHibernate false, Catalog sorted by display name, Badge aggregator, Electron as the desktop shell, Hibernation controller, Per-service unread recipes, Per-service persist: session isolation, Goetia Chat Client Design Spec (+3 more)
 
-### Community 66 - "Context Menu & Sign-Out Design"
-Cohesion: 0.18
-Nodes (11): buildContextMenuTemplate, Service-view native context menu, Open Link in Browser hand-off, Add to Dictionary is per service, peek-rules.ts scheduling, Per-service sign out (local partition wipe), service:tileMenu channel, Auto-banish sweep step and applyDisabledChange (+3 more)
+### Community 67 - "Home Overlay Activation Rules"
+Cohesion: 0.24
+Nodes (11): views.activate show option, anyOverlayOpen, Buried Settings modal bug, Home accelerator (CmdOrCtrl+0), home:setOpen channel, homeOpen shell surface, Overlay invariant: no view visible over a shell surface, Rail leading sigil (+3 more)
 
-### Community 67 - "Light Sleep & Banner Click"
+### Community 68 - "Light Sleep & Banner Click"
 Cohesion: 0.22
 Nodes (11): Stale-banner disabled guard, Light Sleep (peek while hibernated), neverHibernate default flips to false, Peek lifecycle and noteUnreadReport, BANNER_GRACE_MS (the Light Sleep interaction), Banner → exact conversation, Lane A — replay the page's own click, Lane B — synthetic banners carry an href (+3 more)
 
-### Community 68 - "Rail Component & Reorder Prompt"
-Cohesion: 0.25
-Nodes (4): Rail(), Props, RailReorderPrompt(), useTileReorder()
+### Community 69 - "IPC Handlers & AppContext"
+Cohesion: 0.31
+Nodes (4): AppContext, applyDisabledChange(), registerIpcHandlers(), setServiceMuted()
 
-### Community 69 - "Teams Hosts & Call Windows"
+### Community 71 - "Chat-Only Recipe Principles"
+Cohesion: 0.29
+Nodes (10): count() must be cheap and always settle, Recipe framework and runner, Service loading screen (waking overlay) plan, Recipe ready(doc) chat-usable check, count() reads the widget badge via chatHeader, Chat-focus CSS gated on the expanded state, Structural selectors only, never hashed classes, Single-pass Messenger unread detection (+2 more)
+
+### Community 72 - "TikTok, Icons & Home Board Plans"
 Cohesion: 0.20
-Nodes (10): Origin-exact permission caveat (teams.live.com), Teams ALLOWED_HOSTS and tenant SSO gap, WebAuthn/passkey block shim, isBlankCallPopup (about:blank popups), call-policy.ts (CALL_POPUPS / CALL_ORIGINS / isCallPopup), Call URL adoption into a hardened call window, setDisplayMediaRequestHandler with the system picker, Inert guest popup (never commits a navigation) (+2 more)
+Nodes (10): Home's board is a staged edit, Ember Portal branding, Build-time tile rasteriser, resolveIcons: paths resolved once at startup, Notification service icons plan, Full-bleed and macOS-inset variants, e2e needs ELECTRON_RUN_AS_NODE unset, TikTok chat service plan (+2 more)
 
-### Community 70 - "Notification Rules & Router"
-Cohesion: 0.47
-Nodes (6): audioMuted(), notificationTitle(), shouldNotify(), soundOptions(), NotificationRouter, RendererToMain
+### Community 73 - "Home Pinned & Service Bands"
+Cohesion: 0.27
+Nodes (8): Task 8: PinnedBand on Home, Decision: focus altar board layout, PinnedBand(), PinRow(), Props, ServiceBand(), Welcome(), PIN_NOTE_MAX
 
-### Community 71 - "SettingsStore Implementation"
-Cohesion: 0.44
-Nodes (3): deepFreeze(), SettingsStore, Settings
+### Community 75 - "Banner Click Resolution"
+Cohesion: 0.31
+Nodes (7): Banner click lands in the conversation, Notification shim, Jump reuses the recents path verbatim, BannerClickAction, conversationUrl(), resolveBannerClick(), base
 
-### Community 72 - "Banner SVG & Wordmark"
+### Community 76 - "Reload Guard & Back Affordance"
+Cohesion: 0.25
+Nodes (7): Reload guard (RELOAD_MIN_INTERVAL_MS), Reload is the only way back, backAvailable predicate, firstRunUrl mechanism removal, Service Back Affordance Implementation Plan (reverted), Service back affordance design (2026-08-13, rejected), reloadAllowed()
+
+### Community 77 - "Banner SVG & Wordmark"
 Cohesion: 0.36
 Nodes (9): Accessible SVG Labeling (role=img, aria-label, title), Goetia Banner (1200x300 SVG), Ember Gradient Palette (arcA, arcB, core, word), Ember Portal Mark, Tagline: Summon every chat to one window, nothing but the chat, Theme-Resilient SVG Fallback, Goetia Wordmark, App Icon SVG (resources/icon.svg) (+1 more)
 
-### Community 73 - "Slack Service Plan"
+### Community 78 - "Slack Service Plan"
 Cohesion: 0.31
 Nodes (9): Fresh installs start all-disabled, Tasks 1–3 are one atomic change, Slack Service Implementation Plan, tests/fixtures/slack.html count oracle, ALLOWED_HOSTS slack entry, slack recipe, Slack service catalog entry, Selectors uncalibrated until a live login pass (+1 more)
 
-### Community 74 - "Drag-to-Reorder Design"
+### Community 79 - "Drag-to-Reorder Design"
 Cohesion: 0.25
 Nodes (9): Drag-to-reorder on Home, moveTo, applySubsetOrder, macOS copy-cursor badge defect, Draft order, committed once on drag end, What the drag looks like, Pointer drag makes the reorder path e2e-testable, Reorder.Group / pointer-driven reorder (+1 more)
 
-### Community 75 - "Package Metadata"
+### Community 80 - "Context Menu & Sign-Out Design"
+Cohesion: 0.22
+Nodes (9): Service-view native context menu, Add to Dictionary is per service, peek-rules.ts scheduling, Per-service sign out (local partition wipe), service:tileMenu channel, Auto-banish sweep step and applyDisabledChange, Purge and banish are orthogonal axes, Sign-out moves to Settings → Services (+1 more)
+
+### Community 81 - "Package Metadata"
 Cohesion: 0.22
 Nodes (8): description, main, name, packageManager, private, productName, type, version
 
-### Community 76 - "Brand Squircle Icon System"
+### Community 82 - "Brand Squircle Icon System"
 Cohesion: 0.36
 Nodes (9): Brand squircle notification icon system (128x128 RGBA, white glyph on brand fill), Discord notification icon (full-bleed), Discord notification icon (macOS inset variant), macOS `-mac` inset icon variant convention, Messenger notification icon (full-bleed), Messenger notification icon (macOS inset variant), Shopee notification icon (full-bleed), Shopee notification icon (macOS inset variant) (+1 more)
 
-### Community 77 - "Badge Aggregation"
+### Community 83 - "Badge Aggregation"
 Cohesion: 0.31
 Nodes (4): aggregateBadges(), BadgeEntry, badgeLabel(), BadgeSummary
 
-### Community 78 - "Activity Log"
-Cohesion: 0.28
-Nodes (3): ActivityEntry, ActivityLog, entry()
+### Community 84 - "Purge Confirm & Copy"
+Cohesion: 0.42
+Nodes (6): PurgeConfirm(), purgeToastMessage(), PurgeRequest, purgeAllCopy(), PurgeCopy, purgeLoginCopy()
 
-### Community 80 - "Reorder E2E Spec"
+### Community 85 - "Reorder E2E Spec"
 Cohesion: 0.28
 Nodes (5): drag(), isShell(), launch(), stableBox(), TWO_ENABLED
 
-### Community 81 - "Waking Overlay (Dark)"
+### Community 86 - "Waking Overlay (Dark)"
 Cohesion: 0.32
 Nodes (8): Dark Theme Palette, Light Sleep Wake / Hibernation Rehydration, Naming the Service Being Woken, Waking Overlay Screenshot (Dark Theme), Goetia Sigil Spinner, Waking Cover Overlay, "Waking <Service>..." Status Label, Zalo Service (subject of the wake)
 
-### Community 82 - "Waking Overlay (Light)"
+### Community 87 - "Waking Overlay (Light)"
 Cohesion: 0.39
 Nodes (8): Waking Overlay Screenshot (Light Theme), Light Sleep Hibernation, Light Theme Surface, Non-Blocking Wake Feedback, Orbital Ring Sigil Spinner, Waking Cover, "Waking <Service>..." Status Label, Zalo Service
 
-### Community 83 - "Reload Guard & Auto-Banish"
+### Community 88 - "Goetia v1 Implementation Plan"
+Cohesion: 0.25
+Nodes (8): Design tokens and reduced-motion kill switch, Agents never commit (plan-wide constraint), Goetia v1 implementation plan, Single-window shell with a view per service, Rail tiles breathe while waking, waking runtime flag and loading:state channel, WakingTracker and endsWake rules, Registration must land atomically
+
+### Community 89 - "Reload Guard & Auto-Banish"
 Cohesion: 0.29
 Nodes (8): Why the reload guard cannot trap the user, reloadAllowed reload guard, Settings loses its per-service reload button, views.reload stays unguarded, Auto-banish unused services, shouldBanish (banish-rules.ts), lastUsedAt persisted wall clock, Sleep settings move to the Services pane
 
-### Community 84 - "Navigation Policy & Hosts"
+### Community 90 - "Activity Log"
 Cohesion: 0.36
-Nodes (3): ALLOWED_HOSTS, hostMatches(), isNavigationAllowed()
+Nodes (4): ActivityEntry, hostMatches(), isNavigationAllowed(), entry()
 
-### Community 85 - "Recipe Index & Teams Recipe"
+### Community 91 - "Recipe Index & Teams Recipe"
 Cohesion: 0.32
 Nodes (3): recipes, teams, cases
 
-### Community 86 - "App Shell & Overlay Badge"
-Cohesion: 0.46
-Nodes (4): App(), overlayNeedsUpdate(), renderOverlayDataUrl(), connectShell()
-
-### Community 87 - "Purge Confirm & Copy"
-Cohesion: 0.46
-Nodes (5): PurgeConfirm(), PurgeRequest, purgeAllCopy(), PurgeCopy, purgeLoginCopy()
-
-### Community 88 - "Release CI Workflow"
+### Community 92 - "Release CI Workflow"
 Cohesion: 0.33
 Nodes (7): Build provenance attestation step, Build job (mac arm64/x64 + win matrix), SHA256SUMS.txt generation, CSC_IDENTITY_AUTO_DISCOVERY disabled (no signing material), Publish release job, Tag must match package.json version, Release workflow (tag-triggered)
 
-### Community 89 - "Shopee Chat Focus Design"
+### Community 93 - "Rail Component & Pin Tally"
+Cohesion: 0.38
+Nodes (4): Task 7: rail pin tally and pulse, NO_PINS, PinIcon(), Rail()
+
+### Community 94 - "Shopee Chat Focus Design"
 Cohesion: 0.33
 Nodes (7): Overlay above a still-visible view, Recipe CSS gated on the expanded state, Homepage entry URL, never /webchat, keepAlive trusted click on the collapsed pill, No network filtering, Unread from host textContent, Shopee Chat Focus Design
 
-### Community 90 - "Quiet Hours & Summon Hotkey Design"
+### Community 95 - "Quiet Hours & Summon Hotkey Design"
 Cohesion: 0.33
 Nodes (7): QuietHoursController and the shared side-effects tail, Quiet hours (scheduled global mute), quiet-hours-rules.ts, quietOverrideWindowStart (the macOS DND rule), SUMMON_COMBOS curated list, Summon hotkey (global shortcut), summonHotkeyOk (no silent failure)
 
-### Community 91 - "Tray Template Icons"
-Cohesion: 0.29
-Nodes (7): Goetia, Goetia Windows Tray Icon, macOS Template Image Convention (monochrome icon auto-tinted by menu bar theme), macOS Tray Template Icon @2x (monochrome ring-and-dot glyph, Retina), macOS Template Image Convention, Goetia macOS Template Tray Icon, Windows System Tray
-
-### Community 92 - "Tray Creation & Mute"
-Cohesion: 0.29
-Nodes (4): Windows Tray Icon (orange ring mark), macOS Tray Template Icon, createTray(), RESOURCES
-
-### Community 93 - "Notification Icon Build Script"
+### Community 96 - "Notification Icon Build Script"
 Cohesion: 0.33
 Nodes (5): LOGO_DIR, OUT_DIR, placeGlyph(), ROOT, tileSvg()
 
-### Community 96 - "Packaging & Gatekeeper"
-Cohesion: 0.47
-Nodes (6): Packaging, ad-hoc signing, and Gatekeeper, Reproducing the Gatekeeper prompt by hand, Ad-hoc mac signing identity '-', electronFuses block, SHA256SUMS + GitHub build-provenance attestation, Unsigned distribution and the first-launch warning
+### Community 98 - "Notification Shim"
+Cohesion: 0.33
+Nodes (3): installNotificationShim(), NotificationShimHandle, NotifyForward
 
-### Community 97 - "Overlay Invariant Bugs"
-Cohesion: 0.47
-Nodes (6): views.activate show option, Buried Settings modal bug, Overlay invariant: no view visible over a shell surface, Settings loses the enable toggle, Startup activates hidden when Home is restored, Dispel button
+### Community 101 - "Navigation Audit"
+Cohesion: 0.40
+Nodes (3): Navigation containment, Navigation allowlist NOT yet wired (stale claim), NavigationAudit
 
-### Community 98 - "Screenshot Shot Types"
+### Community 103 - "Pin Toast & Acknowledgement"
+Cohesion: 0.40
+Nodes (6): Task 6: Done/unpin toast in the renderer, Decision: acknowledgement is a tally pill beside the Home sigil, Decision: no modal at pin time, Toast hung after Undo then Done, PinToast(), PinToastState
+
+### Community 104 - "Screenshot Shot Types"
 Cohesion: 0.33
 Nodes (5): SeededSettings, ServiceId, Shot, Surface, Theme
 
-### Community 99 - "Release Shell Script"
+### Community 105 - "Release Shell Script"
 Cohesion: 0.60
 Nodes (5): die(), run(), release.sh script, skip(), step()
 
-### Community 100 - "Banner Click Resolution"
-Cohesion: 0.47
-Nodes (4): BannerClickAction, conversationUrl(), resolveBannerClick(), base
-
-### Community 102 - "Emoji Text Extraction"
+### Community 106 - "Notification Icon Resolution"
 Cohesion: 0.53
-Nodes (3): collect(), glyph(), textWithEmoji()
+Nodes (3): iconFileName(), resolveIcons(), ICON_DIR
 
-### Community 103 - "Messenger Fixtures & Synth"
+### Community 107 - "Loading Screen API"
+Cohesion: 0.47
+Nodes (4): api, GoetiaLoadingApi, LoadingState, Window
+
+### Community 109 - "Shortcuts E2E Spec"
+Cohesion: 0.53
+Nodes (4): isService(), isShell(), launch(), makeProfile()
+
+### Community 110 - "Mute & Notification Invariants"
 Cohesion: 0.40
-Nodes (4): messenger, messenger.html fixture (chat-row unread oracle), Emoji delivered as <img alt> inside the row preview, messenger-reaction.html fixture (synthesized reaction notification)
+Nodes (5): Reload Guard Implementation Plan, reload-guard predicate (RELOAD_MIN_INTERVAL_MS), QuietHoursController one-timer boundary, Quiet Hours Implementation Plan, quiet-hours-rules (quietWindowFor, quietNow, nextBoundary, muteToggleResult)
 
-### Community 104 - "Slack Notification Icons"
+### Community 111 - "Slack Notification Icons"
 Cohesion: 0.50
 Nodes (5): Slack macOS Notification Icon, Per-Service Notification Identity, Platform-Suffixed Notification Icon Variant (-mac), Slack Octothorpe Brand Mark (white on aubergine), Squircle App-Icon Treatment
 
-### Community 105 - "Teams macOS Icon"
+### Community 112 - "Teams macOS Icon"
 Cohesion: 0.60
 Nodes (5): macOS Notification Icon Variant, Microsoft Teams, Goetia Notification Icon Assets, Teams Logo Mark (T tile with person silhouette), Teams macOS Notification Icon
 
-### Community 106 - "TikTok Icons & Logo"
+### Community 113 - "TikTok Icons & Logo"
 Cohesion: 0.70
 Nodes (5): TikTok Notification Icon (default/Windows-Linux), TikTok Notification Icon (macOS variant), Platform-suffixed notification icon variant convention, TikTok Logo Mark (renderer SVG), Monochrome white glyph logo style (no brand fill)
 
-### Community 108 - "Permission Policy"
-Cohesion: 0.70
-Nodes (3): CALL_SURFACE_OK, GRANTED, permissionAllowed()
-
-### Community 109 - "Restart E2E Spec"
+### Community 117 - "Restart E2E Spec"
 Cohesion: 0.50
 Nodes (3): isShell(), launch(), TWO_ENABLED
 
-### Community 110 - "Instagram macOS Icon"
+### Community 118 - "Detached DevTools Toggle"
+Cohesion: 0.83
+Nodes (3): Detached developer tools, Toggle Developer Tools (feature entry), View > Toggle Developer Tools (detached)
+
+### Community 119 - "Instagram macOS Icon"
 Cohesion: 0.83
 Nodes (4): Flat White Camera Glyph on Crimson Squircle, Instagram macOS Notification Icon, Instagram Service Visual Identity, Per-Platform Notification Icon Variant Convention
 
-### Community 111 - "Teams Notification Icon"
+### Community 120 - "Teams Notification Icon"
 Cohesion: 0.67
 Nodes (4): Microsoft Teams (service), Notification Icon Asset Set, Teams Logo Mark (T glyph and person silhouette), Teams Notification Icon
 
-### Community 115 - "Loading HTML Page"
+### Community 125 - "Loading HTML Page"
 Cohesion: 0.83
 Nodes (4): loading.html (waking overlay page), Inline critical first-paint CSS in loading.html, loading.html Content-Security-Policy meta, Ember portal SVG (ring arcs, embers, breathing core)
 
-### Community 116 - "Teams Logo SVG"
+### Community 126 - "Teams Logo SVG"
 Cohesion: 0.83
 Nodes (4): Microsoft Teams, Monochrome Glyph Mark (white fill, 24x24 viewBox), Service Rail Tile Icon, Microsoft Teams Logo (SVG asset)
 
-### Community 118 - "Banish E2E Spec"
+### Community 129 - "Banish E2E Spec"
 Cohesion: 0.67
 Nodes (3): DISABLED, isShell(), launch()
 
-### Community 121 - "Release Notes Preamble"
+### Community 132 - "Release Notes Preamble"
 Cohesion: 0.67
 Nodes (3): First-launch gate walkthrough, Installer checksum and attestation verification, Release notes preamble
 
-### Community 122 - "Slack Notification Icon"
+### Community 133 - "Packaging & Gatekeeper"
+Cohesion: 1.00
+Nodes (3): Reproducing the Gatekeeper prompt by hand, Ad-hoc mac signing identity '-', electronFuses block
+
+### Community 134 - "Slack Notification Icon"
 Cohesion: 1.00
 Nodes (3): Per-Service Notification Icon Asset Convention, Slack Brand Glyph (four-lozenge octothorpe), Slack Notification Icon (slack.png)
 
-### Community 123 - "Tray Template SVG"
+### Community 135 - "Tray Template SVG"
 Cohesion: 0.67
 Nodes (3): Ember Portal Mono Design Motif, macOS Template Image Convention (Black + Alpha), Goetia Tray Icon (macOS Template)
 
-### Community 128 - "Shell HTML Document"
+### Community 138 - "Shell HTML Document"
 Cohesion: 0.67
 Nodes (3): Shell CSP meta policy (index.html), #root mount point + /src/main.tsx module entry, Shell window HTML document (index.html)
 
-### Community 129 - "Instagram Logo SVG"
+### Community 139 - "Instagram Logo SVG"
 Cohesion: 1.00
 Nodes (3): Accessible SVG Labeling (role=img + <title>), Instagram Logo Glyph (rail icon asset), Monochrome 24x24 Service Logo Convention
 
@@ -735,11 +765,13 @@ Nodes (3): Accessible SVG Labeling (role=img + <title>), Instagram Logo Glyph (r
   docs/media/welcome-dark.png · relation: semantically_similar_to
 - `Monochrome Glyph Mark (white fill, 24x24 viewBox)` → `Service Rail Tile Icon`  [AMBIGUOUS]
   src/renderer/src/assets/logos/teams.svg · relation: rationale_for
+- `Navigation containment` → `Navigation allowlist NOT yet wired (stale claim)`  [AMBIGUOUS]
+  docs/FEATURES.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **276 isolated node(s):** `target`, `module`, `moduleResolution`, `ES2022`, `DOM` (+271 more)
+- **292 isolated node(s):** `target`, `module`, `moduleResolution`, `ES2022`, `DOM` (+287 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **48 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **58 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
