@@ -1,17 +1,44 @@
 import type { Counts } from '../../shared/types';
-import { conversationFromRows, countUnreadRows, synthFromRows, watchRows } from './meta-unread';
+import { nameMatches } from '../lib/conversation-open';
+import { isUnreadRow, rowTexts } from './meta-unread';
 import { visiblyPresent } from './ready';
+import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
-/** Instagram Direct (instagram.com/direct/inbox). Shares Meta's chat-list
- *  DOM language with facebook.com/messages (see meta-unread.ts), but the
- *  selectors are uncalibrated until a live login pass — count() falls back
- *  to the "(n)" title badge if the thread-link shape drifts. */
-const THREAD_LINK = "a[href*='/direct/t/']";
+/** Instagram Direct (instagram.com/direct/inbox), calibrated against the live
+ *  logged-in DOM 2026-08-29. The thread list is the one role=navigation inside
+ *  main; its rows are role=button with NO href and no per-thread URL, so the
+ *  open thread is the aria-pressed row and opening one is a click, never a
+ *  navigation. Unread rows share Meta's markers (meta-unread.ts): bold name
+ *  and preview, a blue dot whose clipped label reads "Unread". Never key on
+ *  a[href*='/direct/t/'] — the only one on the page is the rail's Messages
+ *  link, which repoints at a thread (and grows a badge) while something is
+ *  unread and back to /direct/inbox/ once read. */
+const THREAD_LIST = 'main [role="navigation"]';
 
-// instagram renders thread rows as list items rather than facebook's grid
-// rows; the link itself is the fallback when neither wrapper exists
-const rowFor = (link: Element) => link.closest("[role='listitem'], [role='row']") ?? link;
+/** Conversation rows: top-level buttons in the thread list carrying at least
+ *  a name and a preview/presence line. Drops "Your note" and the compose
+ *  button (one text each) and any control nested inside a row. */
+function threadRows(doc: Document): Element[] {
+  const list = doc.querySelector(THREAD_LIST);
+  if (!list) return [];
+  return [...list.querySelectorAll('[role="button"]')].filter(
+    (row) =>
+      !row.parentElement?.closest('[role="button"]') &&
+      row.querySelectorAll('span[dir="auto"]').length >= 2,
+  );
+}
+
+/** Replay a press on the row's name span; the handler may sit on any wrapper
+ *  between it and the row, and a bubbling event crosses all of them. */
+function pressRow(doc: Document, row: Element): void {
+  const target = row.querySelector('span[dir="auto"]') ?? row;
+  for (const type of ['mousedown', 'mouseup', 'click']) {
+    target.dispatchEvent(
+      new MouseEvent(type, { bubbles: true, cancelable: true, view: doc.defaultView }),
+    );
+  }
+}
 
 /** The rail is position:fixed, so hiding it leaves its reserved width as a
  *  dead column, in two shapes: a rail-sized left margin/padding/offset on
@@ -104,23 +131,51 @@ const instagram: Recipe = {
     return [el];
   },
   // a logged-out /direct/inbox bounces to the login page, which renders no
-  // thread links — the waking cover must stay up there
+  // thread list — the waking cover must stay up there
   ready(doc) {
-    return visiblyPresent(doc, doc.querySelector(THREAD_LINK));
+    return visiblyPresent(doc, doc.querySelector(THREAD_LIST));
   },
   // the pin's row label: this site's title never names the thread
   conversation(doc) {
-    return conversationFromRows(doc, THREAD_LINK, rowFor);
+    const row = doc.querySelector(`${THREAD_LIST} [role="button"][aria-pressed="true"]`);
+    return row ? (rowTexts(row)[0] ?? null) : null;
+  },
+  openConversation(doc, name) {
+    for (const row of threadRows(doc)) {
+      if (!nameMatches(rowTexts(row)[0] ?? '', name)) continue;
+      pressRow(doc, row);
+      return true;
+    }
+    return false;
   },
   count(doc): Counts {
-    return countUnreadRows(doc, THREAD_LINK, rowFor);
+    const win = doc.defaultView;
+    const rows = threadRows(doc);
+    if (rows.length === 0 || !win) {
+      return { direct: unreadFromTitle(doc.title), indirect: 0 };
+    }
+    let direct = 0;
+    for (const row of rows) {
+      if (isUnreadRow(row, win)) direct++;
+    }
+    return { direct, indirect: 0 };
   },
-  // same sweep as messenger's, so the same gating applies
+  // the thread list, so the runner recounts only when a row changes
   watch(doc) {
-    return watchRows(doc, THREAD_LINK, rowFor);
+    return doc.querySelector(THREAD_LIST);
   },
+  // instagram delegates to browser push, which Electron can't receive. Rows
+  // carry no href: the banner click falls back to plain activation.
   synthNotification(doc) {
-    return synthFromRows(doc, THREAD_LINK, rowFor);
+    const win = doc.defaultView;
+    if (!win) return null;
+    for (const row of threadRows(doc)) {
+      if (!isUnreadRow(row, win)) continue;
+      const texts = rowTexts(row);
+      if (texts.length === 0) return null;
+      return { title: texts[0], body: texts[1] ?? '' };
+    }
+    return null;
   },
 };
 

@@ -19,11 +19,11 @@ const cases: [ServiceId, string, number, number][] = [
   // [service, fixture, expected direct, expected indirect]
   ['whatsapp', 'whatsapp', 3, 0], // no page IndexedDB in tests -> title fallback
   ['messenger', 'messenger', 3, 0], // bold row + blue-dot row + "Unread" text row; green presence dot excluded
-  ['instagram', 'instagram', 3, 0], // same Meta markers on /direct rows; presence dot excluded
+  ['instagram', 'instagram', 2, 0], // "Unread"-labelled row + bold-only row; presence dot and the rail badge excluded
   ['telegram', 'telegram', 4, 2], // positive peers direct, negative indirect, muted skipped
   ['discord', 'discord', 3, 1], // lowerBadge_/numberBadge_ sum; "• Discord" title -> indirect
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge
-  ['tiktok', 'tiktok', 3, 0], // nav Messages badge total
+  ['tiktok', 'tiktok', 2, 0], // header Messages badge total
   ['shopee', 'shopee', 31, 0], // mini-chat header badge
   ['slack', 'slack', 3, 2], // mention badges sum direct; badge-less unread channels indirect; muted skipped
   ['teams', 'teams', 3, 2], // unread-count badges sum direct; badge-less unread rows indirect
@@ -68,7 +68,7 @@ describe('ready()', () => {
     expect(recipes.messenger.ready?.(load('blank'))).toBe(false);
   });
 
-  it('instagram is ready once thread links are rendered', () => {
+  it('instagram is ready once the thread list mounts', () => {
     expect(recipes.instagram.ready?.(load('instagram'))).toBe(true);
     expect(recipes.instagram.ready?.(load('blank'))).toBe(false);
   });
@@ -99,8 +99,9 @@ describe('ready()', () => {
     expect(recipes.zalo.ready?.(load('blank'))).toBe(false);
   });
 
-  it('tiktok is ready once the chat list mounts', () => {
+  it('tiktok is ready once the chat list mounts under a session', () => {
     expect(recipes.tiktok.ready?.(load('tiktok'))).toBe(true);
+    expect(recipes.tiktok.ready?.(load('tiktok-logged-out'))).toBe(false);
     expect(recipes.tiktok.ready?.(load('blank'))).toBe(false);
   });
 

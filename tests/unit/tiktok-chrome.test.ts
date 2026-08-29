@@ -24,26 +24,28 @@ const NAV = '[class*="DivSideNavContainer"] > [class*="DivScrollingContentContai
 const DRAWER = '[class*="DivSideNavContainer"] > [class*="DivDrawerContainer"]';
 
 describe('tiktok chrome hiding', () => {
-  it.each(['tiktok', 'tiktok-empty'])('hides the side nav rail on %s', (fixture) => {
-    const doc = load(fixture);
+  it('hides the side nav rail once the messages surface is up', () => {
+    const doc = load('tiktok');
     expect(display(doc, RAIL)).toBe('none');
     expect(display(doc, NAV)).toBe('none');
     // the drawer hosts the conversation list — never hidden
     expect(display(doc, DRAWER)).not.toBe('none');
   });
 
-  it('leaves the nav alone when no messages surface is mounted (login page)', () => {
-    const doc = load('tiktok-empty');
-    doc.querySelector(DRAWER)?.remove();
+  // the logged-out page mounts the (empty) messages drawer too, so the drawer
+  // alone cannot gate the chrome: the Log in button lives in the scrolling nav
+  it('leaves the nav — and its Log in button — alone when logged out', () => {
+    const doc = load('tiktok-logged-out');
     expect(display(doc, RAIL)).not.toBe('none');
     expect(display(doc, NAV)).not.toBe('none');
+    expect(display(doc, '#header-login-button')).not.toBe('none');
   });
 
-  it('is ready once the messages drawer mounts, even with no conversations', () => {
-    expect(tiktok.ready?.(load('tiktok-empty'))).toBe(true);
+  it('is not ready on the logged-out page', () => {
+    expect(tiktok.ready?.(load('tiktok-logged-out'))).toBe(false);
   });
 
-  it('counts zero on the empty state', async () => {
-    expect(await tiktok.count(load('tiktok-empty'))).toEqual({ direct: 0, indirect: 0 });
+  it('counts zero when logged out', async () => {
+    expect(await tiktok.count(load('tiktok-logged-out'))).toEqual({ direct: 0, indirect: 0 });
   });
 });

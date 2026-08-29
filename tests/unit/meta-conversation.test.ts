@@ -2,7 +2,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import instagram from '../../src/preload/recipes/instagram';
 import messenger from '../../src/preload/recipes/messenger';
 
 const FIXTURE = readFileSync(join(__dirname, '../fixtures/messenger.html'), 'utf8');
@@ -37,14 +36,5 @@ describe('messenger.conversation', () => {
   it('is null when the open thread has scrolled out of the list', () => {
     setURL('https://www.facebook.com/messages/t/999');
     expect(messenger.conversation?.(document)).toBeNull();
-  });
-});
-
-describe('instagram.conversation', () => {
-  it('reads the same row shape under /direct/t/', () => {
-    document.documentElement.innerHTML =
-      '<div role="listitem"><a href="/direct/t/42/"><span dir="auto">Dana</span><span dir="auto">ok · 1h</span></a></div>';
-    setURL('https://www.instagram.com/direct/t/42');
-    expect(instagram.conversation?.(document)).toBe('Dana');
   });
 });

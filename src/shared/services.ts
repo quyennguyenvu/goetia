@@ -10,9 +10,8 @@ export const SERVICES: ServiceMeta[] = [
     color: '#5865F2',
     waitForReady: true,
   },
-  // DMs only — land on /direct/inbox, never the feed. Selectors follow
-  // Meta's messenger DOM language but are uncalibrated until a live login
-  // pass.
+  // DMs only — land on /direct/inbox, never the feed. Calibrated against the
+  // live logged-in DOM 2026-08-29 (see the recipe).
   {
     id: 'instagram',
     name: 'Instagram',
@@ -64,7 +63,7 @@ export const SERVICES: ServiceMeta[] = [
     waitForReady: true,
   },
   // DMs only — land on /messages, not the feed (messenger-style). The
-  // recipe's data-e2e hooks are uncalibrated until a live login pass.
+  // recipe's data-e2e hooks were verified live 2026-08-29.
   {
     id: 'tiktok',
     name: 'TikTok',

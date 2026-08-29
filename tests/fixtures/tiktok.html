@@ -1,35 +1,93 @@
+<!-- /messages logged in, one thread open, 2 unread in another (captured
+     2026-08-29). Class prefix rotates between builds (tiktok-… / css-…); only the
+     styled-component suffix is stable. The read row's preview is literally "2" —
+     a numeric sweep must not take it for a badge. -->
 <title>Messages | TikTok</title>
 <div id="app">
   <div id="app-header" class="css-b2toi6-7937d88b--DivHeaderContainer">
     <div class="css-12x865a-7937d88b--DivHeaderRightContainer">
-      <div data-e2e="top-dm-icon"><sup>3</sup></div>
-      <div data-e2e="inbox-icon"><sup>9</sup></div>
+      <div data-e2e="top-dm-icon" class="css-1bdqaot-7937d88b--DivMessageIconContainer">
+        <a aria-label="Open messages" href="/messages?lang=en"><span></span></a>
+        <sup class="css-fugfa5-7937d88b--SupMsgBadge">2</sup>
+      </div>
+      <div role="button" aria-label="Inbox 0 unread notifications" data-e2e="inbox-icon"></div>
     </div>
   </div>
   <div class="css-2kk9ks-7937d88b--BaseBodyContainer">
     <div class="css-1l0harv-7937d88b--DivSideNavPlaceholderContainer">
       <div class="css-1r9paic-7937d88b--DivSideNavContainer">
+        <div class="css-osrp58-7937d88b--DivAnimationCover"></div>
         <div class="css-cclvt5-7937d88b--DivFixedContentContainer">
-          <a data-e2e="nav-foryou" href="/foryou">For You</a>
+          <a data-e2e="tiktok-logo" href="/"><strong>TikTok</strong></a>
         </div>
-        <div class="css-1d00on3-7937d88b--DivScrollingContentContainer">
-          <a data-e2e="nav-explore" href="/explore">Explore</a>
+        <div class="css-1mh7elh-7937d88b--DivScrollingContentContainer">
+          <div class="css-tfue59-7937d88b--DivMainNavContainer">
+            <a data-e2e="nav-foryou" href="/">For You</a>
+            <button type="button" data-e2e="nav-messages" aria-label="Messages" role="listitem" aria-pressed="true">
+              <div class="css-a3bobw-7937d88b--DivIconWithRedDotContainer">
+                <div class="css-g9v39k-7937d88b--DivRedDotContainer">
+                  <sup data-e2e="dm-total-unread-count" class="css-jgjrho-7937d88b--SupBadge"><p>2</p></sup>
+                </div>
+              </div>
+            </button>
+            <a data-e2e="nav-profile" href="/@quyennv25">Profile</a>
+          </div>
         </div>
-        <div class="css-gp2j1n-7937d88b--DivDrawerContainer drawer-enter-done">
-          <div data-e2e="dm-new-conversation-list">
-            <div data-e2e="dm-new-conversation-item">
-              <span data-e2e="dm-new-conversation-nickname">Ngọc Anh</span>
-              <span>2</span>
-            </div>
-            <div data-e2e="dm-new-conversation-item">
-              <span data-e2e="dm-new-conversation-nickname">Minh</span>
+        <div aria-hidden="false" class="css-gp2j1n-7937d88b--DivDrawerContainer drawer-enter-done">
+          <div class="css-14g5ixu-7937d88b--DivMessageDrawerContainer">
+            <div data-e2e="dm-new-conversation-list">
+              <div data-e2e="dm-new-conversation-item" data-conv-id="0:1:6997678453014496257:7163687325829956610" aria-selected="true" tabindex="0" class="css-5dyypj-7937d88b--DivItemWrapper">
+                <div class="css-1235430-7937d88b--DivItemInfo">
+                  <div data-e2e="dm-new-conversation-avatar" class="css-s2bdae-7937d88b--DivInfoAvatarWrapper"><span shape="circle"><img alt=""></span></div>
+                  <div class="css-1xz5qg8-7937d88b--DivInfoTextWrapper">
+                    <p data-e2e="dm-new-conversation-nickname" class="css-1k2hcus-7937d88b--PInfoNickname2"><span class="css-1l7v5bm-7937d88b--SpanNicknameText2">Tonn</span></p>
+                    <p class="css-14no2wl-7937d88b--PInfoExtractTime"></p>
+                    <p class="css-zf4dgs-7937d88b--SpanInfoExtract">2</p>
+                    <div class="css-1uknp9x-7937d88b--SpanDot"></div>
+                    <span class="css-1ihsu6w-7937d88b--SpanInfoTime">22:06</span>
+                  </div>
+                </div>
+                <div class="css-1ckmmz1-7937d88b--DivTrailing"><div role="button" tabindex="-1" data-e2e="conversation-more-action"></div></div>
+              </div>
+              <div data-e2e="dm-new-conversation-item" data-conv-id="0:1:6997678453014496257:7548821015903815698" aria-selected="false" tabindex="0" class="css-5dyypj-7937d88b--DivItemWrapper">
+                <div class="css-1235430-7937d88b--DivItemInfo">
+                  <div data-e2e="dm-new-conversation-avatar" class="css-s2bdae-7937d88b--DivInfoAvatarWrapper">
+                    <span shape="circle"><img alt=""></span>
+                    <div class="css-1w1w4vh-7937d88b--DivAvatarBadge"><span class="css-1o0l3ts-7937d88b--SpanAvatarBadgeText">2</span></div>
+                  </div>
+                  <div class="css-1xz5qg8-7937d88b--DivInfoTextWrapper">
+                    <p data-e2e="dm-new-conversation-nickname" class="css-1k2hcus-7937d88b--PInfoNickname2"><span class="css-1l7v5bm-7937d88b--SpanNicknameText2">Ho Hng</span></p>
+                    <p class="css-14no2wl-7937d88b--PInfoExtractTime"></p>
+                    <p class="css-1noss6b-7937d88b--SpanInfoExtract">okkkk</p>
+                    <div class="css-1uknp9x-7937d88b--SpanDot"></div>
+                    <span class="css-1ihsu6w-7937d88b--SpanInfoTime">22:33</span>
+                  </div>
+                </div>
+                <div class="css-1ckmmz1-7937d88b--DivTrailing">
+                  <span data-e2e="dm-new-conversation-unread"><span class="css-1n9k5fu-7937d88b--SpanNewMessage2">2</span></span>
+                  <div role="button" tabindex="-1" data-e2e="conversation-more-action"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
     <div id="main-content-messages" class="css-16jztn7-7937d88b--DivFullSideNavLayout">
-      <div data-e2e="dm-new-chatbox"></div>
+      <div data-e2e="dm-new-chatbox">
+        <div class="css-15mk60j-7937d88b--DivChatHeader">
+          <div tabindex="0" role="link" aria-label="Tonn’s profile">
+            <a rel="opener" href="/@tonn.hqt" target="_blank"><span data-e2e="top-chat-avatar"><img alt=""></span></a>
+            <a rel="opener" href="/@tonn.hqt" target="_blank">
+              <div class="css-tp6gjj-7937d88b--DivNameContainer">
+                <p data-e2e="dm-new-chat-nickname" class="css-vnhzl1-7937d88b--PNickname">Tonn</p>
+                <p data-e2e="chat-uniqueid" class="css-r6h4s7-7937d88b--PUniqueId">@tonn.hqt</p>
+              </div>
+            </a>
+          </div>
+        </div>
+        <div data-e2e="dm-new-message-list"></div>
+      </div>
     </div>
   </div>
 </div>

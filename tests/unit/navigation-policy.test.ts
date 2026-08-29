@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNavigationAllowed } from '../../src/main/lib/navigation-policy';
+import { isNavigationAllowed, shouldContainNavigation } from '../../src/main/lib/navigation-policy';
 
 describe('isNavigationAllowed', () => {
   it('allows the service host and known auth hosts', () => {
@@ -52,5 +52,29 @@ describe('isNavigationAllowed suffix entries', () => {
   it('keeps rejecting a foreign host for a suffix-enabled service', () => {
     expect(isNavigationAllowed('slack', 'https://evil.example/')).toBe(false);
     expect(isNavigationAllowed('teams', 'https://evil.example/')).toBe(false);
+  });
+});
+
+// Containment is about what the TOP-LEVEL view carries, since that document is
+// what runs unsandboxed with the recipe preload. Third-party iframes on a
+// login page (device fingerprinting, captchas, the MSA passkey ceremony) are
+// routine and cannot be enumerated; cancelling one's redirect broke the Teams
+// passkey sign-in and opened its frame URL as a blank contained window
+// (2026-08-29). will-navigate is main-frame only by contract, will-redirect
+// is not — so the frame flag has to be part of the decision.
+describe('shouldContainNavigation', () => {
+  it('contains a top-level navigation to an unlisted host', () => {
+    expect(shouldContainNavigation('teams', 'https://adfs.contoso.example/login', true)).toBe(true);
+  });
+
+  it('leaves a top-level navigation to an allowed host alone', () => {
+    expect(shouldContainNavigation('teams', 'https://login.live.com/ppsecure/post', true)).toBe(
+      false,
+    );
+  });
+
+  it('never contains a subframe, whatever its host', () => {
+    expect(shouldContainNavigation('teams', 'https://df.cfp.microsoft.com/fp', false)).toBe(false);
+    expect(shouldContainNavigation('messenger', 'https://evil.example/', false)).toBe(false);
   });
 });

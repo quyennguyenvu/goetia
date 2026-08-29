@@ -54,3 +54,14 @@ export function isNavigationAllowed(id: ServiceId, url: string): boolean {
     return false;
   }
 }
+
+/** Whether a navigation the view reported must be diverted to the contained
+ *  window. Only the top-level document is the view's concern — it is what runs
+ *  unsandboxed with the recipe preload. Subframes are never contained: a login
+ *  page embeds third-party frames no list could name (device fingerprinting,
+ *  captchas, Microsoft's passkey ceremony), and `will-redirect` reports their
+ *  redirects too — cancelling one broke the Teams passkey sign-in and opened
+ *  the frame's URL as a blank window (2026-08-29). */
+export function shouldContainNavigation(id: ServiceId, url: string, isMainFrame: boolean): boolean {
+  return isMainFrame && !isNavigationAllowed(id, url);
+}

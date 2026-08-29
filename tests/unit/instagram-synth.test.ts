@@ -12,10 +12,10 @@ function load(name: string): Document {
 
 describe('instagram synthesized notification', () => {
   it('extracts sender and preview from the first unread row', () => {
+    // rows carry no href — the banner click falls back to activation
     expect(instagram.synthNotification?.(load('instagram'))).toEqual({
-      title: 'bao.tran',
-      body: 'Sent a photo',
-      href: '/direct/t/17801',
+      title: 'Quang Trọng',
+      body: 'Alo alo',
     });
   });
 

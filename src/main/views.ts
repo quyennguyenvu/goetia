@@ -19,7 +19,7 @@ import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-me
 import { isSafeExternalUrl } from './lib/external-url';
 import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
 import { NavigationAudit } from './lib/navigation-audit';
-import { isNavigationAllowed } from './lib/navigation-policy';
+import { isNavigationAllowed, shouldContainNavigation } from './lib/navigation-policy';
 import { permissionAllowed } from './lib/permission-policy';
 import { reloadAllowed } from './lib/reload-guard';
 import { type ShellCommand, shellCommandFor } from './lib/shortcuts';
@@ -285,16 +285,27 @@ export class ServiceViewManager {
     // real logins. It goes to a hardened contained window instead, which hands
     // back to this view the moment it reaches an allowed host. The audit still
     // records every refusal so the list can be completed from evidence.
-    const containNavigation = (e: { preventDefault(): void }, url: string): void => {
-      if (isNavigationAllowed(id, url)) return;
+    // Top-level frame only: will-navigate is main-frame by contract, but
+    // will-redirect also reports a subframe's 302 — and a login page's
+    // third-party iframes are not the view's origin (see shouldContainNavigation).
+    const containNavigation = (
+      e: { preventDefault(): void },
+      url: string,
+      isMainFrame: boolean,
+    ): void => {
+      if (!shouldContainNavigation(id, url, isMainFrame)) return;
       const record = this.navAudit.note(id, url);
       if (record) console.warn(`[nav] contained: ${record} (${url})`);
       if (!NAV_ENFORCED) return;
       e.preventDefault();
       this.openContainedWindow(id, url);
     };
-    wc.on('will-navigate', (e, url) => containNavigation(e, url));
-    wc.on('will-redirect', (e, url) => containNavigation(e, url));
+    wc.on('will-navigate', (e, url, _inPlace, isMainFrame) =>
+      containNavigation(e, url, isMainFrame),
+    );
+    wc.on('will-redirect', (e, url, _inPlace, isMainFrame) =>
+      containNavigation(e, url, isMainFrame),
+    );
     wc.on('did-start-loading', () => this.hooks.onLoading(id, true));
     wc.on('did-finish-load', () => {
       // re-assert: restarts, hibernation wakes, reloads and purges all

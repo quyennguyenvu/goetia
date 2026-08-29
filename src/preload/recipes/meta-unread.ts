@@ -100,7 +100,7 @@ export function synthFromRows(
 
 /** A row's texts in reading order — [name, preview, time]. Real text carries
  *  dir="auto"; presence labels ("Active now") don't. */
-function rowTexts(row: Element): string[] {
+export function rowTexts(row: Element): string[] {
   let spans = [...row.querySelectorAll('span[dir="auto"]')];
   if (spans.length === 0) spans = [...row.querySelectorAll('span')];
   return spans
