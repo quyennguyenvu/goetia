@@ -27,7 +27,7 @@ export function startRecipe(
   reportStale: () => void,
   reportKeepAlive?: (pt: { x: number; y: number }) => void,
   reportNotification?: (n: { title: string; body: string; href?: string }) => void,
-  snapBack?: () => void,
+  navigate?: (url?: string) => void,
   setIntervalFn: typeof setInterval = setInterval,
   nowFn: () => number = Date.now,
   countTimeoutMs: number = COUNT_TIMEOUT_MS,
@@ -37,6 +37,7 @@ export function startRecipe(
   let busy = false;
   let lastKeepAlive = Number.NEGATIVE_INFINITY;
   let lastSnapBack = Number.NEGATIVE_INFINITY;
+  let sentToLogin = false;
   let wasInChat = false;
   // recount gating: a quiet list is not worth re-sweeping every tick
   let dirty = true;
@@ -80,7 +81,7 @@ export function startRecipe(
     busy = true;
     // chat containment: SPA routing off every chatPaths prefix after the
     // document has been on one means the user (or a CTA) left chat — go back.
-    if (snapBack && recipe.chatPaths) {
+    if (navigate && recipe.chatPaths) {
       // hash included: teams routes every surface off one pathname (/v2/#/chat
       // vs /v2/#/calendar). Pathname-only prefixes are unaffected — an empty
       // hash appends nothing.
@@ -90,7 +91,29 @@ export function startRecipe(
       } else if (wasInChat && nowFn() - lastSnapBack >= SNAPBACK_MIN_INTERVAL_MS) {
         lastSnapBack = nowFn();
         wasInChat = false;
-        snapBack();
+        navigate();
+      }
+    }
+    // logged-out shell with no sign-in form: land on the login page instead.
+    // Once per document — the navigation replaces this document anyway — and
+    // never inside the snap-back floor, so a /login → logged-out bounce
+    // (captcha, expired cookie) can loop no faster than containment does.
+    if (
+      navigate &&
+      recipe.loginUrl &&
+      !sentToLogin &&
+      nowFn() - lastSnapBack >= SNAPBACK_MIN_INTERVAL_MS
+    ) {
+      let target: string | null = null;
+      try {
+        target = recipe.loginUrl(doc);
+      } catch {
+        target = null; // a throwing hook must never stop the counting below
+      }
+      if (target) {
+        sentToLogin = true;
+        lastSnapBack = nowFn();
+        navigate(target);
       }
     }
     if (recipe.hideChrome) {

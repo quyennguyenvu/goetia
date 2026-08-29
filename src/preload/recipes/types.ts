@@ -53,4 +53,13 @@ export interface Recipe {
    *  main must click there. `false`: no row carries the name — the caller
    *  falls back to the URL. */
   openConversation?(doc: Document, name: string): boolean | { x: number; y: number };
+  /** The page to load when this document is the site's logged-OUT shell — a
+   *  surface with no sign-in form in sight (TikTok's /messages logged out is
+   *  the feed nav plus an empty DM drawer). Return the login URL only for that
+   *  shell; null while signed in, on the login page itself, and on captcha or
+   *  checkpoint pages, or the runner would fight the site's own flow. Sites
+   *  whose logged-out page already is a form (Slack) declare nothing — every
+   *  service otherwise starts on `url` (2026-08-13 decision). The runner
+   *  navigates once per document; the site's own redirect brings the user back. */
+  loginUrl?(doc: Document): string | null;
 }

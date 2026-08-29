@@ -18,6 +18,14 @@ import type { Recipe } from './types';
  *  top-login-button instead. Kept countable while the header is display:none
  *  (textContent survives). */
 const LOGGED_IN = '[data-e2e="top-dm-icon"]';
+/** The logged-out header carries a Log in button where the signed-in one
+ *  carries top-dm-icon; both absent means a page that is neither (/login
+ *  itself, captcha) and must be left alone. */
+const LOGGED_OUT = '[data-e2e="top-login-button"]';
+/** TikTok's own login entry; redirect_url is the parameter its Log in button
+ *  builds, and brings the session back to the DM surface. */
+const LOGIN_URL =
+  'https://www.tiktok.com/login?redirect_url=https%3A%2F%2Fwww.tiktok.com%2Fmessages';
 /** Same total on the side-nav Messages item's red dot; the fallback when the
  *  header renders no badge. */
 const NAV_TOTAL = '[data-e2e="dm-total-unread-count"]';
@@ -87,6 +95,11 @@ const tiktok: Recipe = {
   // no chat: the waking cover must stay up
   ready(doc) {
     return doc.querySelector(LOGGED_IN) !== null && doc.querySelector(CHAT_MARKERS) !== null;
+  },
+  // logged out, /messages shows no sign-in form — land on the login page
+  loginUrl(doc) {
+    if (doc.querySelector(LOGGED_IN) || !doc.querySelector(LOGGED_OUT)) return null;
+    return LOGIN_URL;
   },
   count(doc): Counts {
     const n = badgeCount(doc.querySelector(LOGGED_IN)) ?? badgeCount(doc.querySelector(NAV_TOTAL));

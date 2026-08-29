@@ -77,8 +77,10 @@ if (!inCallPopup) {
       (pt) => ipcRenderer.send('service:trusted-click', { serviceId, ...pt }),
       ({ title, body, href }) =>
         ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: true, href }),
-      // chat only: page-initiated navigation, no IPC surface needed
-      () => window.location.assign(serviceById(serviceId).url),
+      // chat only: page-initiated navigation, no IPC surface needed. No url =
+      // snap back to the service URL; a url = the recipe's login page for a
+      // logged-out shell (see Recipe.loginUrl).
+      (url?: string) => window.location.assign(url ?? serviceById(serviceId).url),
     );
     startReadyPoll(recipe, document, () => ipcRenderer.send('service:ready', { serviceId }));
   });

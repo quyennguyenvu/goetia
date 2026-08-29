@@ -84,7 +84,7 @@ Each service has a recipe (`src/preload/recipes/<id>.ts`) with a `count()`, and 
 - **WhatsApp** — unread from the page's `model-storage` IndexedDB.
 - **Messenger** — DOM scan + synthetic notifications (single-pass detection).
 - **Instagram** — Direct inbox rows (`role=button` in the thread-list nav, no hrefs) share Meta's unread markers; open thread is the `aria-pressed` row, pins open by clicking the named row. Calibrated live 2026-08-29 (`tests/fixtures/instagram.html`).
-- **TikTok** — header `top-dm-icon` badge (side-nav `dm-total-unread-count` fallback); chrome hidden only under a session (`top-dm-icon`), since the logged-out page mounts the empty DM drawer too; synthetic banners from `dm-new-conversation-unread`. Calibrated live 2026-08-29 (`tiktok.html`, `tiktok-logged-out.html`).
+- **TikTok** — header `top-dm-icon` badge (side-nav `dm-total-unread-count` fallback); chrome hidden only under a session (`top-dm-icon`), since the logged-out page mounts the empty DM drawer too; synthetic banners from `dm-new-conversation-unread`. Calibrated live 2026-08-29 (`tiktok.html`, `tiktok-logged-out.html`). Logged out, `/messages` is sent to `/login?redirect_url=…/messages` via `Recipe.loginUrl` (runner, once per document; TikTok is the only declarer). Verified: `tiktok-login.test.ts`, `runner-login.test.ts`.
 - **Telegram**, **Discord** — DOM badge counts.
 - **Zalo** — tab badge; `keepRendered` + visibility spoof + keep-alive.
 - **Shopee** — mini-chat widget reshaped to fill the view; keep-alive pill.
