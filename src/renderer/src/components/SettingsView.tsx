@@ -4,14 +4,23 @@ import { ACCELERATORS, devtoolsAccelerator } from '../../../shared/shortcuts';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
+import PasskeysPane from './PasskeysPane';
 import { shouldAutoRecheck, updatePending } from './update-rules';
 
-type SectionId = 'general' | 'appearance' | 'services' | 'notifications' | 'shortcuts' | 'updates';
+type SectionId =
+  | 'general'
+  | 'appearance'
+  | 'services'
+  | 'passkeys'
+  | 'notifications'
+  | 'shortcuts'
+  | 'updates';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'appearance', label: 'Appearance' },
   { id: 'services', label: 'Services' },
+  { id: 'passkeys', label: 'Passkeys' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'updates', label: 'Updates' },
@@ -486,6 +495,11 @@ export default function SettingsView() {
               </Pane>
             )}
 
+            {active === 'passkeys' && (
+              <Pane title="Passkeys">
+                <PasskeysPane />
+              </Pane>
+            )}
             {active === 'notifications' && (
               <Pane title="Notifications">
                 <Row label="Mute all notifications">

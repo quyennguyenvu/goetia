@@ -178,4 +178,50 @@ describe('ipcSenderAllowed', () => {
       ).toBe(false);
     }
   });
+  it('lets a service view run its own WebAuthn ceremony, and no other', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'webauthn:get',
+        fromShell: false,
+        senderServiceId: 'teams',
+        payloadServiceId: 'teams',
+      }),
+    ).toBe(true);
+    expect(
+      ipcSenderAllowed({
+        channel: 'webauthn:create',
+        fromShell: false,
+        senderServiceId: 'teams',
+        payloadServiceId: 'messenger',
+      }),
+    ).toBe(false);
+    expect(
+      ipcSenderAllowed({
+        channel: 'webauthn:create',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: 'teams',
+      }),
+    ).toBe(false); // the shell has no page to sign for
+  });
+  it('keeps the passkey list and forget/restore shell-only', () => {
+    for (const channel of ['passkeys:list', 'passkeys:forget', 'passkeys:restore'] as const) {
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: true,
+          senderServiceId: null,
+          payloadServiceId: undefined,
+        }),
+      ).toBe(true);
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: false,
+          senderServiceId: 'teams',
+          payloadServiceId: undefined,
+        }),
+      ).toBe(false);
+    }
+  });
 });

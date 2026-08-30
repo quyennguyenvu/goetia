@@ -1,5 +1,5 @@
-import { app, type BrowserWindow, ipcMain, Menu, shell } from 'electron';
-import type { RendererInvoke, RendererToMain } from '../shared/ipc';
+import { app, type BrowserWindow, type IpcMainInvokeEvent, ipcMain, Menu, shell } from 'electron';
+import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
 import { serviceById } from '../shared/services';
 import type { ServiceId, Settings } from '../shared/types';
 import {
@@ -19,6 +19,8 @@ import { anyOverlayOpen } from './lib/overlay-rules';
 import { releaseUrl } from './lib/update-check';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
+import type { PasskeyAuthenticator } from './passkeys/authenticator';
+import type { PasskeyStore } from './passkeys/store';
 import type { PinStore } from './pins';
 import { purgeAll, purgeLogin } from './purge';
 import type { SettingsStore } from './settings';
@@ -38,6 +40,10 @@ export interface AppContext {
   activity: ActivityLog;
   /** the pinboard; persisted, see pins.ts */
   pins: PinStore;
+  /** the software authenticator behind every service view's WebAuthn shim */
+  passkeys: PasskeyAuthenticator;
+  /** its store — Settings → Passkeys lists and forgets through it */
+  passkeyStore: PasskeyStore;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -98,15 +104,38 @@ function register(ctx: AppContext) {
 
 /** invoke twin of register(): same gate, so a round-trip channel cannot be
  *  added without one. `blocked` is what a rejected sender receives — always
- *  synchronous, so a refusal never awaits. */
+ *  synchronous, so a refusal never awaits. A service channel's payload
+ *  carries `serviceId`, validated against the sending view like a send. */
 function registerInvoke(ctx: AppContext) {
   return <C extends keyof RendererInvoke>(
     channel: C,
     blocked: RendererInvoke[C]['result'],
-    fn: () => RendererInvoke[C]['result'] | Promise<RendererInvoke[C]['result']>,
+    fn: (
+      payload: InvokePayload<C>,
+      e: IpcMainInvokeEvent,
+    ) => RendererInvoke[C]['result'] | Promise<RendererInvoke[C]['result']>,
   ): void => {
-    ipcMain.handle(channel, (e) => (senderAllowed(ctx, channel, e.sender.id) ? fn() : blocked));
+    ipcMain.handle(channel, (e, payload) => {
+      const p = payload as { serviceId?: ServiceId } | undefined;
+      return senderAllowed(ctx, channel, e.sender.id, p?.serviceId)
+        ? fn(payload as InvokePayload<C>, e)
+        : blocked;
+    });
   };
+}
+
+/** The https origin of the frame that invoked, or null: WebAuthn binds to
+ *  the page that asked, and a subframe, a blank page or a stale frame gets
+ *  nothing. Never read from the payload. */
+function invokeOrigin(e: IpcMainInvokeEvent): string | null {
+  const frame = e.senderFrame;
+  if (!frame || frame !== e.sender.mainFrame) return null;
+  try {
+    const url = new URL(frame.url);
+    return url.protocol === 'https:' ? url.origin : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Side-effects tail of a disabled-set change — shared by the settings:update
@@ -224,6 +253,35 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('notification:fired', (n) => router.handle(n));
   onInvoke('activity:recent', [], () => ctx.activity.recent());
   onInvoke('services:purgeAll', { purged: 0 }, () => purgeAll(ctx));
+  onInvoke('webauthn:create', { ok: false, error: 'NotAllowedError' }, (payload, e) => {
+    const origin = invokeOrigin(e);
+    if (!origin) return { ok: false, error: 'SecurityError' };
+    return ctx.passkeys.create({
+      serviceId: payload.serviceId,
+      origin,
+      options: payload.options,
+      viewKey: e.sender.id,
+    });
+  });
+  onInvoke('webauthn:get', { ok: false, error: 'NotAllowedError' }, (payload, e) => {
+    const origin = invokeOrigin(e);
+    if (!origin) return { ok: false, error: 'SecurityError' };
+    return ctx.passkeys.get({
+      serviceId: payload.serviceId,
+      origin,
+      options: payload.options,
+      viewKey: e.sender.id,
+    });
+  });
+  onInvoke('passkeys:list', [], () => ctx.passkeyStore.views());
+  onInvoke('passkeys:forget', [], ({ id }) => {
+    ctx.passkeyStore.forget(id);
+    return ctx.passkeyStore.views();
+  });
+  onInvoke('passkeys:restore', [], ({ id }) => {
+    ctx.passkeyStore.restore(id);
+    return ctx.passkeyStore.views();
+  });
   on('activity:open', ({ entryId }) => {
     const entry = ctx.activity.get(entryId);
     if (!entry) return; // rotated out of the ring since the switcher fetched

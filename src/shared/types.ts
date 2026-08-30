@@ -41,6 +41,19 @@ export interface PinView {
   at: number;
 }
 
+/** A Settings → Passkeys row. Never carries key material. */
+export interface PasskeyView {
+  /** base64url credential id — the opaque handle forget/restore use */
+  id: string;
+  rpId: string;
+  /** displayName, else userName, else a placeholder */
+  account: string;
+  /** the service whose view minted it — display only */
+  createdIn: ServiceId;
+  createdAt: number;
+  lastUsedAt: number;
+}
+
 export type UpdateStatus = 'idle' | 'checking' | 'current' | 'available' | 'error';
 
 export interface UpdateState {

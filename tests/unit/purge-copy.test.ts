@@ -16,6 +16,12 @@ describe('purgeLoginCopy', () => {
     expect(c.detail).toContain('stays active');
   });
 
+  // purge wipes the session, not the credential — the dialog has to say so
+  it('says passkeys are kept and where to forget them', () => {
+    expect(purgeLoginCopy('Telegram').detail).toContain('passkeys are kept');
+    expect(purgeLoginCopy('Telegram').detail).toContain('Settings → Passkeys');
+  });
+
   it('carries no checkbox — one service is not the heavy action', () => {
     expect(purgeLoginCopy('Telegram').checkboxLabel).toBeUndefined();
   });
@@ -41,5 +47,9 @@ describe('purgeAllCopy', () => {
     expect(c.detail).toContain('summoned and unbound');
     expect(c.detail).toContain('this device');
     expect(c.detail).toContain('stay active');
+  });
+
+  it('says passkeys are kept', () => {
+    expect(purgeAllCopy(10).detail).toContain('passkeys are kept');
   });
 });

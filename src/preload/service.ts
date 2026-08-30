@@ -4,7 +4,7 @@ import type { ServiceId } from '../shared/types';
 import { openConversationInPage } from './lib/conversation-open';
 import { installNotificationShim } from './lib/notification-shim';
 import { installVisibilitySpoof } from './lib/visibility-spoof';
-import { installWebAuthnBlock } from './lib/webauthn-block';
+import { installWebAuthnShim } from './lib/webauthn-shim';
 import { recipes } from './recipes';
 import { startReadyPoll } from './recipes/ready';
 import { startRecipe } from './recipes/runner';
@@ -20,8 +20,15 @@ const inCallPopup = window.opener !== null;
 if (!inCallPopup) {
   if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
 
-  // every service: Electron can't complete a passkey, so no page may offer one
-  installWebAuthnBlock(window);
+  // every service: passkeys are Goetia's own software authenticator in main;
+  // the flag is off when main has no keyring to keep a key under
+  installWebAuthnShim(window, {
+    enabled: process.argv.includes('--goetia-webauthn=on'),
+    bridge: {
+      create: (options) => ipcRenderer.invoke('webauthn:create', { serviceId, options }),
+      get: (options) => ipcRenderer.invoke('webauthn:get', { serviceId, options }),
+    },
+  });
 
   // --- Notification interception -----------------------------------------
   // Runs before page scripts (unisolated preload), so the page only ever sees

@@ -15,6 +15,10 @@ import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
 import { buildAppMenu } from './menu';
 import { NotificationRouter } from './notifications';
+import { PasskeyAuthenticator } from './passkeys/authenticator';
+import { safeStorageCodec } from './passkeys/codec';
+import { electronPrompt } from './passkeys/prompt';
+import { PasskeyStore } from './passkeys/store';
 import { PinStore } from './pins';
 import { QuietHoursController } from './quiet-hours';
 import { ResilienceManager } from './resilience';
@@ -70,6 +74,7 @@ app
 
     const settings = new SettingsStore(app.getPath('userData'));
     const pins = new PinStore(app.getPath('userData'));
+    const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
     const state = new MainState();
     const win = createWindow();
 
@@ -245,6 +250,8 @@ app
       updates,
       activity: new ActivityLog(),
       pins,
+      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win)),
+      passkeyStore,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),

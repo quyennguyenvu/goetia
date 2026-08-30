@@ -1,4 +1,18 @@
-import type { ActivityEntryView, Counts, ServiceId, Settings, ShellState } from './types';
+import type {
+  ActivityEntryView,
+  Counts,
+  PasskeyView,
+  ServiceId,
+  Settings,
+  ShellState,
+} from './types';
+import type {
+  WireCreateOptions,
+  WireCreateResult,
+  WireGetOptions,
+  WireGetResult,
+  WireResult,
+} from './webauthn';
 
 /** renderer/preload -> main, via ipcRenderer.send */
 export interface RendererToMain {
@@ -91,7 +105,8 @@ export const R2M_CHANNELS = [
   'updates:openDownload',
 ] as const satisfies readonly (keyof RendererToMain)[];
 
-/** renderer -> main round-trips, via ipcRenderer.invoke */
+/** renderer -> main round-trips, via ipcRenderer.invoke. `payload` is what
+ *  the sender passes; channels without one are invoked bare. */
 export interface RendererInvoke {
   /** recents for the quick switcher: fetched once per open, never broadcast */
   'activity:recent': { result: ActivityEntryView[] };
@@ -100,11 +115,38 @@ export interface RendererInvoke {
    *  send because the confirm is modal and the wipes are async, and a
    *  one-shot acknowledgement has no business in every later broadcast. */
   'services:purgeAll': { result: { purged: number } };
+  /** the service preload's WebAuthn shim: main runs the ceremony and answers
+   *  with the signed material or the DOMException name to raise. Origin is
+   *  read off the sending frame, never carried here. */
+  'webauthn:create': {
+    payload: { serviceId: ServiceId; options: WireCreateOptions };
+    result: WireResult<WireCreateResult>;
+  };
+  'webauthn:get': {
+    payload: { serviceId: ServiceId; options: WireGetOptions };
+    result: WireResult<WireGetResult>;
+  };
+  /** Settings → Passkeys: fetched when the pane opens, never broadcast; the
+   *  mutations return the fresh list so the pane never races a send. */
+  'passkeys:list': { result: PasskeyView[] };
+  'passkeys:forget': { payload: { id: string }; result: PasskeyView[] };
+  'passkeys:restore': { payload: { id: string }; result: PasskeyView[] };
 }
+
+export type InvokePayload<C extends keyof RendererInvoke> = RendererInvoke[C] extends {
+  payload: infer P;
+}
+  ? P
+  : undefined;
 
 export const INVOKE_CHANNELS = [
   'activity:recent',
   'services:purgeAll',
+  'webauthn:create',
+  'webauthn:get',
+  'passkeys:list',
+  'passkeys:forget',
+  'passkeys:restore',
 ] as const satisfies readonly (keyof RendererInvoke)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -127,6 +169,9 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'activity:open',
   'activity:recent',
   'services:purgeAll',
+  'passkeys:list',
+  'passkeys:forget',
+  'passkeys:restore',
   'pins:reorder',
   'pins:unpin',
   'pins:restore',

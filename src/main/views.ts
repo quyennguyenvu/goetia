@@ -6,6 +6,7 @@ import {
   desktopCapturer,
   Menu,
   type MenuItemConstructorOptions,
+  safeStorage,
   session,
   shell,
   type WebContents,
@@ -44,6 +45,13 @@ const NAV_ENFORCED = process.env.GOETIA_NAV_ENFORCE !== 'off';
  *  the spoof and drops the exemption, so the two can be told apart against a
  *  live session before the default changes. */
 const KEEP_RENDERED_THROTTLED = process.env.GOETIA_KEEP_RENDERED === 'throttled';
+
+/** The shim advertises an authenticator only when main can actually keep a
+ *  key: no OS keyring means an honest "no WebAuthn", never a half-working
+ *  one. `off` also exists to confirm a suspected shim bug against the old
+ *  block behaviour. */
+const webAuthnEnabled = (): boolean =>
+  process.env.GOETIA_WEBAUTHN !== 'off' && safeStorage.isEncryptionAvailable();
 function debugCalls(message: string): void {
   if (DEBUG_CALLS) console.error(`[calls-debug] ${message}`);
 }
@@ -191,7 +199,10 @@ export class ServiceViewManager {
         // from Chromium's intensive timer throttling, so recipe polling stays
         // fast enough (measured: 2s cadence while hidden). keepRendered
         // services opt out — they suspend their whole UI when "hidden".
-        additionalArguments: [`--goetia-service=${id}`],
+        additionalArguments: [
+          `--goetia-service=${id}`,
+          `--goetia-webauthn=${webAuthnEnabled() ? 'on' : 'off'}`,
+        ],
       },
     });
     const wc = view.webContents;
