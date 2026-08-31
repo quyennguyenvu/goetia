@@ -8,6 +8,13 @@ import type { Recipe } from './types';
  *  Expanded: host > wrapper > [header, body]. Collapsed: 100x48 pill
  *  (wrapper has a single child). Calibrated 2026-08-06. */
 
+/** Shopee sends a logged-out visitor to /verify/traffic/error?…&is_logged_in=false
+ *  — a dead-end "Login Required" gate, not a sign-in form (live probe
+ *  2026-08-31). Land on the buyer login page instead; `next` (a full URL, the
+ *  form Shopee itself emits) brings the session back to the chat host on the
+ *  home page. */
+const LOGIN_URL = 'https://shopee.vn/buyer/login?next=https%3A%2F%2Fshopee.vn%2F';
+
 /** Header row when expanded, whole wrapper when collapsed —
  *  the one place the unread badge text lives. */
 function chatHeader(doc: Document): Element | null {
@@ -53,6 +60,20 @@ const shopee: Recipe = {
   ready(doc) {
     const wrapper = doc.querySelector('#shopee-mini-chat-embedded')?.firstElementChild;
     return (wrapper?.children.length ?? 0) >= 2;
+  },
+  // logged-out shell: only the /verify/traffic/error gate, which a logged-in
+  // user never lands on — so no positive session marker is needed. Never the
+  // login page itself (would loop). URL-based, so it is locale-independent.
+  loginUrl(doc) {
+    const { pathname, search } = doc.location;
+    if (pathname.startsWith('/buyer/login')) return null;
+    if (
+      pathname === '/verify/traffic/error' &&
+      new URLSearchParams(search).get('is_logged_in') === 'false'
+    ) {
+      return LOGIN_URL;
+    }
+    return null;
   },
   count(doc): Counts {
     const header = chatHeader(doc);

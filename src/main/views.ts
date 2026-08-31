@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import {
+  app,
   BrowserWindow,
   type ContextMenuParams,
   clipboard,
@@ -16,8 +17,10 @@ import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
+import { clientHintHeaders } from './lib/client-hints';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
 import { isSafeExternalUrl } from './lib/external-url';
+import { isIdentityHost, isIdentityPopup } from './lib/identity-policy';
 import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
 import { NavigationAudit } from './lib/navigation-audit';
 import { isNavigationAllowed, shouldContainNavigation } from './lib/navigation-policy';
@@ -104,6 +107,8 @@ export class ServiceViewManager {
   /** the one contained window per service holding a refused navigation */
   private containedWindows = new Map<ServiceId, BrowserWindow>();
   private callWindows = new Map<ServiceId, Set<BrowserWindow>>();
+  /** sign-in popups a service page opened — see lib/identity-policy.ts */
+  private identityWindows = new Map<ServiceId, Set<BrowserWindow>>();
 
   constructor(
     private win: BrowserWindow,
@@ -179,6 +184,16 @@ export class ServiceViewManager {
       },
       { useSystemPicker: true },
     );
+    // Chrome sends UA client hints on every secure request; Electron sends
+    // none, and that absence alone reads as an embedded browser to Google's
+    // OAuth check. Restore them for identity-provider requests (the sign-in
+    // popup runs in this same partition) so a Continue-with-Google dialog
+    // clears the "this browser may not be secure" wall.
+    const hints = clientHintHeaders(app.userAgentFallback, process.platform);
+    ses.webRequest.onBeforeSendHeaders((details, cb) => {
+      if (isIdentityHost(details.url)) Object.assign(details.requestHeaders, hints);
+      cb({ requestHeaders: details.requestHeaders });
+    });
     return ses;
   }
 
@@ -209,10 +224,12 @@ export class ServiceViewManager {
     wc.setAudioMuted(this.audioMuted(id)); // a fresh view starts unmuted
     wc.setZoomLevel(this.zoomLevel(id));
     if (svc.keepRendered && !KEEP_RENDERED_THROTTLED) wc.setBackgroundThrottling(false);
-    wc.setWindowOpenHandler(({ url }) => {
+    wc.setWindowOpenHandler(({ url, disposition }) => {
+      const call = isCallPopup(id, url) || isBlankCallPopup(id, url);
+      const identity = !call && isIdentityPopup(url);
       debugCalls(
         `window.open from ${id}: "${url}" -> ${
-          isCallPopup(id, url) || isBlankCallPopup(id, url) ? 'ALLOW' : 'deny'
+          call ? 'ALLOW call' : identity ? 'ALLOW identity' : 'deny'
         }`,
       );
       // a call is chat: a call-declaring service may open its popup, but the
@@ -225,32 +242,64 @@ export class ServiceViewManager {
       // override entirely, and a same-process guest committing a navigation
       // crashes the shared renderer with the opener's Node env pending work
       // (electron#36858 class — reproduced 2026-08-16, SIGSEGV exit 11).
-      if (isCallPopup(id, url) || isBlankCallPopup(id, url)) {
+      if (call) {
         return { action: 'allow', overrideBrowserWindowOptions: { show: false } };
+      }
+      // a sign-in dialog is the other window a chat page may open. It opens
+      // on a real https URL, so unlike the blank guest its webPreferences
+      // override applies: isolated + sandboxed is a separate process, out of
+      // reach of the crash above, and window.opener survives for the
+      // callback page's postMessage. Guarded in did-create-window below.
+      if (identity) {
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            width: 520,
+            height: 680,
+            backgroundColor: '#0F1115',
+            webPreferences: {
+              partition: `persist:${id}`,
+              contextIsolation: true,
+              sandbox: true,
+              nodeIntegration: false,
+            },
+          },
+        };
+      }
+      // only a scripted window.open (features string → new-window) is
+      // evidence for the provider table; a target=_blank link click arrives
+      // as foreground-tab and is just a link
+      if (disposition === 'new-window') {
+        const record = this.navAudit.note(`${id}:popup`, url);
+        if (record) console.warn(`[nav] popup denied: ${record} (${url})`);
       }
       // external links open in the OS browser, never inside Goetia; only
       // web schemes — a hostile page must not reach file:/smb:/custom
       if (isSafeExternalUrl(url)) shell.openExternal(url);
       return { action: 'deny' };
     });
-    wc.on('did-create-window', (child) => {
-      // the guest never navigates and never spawns: its first call-URL
+    wc.on('did-create-window', (child, { url }) => {
+      child.excludedFromShownWindowsMenu = true;
+      child.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
+        if (isSafeExternalUrl(popupUrl)) shell.openExternal(popupUrl);
+        return { action: 'deny' };
+      });
+      if (isIdentityPopup(url)) {
+        this.guardIdentityWindow(id, child);
+        return;
+      }
+      // the call guest never navigates and never spawns: its first call-URL
       // navigation is adopted into a standalone call window, anything else
       // closes it. Closing an idle guest is safe — only an in-process
       // navigation commit races the opener's Node env (see above).
-      child.excludedFromShownWindowsMenu = true;
-      child.webContents.setWindowOpenHandler(({ url }) => {
-        if (isSafeExternalUrl(url)) shell.openExternal(url);
-        return { action: 'deny' };
-      });
-      child.webContents.on('will-navigate', (e, url) => {
-        debugCalls(`guest nav on ${id}: "${url}"`);
+      child.webContents.on('will-navigate', (e, navUrl) => {
+        debugCalls(`guest nav on ${id}: "${navUrl}"`);
         e.preventDefault();
-        if (isCallPopup(id, url)) {
-          this.openCallWindow(id, url);
+        if (isCallPopup(id, navUrl)) {
+          this.openCallWindow(id, navUrl);
           return;
         }
-        if (isSafeExternalUrl(url)) shell.openExternal(url);
+        if (isSafeExternalUrl(navUrl)) shell.openExternal(navUrl);
         if (!child.isDestroyed()) child.close();
       });
       if (DEBUG_CALLS) child.on('closed', () => debugCalls(`guest closed (${id})`));
@@ -394,6 +443,17 @@ export class ServiceViewManager {
     };
     win.webContents.on('did-navigate', handBack);
     win.webContents.on('did-navigate-in-page', handBack);
+    // A redirect hop back onto an allowed host is handed over BEFORE it
+    // commits: the callback then runs once, in the view, whose sessionStorage
+    // still holds the state/PKCE the login page stashed. Redirects only — a
+    // will-navigate may be a POST (Apple's form_post callback, SAML), and a
+    // prevented POST re-issued as loadURL would arrive as an empty GET, so
+    // plain navigations keep the post-commit hand-back above.
+    win.webContents.on('will-redirect', (e, url, _inPlace, isMainFrame) => {
+      if (!isMainFrame || !isNavigationAllowed(id, url)) return;
+      e.preventDefault();
+      handBack(e, url);
+    });
     win.loadURL(url);
   }
 
@@ -657,6 +717,7 @@ export class ServiceViewManager {
     this.win.contentView.removeChildView(view);
     this.lastRefreshAt.delete(id);
     this.closeCallWindows(id);
+    this.closeIdentityWindows(id);
     this.closeContainedWindow(id);
     view.webContents.close();
     this.views.delete(id);
@@ -672,6 +733,53 @@ export class ServiceViewManager {
       if (!call.isDestroyed()) call.close();
     }
     this.callWindows.delete(id);
+  }
+
+  /** A sign-in popup keeps its opener — the callback page finishes through
+   *  postMessage — and is otherwise a contained window: it may roam the
+   *  provider's hosts and land on the service's own, and anything else
+   *  closes it. Main frame only: an IdP page's subframes are not its origin. */
+  private guardIdentityWindow(id: ServiceId, popup: BrowserWindow): void {
+    let open = this.identityWindows.get(id);
+    if (!open) {
+      open = new Set();
+      this.identityWindows.set(id, open);
+    }
+    open.add(popup);
+    popup.on('closed', () => {
+      debugCalls(`identity popup closed (${id})`);
+      this.identityWindows.get(id)?.delete(popup);
+    });
+    const guard = (e: { preventDefault(): void }, url: string, isMainFrame: boolean): void => {
+      debugCalls(`identity nav on ${id}: "${url}" (main=${isMainFrame})`);
+      if (!isMainFrame || isIdentityHost(url) || isNavigationAllowed(id, url)) return;
+      e.preventDefault();
+      const record = this.navAudit.note(`${id}:popup`, url);
+      if (record) console.warn(`[nav] popup contained: ${record} (${url})`);
+      if (!popup.isDestroyed()) popup.close();
+    };
+    popup.webContents.on('will-navigate', (e, url, _inPlace, isMainFrame) =>
+      guard(e, url, isMainFrame),
+    );
+    popup.webContents.on('will-redirect', (e, url, _inPlace, isMainFrame) =>
+      guard(e, url, isMainFrame),
+    );
+    // diagnostic-only, never attached unless the flag is on (see DEBUG_CALLS)
+    if (DEBUG_CALLS) {
+      popup.webContents.on('did-finish-load', () =>
+        debugCalls(`identity popup loaded: ${popup.webContents.getURL()}`),
+      );
+    }
+  }
+
+  /** A sign-in popup belongs to the view that opened it: it survives a
+   *  service switch and dies with the service — and with a purge, since it
+   *  runs in the partition being wiped. */
+  closeIdentityWindows(id: ServiceId): void {
+    for (const popup of this.identityWindows.get(id) ?? []) {
+      if (!popup.isDestroyed()) popup.close();
+    }
+    this.identityWindows.delete(id);
   }
 
   /** A contained navigation belongs to the view that triggered it. */

@@ -26,4 +26,15 @@ describe('NavigationAudit', () => {
     expect(audit.note('zalo', 'not a url')).toBe('zalo not a url');
     expect(audit.note('zalo', 'not a url')).toBeNull();
   });
+
+  // popup refusals are keyed `<service>:popup` so an earlier contained
+  // navigation on the same host cannot swallow them (social-login, 2026-08-31)
+  it('keeps a popup refusal distinct from a contained navigation on the same host', () => {
+    const audit = new NavigationAudit();
+    expect(audit.note('tiktok', 'https://idp.example.com/auth')).toBe('tiktok idp.example.com');
+    expect(audit.note('tiktok:popup', 'https://idp.example.com/auth')).toBe(
+      'tiktok:popup idp.example.com',
+    );
+    expect(audit.note('tiktok:popup', 'https://idp.example.com/other')).toBeNull();
+  });
 });

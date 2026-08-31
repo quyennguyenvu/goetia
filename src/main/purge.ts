@@ -14,8 +14,9 @@ import type { AppContext } from './ipc-handlers';
  *  channels are shell-only, so only the trusted shell frame reaches these. */
 export async function purgeService(ctx: AppContext, id: ServiceId): Promise<void> {
   // before the wipe, and unconditionally: the confirm promises the call ends,
-  // and a call window runs in this very partition
+  // and both a call window and a sign-in popup run in this very partition
   ctx.views.closeCallWindows(id);
+  ctx.views.closeIdentityWindows(id);
   await session.fromPartition(`persist:${id}`).clearStorageData();
   // a no-op when the service has no view, which is what makes this one unit
   // serve live, hibernated and unbound services alike

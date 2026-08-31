@@ -33,10 +33,10 @@ describe('tiktok.loginUrl', () => {
 // the rule is narrow by decision (2026-08-30): a logged-out shell with no
 // sign-in form. Every other service starts on `url` and stays there.
 describe('loginUrl declarers', () => {
-  it('is tiktok alone', () => {
+  it('is tiktok and shopee', () => {
     const declarers = Object.values(recipes)
       .filter((r) => typeof r.loginUrl === 'function')
       .map((r) => r.id);
-    expect(declarers).toEqual(['tiktok']);
+    expect(declarers).toEqual(['tiktok', 'shopee']);
   });
 });

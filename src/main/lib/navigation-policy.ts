@@ -1,4 +1,5 @@
 import type { ServiceId } from '../../shared/types';
+import { hostMatches } from './host-match';
 
 /** Hosts each service's top-level view may navigate to (its own domain plus
  *  the hosts its login flow bounces through).
@@ -37,13 +38,6 @@ const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   // they reach the contained window instead.
   teams: ['teams.microsoft.com', '.live.com', '.microsoftonline.com', 'login.microsoft.com'],
 };
-
-function hostMatches(host: string, entry: string): boolean {
-  if (!entry.startsWith('.')) return host === entry;
-  // `.slack.com` covers slack.com itself and any subdomain, and nothing else:
-  // endsWith alone would also match `evilslack.com`
-  return host === entry.slice(1) || host.endsWith(entry);
-}
 
 export function isNavigationAllowed(id: ServiceId, url: string): boolean {
   try {

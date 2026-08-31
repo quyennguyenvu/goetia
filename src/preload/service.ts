@@ -13,11 +13,12 @@ const arg = process.argv.find((a) => a.startsWith('--goetia-service='));
 const serviceId = (arg?.split('=')[1] ?? '') as ServiceId;
 const recipe = recipes[serviceId];
 
-/** A call popup (window.open allowed by call-policy) can inherit this preload.
- *  The popup IS the call surface: no recipes, shims, or keep-alive belong here. */
-const inCallPopup = window.opener !== null;
+/** A popup the view was allowed to open (a call guest, a sign-in dialog) can
+ *  inherit this preload. The popup is its own surface: no recipes, shims, or
+ *  keep-alive belong here. */
+const inPopup = window.opener !== null;
 
-if (!inCallPopup) {
+if (!inPopup) {
   if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
 
   // every service: passkeys are Goetia's own software authenticator in main;
