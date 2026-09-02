@@ -2,3 +2,5 @@ allowBuilds:
   electron: true
   electron-winstaller: true
   esbuild: true
+minimumReleaseAgeExclude:
+  - happy-dom@20.13.1
