@@ -476,6 +476,17 @@ export default function SettingsView() {
                     onChange={(e) => update({ peekSaver: e.target.checked })}
                   />
                 </Row>
+                <Row
+                  label="Share Facebook login"
+                  hint="Sign in to another service with Facebook using the session already signed in under Messenger. The session is present only while the sign-in window is open."
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="share-facebook-login"
+                    checked={s.shareFacebookLogin}
+                    onChange={(e) => update({ shareFacebookLogin: e.target.checked })}
+                  />
+                </Row>
                 {/* composition lives on Home: an enable toggle behind a modal
                     is what let a view bury the modal it was toggled from */}
                 <div className="flex items-center justify-between gap-4 py-2.5">

@@ -122,6 +122,12 @@ export interface Settings {
    *  Off by default — a staler badge is a real cost, so it is the user's call.
    *  See lib/peek-rules peekInterval. */
   peekSaver: boolean;
+  /** Let a service's "Continue with Facebook" dialog reuse the session already
+   *  signed in under the Messenger service, so a social login costs a consent
+   *  click instead of a password and a 2FA code. On by default; off is the old
+   *  behaviour exactly — nothing seeded, nothing removed, nothing touched.
+   *  See main/lib/identity-share.ts and the 2026-09-01 spec. */
+  shareFacebookLogin: boolean;
   /** scheduled global mute: window + active days; see lib/quiet-hours-rules */
   quietHours: QuietHoursSchedule;
   /** start (epoch ms) of the one window the user dismissed by unmuting */
@@ -222,6 +228,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   lightSleep: true,
   peekSaver: false,
+  shareFacebookLogin: true,
   quietHours: {
     enabled: false,
     start: '22:00',

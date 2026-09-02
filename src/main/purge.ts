@@ -18,6 +18,10 @@ export async function purgeService(ctx: AppContext, id: ServiceId): Promise<void
   ctx.views.closeCallWindows(id);
   ctx.views.closeIdentityWindows(id);
   await session.fromPartition(`persist:${id}`).clearStorageData();
+  // the wipe already removed any lent Facebook cookies, so all that is left is
+  // the bookkeeping: drop the marker and cancel the grace timer, or the next
+  // boot sweeps a jar that has nothing in it
+  ctx.identityShare.forget(id);
   // a no-op when the service has no view, which is what makes this one unit
   // serve live, hibernated and unbound services alike
   ctx.views.loadServiceUrl(id);

@@ -16,6 +16,7 @@ import {
 import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
+import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
 import { clientHintHeaders } from './lib/client-hints';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
@@ -117,6 +118,7 @@ export class ServiceViewManager {
     private audioMuted: (id: ServiceId) => boolean,
     private waking: (id: ServiceId) => boolean,
     private zoomLevel: (id: ServiceId) => number,
+    private identityShare: IdentityShare,
     private overlay?: {
       setBounds(b: { x: number; y: number; width: number; height: number }): void;
       raise(): void;
@@ -286,6 +288,7 @@ export class ServiceViewManager {
       });
       if (isIdentityPopup(url)) {
         this.guardIdentityWindow(id, child);
+        void this.seedIdentityPopup(id, child, url, wc);
         return;
       }
       // the call guest never navigates and never spawns: its first call-URL
@@ -735,6 +738,38 @@ export class ServiceViewManager {
     this.callWindows.delete(id);
   }
 
+  /** Lend the popup the Facebook session Messenger is already signed into, so
+   *  a "Continue with Facebook" costs a consent click instead of a password
+   *  and a 2FA code.
+   *
+   *  Timing is the whole problem: setWindowOpenHandler is synchronous and the
+   *  child is already fetching the dialog, but every cookie API is async, so
+   *  there is no window in which to seed before the first request leaves. The
+   *  load is therefore stopped, seeded, and replayed. Re-navigating the same
+   *  WebContents keeps window.opener — opener is a property of the browsing
+   *  context, not the document — which is the completion path the whole flow
+   *  hangs on (2026-08-31 live pass).
+   *
+   *  The sync gate is load-bearing: once stop() has run the popup is blank
+   *  until something re-navigates it, so the decision to interrupt is made
+   *  before the first await and the loadURL after it is unconditional. A
+   *  popup that fails the gate is never touched. */
+  private async seedIdentityPopup(
+    id: ServiceId,
+    popup: BrowserWindow,
+    url: string,
+    opener: WebContents,
+  ): Promise<void> {
+    if (!this.identityShare.maySeed(id, url)) return;
+    // read before the await: the opener may navigate while we are seeding
+    const httpReferrer = opener.getURL();
+    popup.webContents.stop();
+    const seeded = await this.identityShare.seed(id);
+    if (popup.isDestroyed()) return;
+    debugCalls(`identity popup replay on ${id} (seeded=${seeded}): "${url}"`);
+    popup.webContents.loadURL(url, { httpReferrer });
+  }
+
   /** A sign-in popup keeps its opener — the callback page finishes through
    *  postMessage — and is otherwise a contained window: it may roam the
    *  provider's hosts and land on the service's own, and anything else
@@ -749,6 +784,9 @@ export class ServiceViewManager {
     popup.on('closed', () => {
       debugCalls(`identity popup closed (${id})`);
       this.identityWindows.get(id)?.delete(popup);
+      // the opener may still be finishing its arbiter round-trip, so the
+      // session goes back after a grace, not on this tick
+      this.identityShare.unseedSoon(id);
     });
     const guard = (e: { preventDefault(): void }, url: string, isMainFrame: boolean): void => {
       debugCalls(`identity nav on ${id}: "${url}" (main=${isMainFrame})`);

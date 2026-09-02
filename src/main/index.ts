@@ -1,10 +1,11 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor } from 'electron';
+import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor, session } from 'electron';
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { serviceById } from '../shared/services';
 import { applyBadges } from './badges';
 import { runShellCommand } from './commands';
 import { HibernationController } from './hibernation';
+import { IdentityShare } from './identity-share';
 import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
 import { coalesce } from './lib/coalesce';
@@ -17,7 +18,7 @@ import { buildAppMenu } from './menu';
 import { NotificationRouter } from './notifications';
 import { PasskeyAuthenticator } from './passkeys/authenticator';
 import { safeStorageCodec } from './passkeys/codec';
-import { electronPrompt } from './passkeys/prompt';
+import { electronPrompt, identitySharePrompt } from './passkeys/prompt';
 import { PasskeyStore } from './passkeys/store';
 import { PinStore } from './pins';
 import { QuietHoursController } from './quiet-hours';
@@ -78,6 +79,17 @@ app
     const state = new MainState();
     const win = createWindow();
 
+    const sharePrompt = identitySharePrompt(win);
+    const identityShare = new IdentityShare(
+      app.getPath('userData'),
+      (id) => session.fromPartition(`persist:${id}`).cookies,
+      () => settings.get().shareFacebookLogin,
+      (id) => sharePrompt(serviceById(id).name),
+    );
+    // a crash that killed the app with a sign-in popup open leaves the shared
+    // session parked in a service jar; the marker file is how we notice
+    void identityShare.sweepStale();
+
     const effectiveTheme = (): 'light' | 'dark' => {
       const pref = settings.get().theme;
       if (pref === 'system') return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
@@ -126,6 +138,7 @@ app
       },
       (id) => state.runtime(id).waking,
       (id) => settings.get().zoom[id],
+      identityShare,
       overlay,
     );
 
@@ -252,6 +265,7 @@ app
       pins,
       passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win)),
       passkeyStore,
+      identityShare,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
@@ -308,6 +322,7 @@ app
       summon.dispose();
       hibernation.dispose();
       resilience?.dispose();
+      identityShare.dispose();
       // last: commits any deferred write (zoom) before the process goes
       settings.dispose();
     });

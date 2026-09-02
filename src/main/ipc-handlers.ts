@@ -10,6 +10,7 @@ import {
   setOverlayOpen,
 } from './activate';
 import { applyOverlay } from './badges';
+import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
 import type { ActivityLog } from './lib/activity-log';
 import { isSafeExternalUrl } from './lib/external-url';
@@ -44,6 +45,9 @@ export interface AppContext {
   passkeys: PasskeyAuthenticator;
   /** its store — Settings → Passkeys lists and forgets through it */
   passkeyStore: PasskeyStore;
+  /** lends Messenger's Facebook session to another service's sign-in popup;
+   *  see identity-share.ts */
+  identityShare: IdentityShare;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;

@@ -513,3 +513,9 @@ describe('SettingsStore', () => {
     expect(reread.lastUsedAt.discord).toBe(123_456);
   });
 });
+
+describe('shareFacebookLogin', () => {
+  it('defaults on — the feature was asked for, and the switch exists to say no', () => {
+    expect(DEFAULT_SETTINGS.shareFacebookLogin).toBe(true);
+  });
+});
