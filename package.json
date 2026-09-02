@@ -1,7 +1,7 @@
 {
   "name": "goetia",
   "productName": "Goetia",
-  "version": "0.12.0",
+  "version": "0.14.0",
   "private": true,
   "description": "Personal multi-service chat client",
   "main": "out/main/index.js",
