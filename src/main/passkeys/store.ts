@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import { renameSync } from 'node:fs';
+import { join } from 'node:path';
 import Conf from 'conf';
 import { PASSKEY_CAP } from '../../shared/passkeys';
 import { SERVICES } from '../../shared/services';
@@ -31,12 +33,20 @@ export class PasskeyStore {
     cwd: string,
     private codec: KeyCodec,
   ) {
-    this.conf = new Conf<PasskeysFile>({
-      cwd,
-      configName: 'passkeys',
-      defaults: { credentials: [] },
-      clearInvalidConfig: true,
-    });
+    const opts = { cwd, configName: 'passkeys', defaults: { credentials: [] as Passkey[] } };
+    try {
+      this.conf = new Conf<PasskeysFile>(opts);
+    } catch {
+      // a truncated/corrupt passkeys.json must NOT be silently wiped: these are
+      // login credentials with no recovery path. Keep the evidence, start empty.
+      const bad = join(cwd, 'passkeys.json');
+      try {
+        renameSync(bad, `${bad}.corrupt-${Date.now()}`);
+      } catch {
+        /* already gone or unrenameable — the retry below still recovers */
+      }
+      this.conf = new Conf<PasskeysFile>(opts);
+    }
     this.list = parsePasskeys(this.conf.store.credentials, new Set(SERVICES.map((s) => s.id)));
   }
 

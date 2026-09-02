@@ -109,6 +109,27 @@ describe('HibernationController peek walk', () => {
     vi.useRealTimers();
   });
 
+  // A peek whose view is banished/purged mid-flight must free the slot now,
+  // not stall every other service's badge until the 90s peek timeout.
+  it('frees the peek slot when the peeked view is destroyed externally', () => {
+    vi.useFakeTimers();
+    const { ctx, ensured, destroyed } = harness();
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    expect(ensured).toEqual(['discord']);
+
+    // the view goes away from outside the controller (banish)
+    ctx.views.destroy('discord');
+    h.noteDestroyed('discord');
+    // the next peek is free to start after the normal stagger, not after 90s
+    vi.advanceTimersByTime(PEEK_STAGGER_MS);
+    expect(ensured).toEqual(['discord', 'instagram']);
+    expect(destroyed).toEqual(['discord']);
+    h.dispose();
+    vi.useRealTimers();
+  });
+
   it('still walks the whole roster, just spread out', () => {
     vi.useFakeTimers();
     const { ctx, ensured } = harness();

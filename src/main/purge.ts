@@ -17,6 +17,8 @@ export async function purgeService(ctx: AppContext, id: ServiceId): Promise<void
   // and both a call window and a sign-in popup run in this very partition
   ctx.views.closeCallWindows(id);
   ctx.views.closeIdentityWindows(id);
+  // a contained SSO/login window runs in this very partition too
+  ctx.views.closeContainedWindow(id);
   await session.fromPartition(`persist:${id}`).clearStorageData();
   // the wipe already removed any lent Facebook cookies, so all that is left is
   // the bookkeeping: drop the marker and cancel the grace timer, or the next

@@ -63,6 +63,14 @@ export class HibernationController {
     if (this.peeking?.id === id) this.endPeek(true);
   }
 
+  /** The view died under the peek — banished, purged, or crash-path destroyed
+   *  from outside the sweep. Free the peek slot now, or pickPeek stalls every
+   *  other service's badge refresh until this peek's 90s timeout fires. Not a
+   *  useful report, so it does not count toward the quiet-streak backoff. */
+  noteDestroyed(id: ServiceId): void {
+    if (this.peeking?.id === id) this.endPeek(false);
+  }
+
   noteBannerFired(id: ServiceId): void {
     this.lastBannerAt.set(id, Date.now());
   }

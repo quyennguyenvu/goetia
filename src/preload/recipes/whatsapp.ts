@@ -26,6 +26,12 @@ export function countWhatsAppChats(chats: WhatsAppChat[]): Counts {
 }
 
 let db: IDBDatabase | null = null;
+let lastProbeAt = 0;
+/** When no model-storage DB exists yet (logged out, fresh profile), the probe
+ *  below would otherwise run every tick forever. A login creates the DB later
+ *  in the same document, so the negative result is not cached outright — just
+ *  rate-limited to a re-probe every 30s. */
+const PROBE_MIN_INTERVAL_MS = 30_000;
 
 function openDb(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -33,6 +39,9 @@ function openDb(): Promise<IDBDatabase | null> {
     if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') {
       return resolve(null);
     }
+    const now = Date.now();
+    if (now - lastProbeAt < PROBE_MIN_INTERVAL_MS) return resolve(null);
+    lastProbeAt = now;
     indexedDB
       .databases()
       .then((dbs) => {
@@ -111,6 +120,12 @@ const whatsapp: Recipe = {
     const database = await openDb();
     if (!database) return { direct: unreadFromTitle(doc.title), indirect: 0 };
     return countWhatsAppChats(await readChats(database));
+  },
+  // the chat-list pane backs the DB the count reads: a quiet pane means a
+  // quiet store, so the runner may skip the full getAll() until a row moves.
+  // Null while logged out/booting (#pane-side absent) → count every tick.
+  watch(doc) {
+    return doc.querySelector('#pane-side');
   },
 };
 export default whatsapp;

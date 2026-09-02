@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { concat } from '../../src/main/lib/cbor';
 import { generateKeyPair, sha256 } from '../../src/main/lib/webauthn-crypto';
-import { PasskeyAuthenticator, type PasskeyPrompt } from '../../src/main/passkeys/authenticator';
+import {
+  PasskeyAuthenticator,
+  type PasskeyPrompt,
+  type Verification,
+} from '../../src/main/passkeys/authenticator';
 import { PasskeyStore } from '../../src/main/passkeys/store';
 import { fromBase64Url } from '../../src/shared/webauthn';
 
@@ -18,8 +22,8 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 function prompt(over: Partial<PasskeyPrompt> = {}) {
   return {
-    confirmCreate: vi.fn(async () => true),
-    confirmGet: vi.fn(async () => true),
+    confirmCreate: vi.fn(async () => 'verified' as const),
+    confirmGet: vi.fn(async () => 'verified' as const),
     chooseAccount: vi.fn(
       async (_rp: string, accounts: { id: string }[]) => accounts[0]?.id ?? null,
     ),
@@ -92,7 +96,7 @@ describe('PasskeyAuthenticator.create', () => {
   });
 
   it('refuses when the user cancels', async () => {
-    const { store, auth } = setup(prompt({ confirmCreate: vi.fn(async () => false) }));
+    const { store, auth } = setup(prompt({ confirmCreate: vi.fn(async () => false as const) }));
     expect(await auth.create(input(createOptions()))).toEqual({
       ok: false,
       error: 'NotAllowedError',
@@ -239,8 +243,8 @@ describe('PasskeyAuthenticator.get', () => {
 
 describe('PasskeyAuthenticator concurrency and timeout', () => {
   it('allows one in-flight ceremony per view and refuses a second', async () => {
-    let release: (v: boolean) => void = () => {};
-    const gate = new Promise<boolean>((r) => {
+    let release: (v: Verification) => void = () => {};
+    const gate = new Promise<Verification>((r) => {
       release = r;
     });
     const { auth } = setup(prompt({ confirmCreate: vi.fn(() => gate) }));
@@ -253,7 +257,7 @@ describe('PasskeyAuthenticator concurrency and timeout', () => {
     const other = auth.create(
       input(createOptions({ user: { id: 'dXNlci0y', name: 'b', displayName: 'B' } }), 8),
     );
-    release(true);
+    release('verified');
     expect((await first).ok).toBe(true);
     expect((await other).ok).toBe(true);
     // and the slot is free again
@@ -263,7 +267,7 @@ describe('PasskeyAuthenticator concurrency and timeout', () => {
   it('gives up on a prompt that never answers', async () => {
     vi.useFakeTimers();
     try {
-      const never = prompt({ confirmCreate: vi.fn(() => new Promise<boolean>(() => {})) });
+      const never = prompt({ confirmCreate: vi.fn(() => new Promise<Verification>(() => {})) });
       const quick = new PasskeyAuthenticator(new PasskeyStore(dir, codec), never, {
         timeoutMs: 50,
       });
@@ -273,5 +277,82 @@ describe('PasskeyAuthenticator concurrency and timeout', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('mints nothing when the confirm is answered after the timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      let answer: (v: 'verified') => void = () => {};
+      const late = prompt({
+        confirmCreate: vi.fn(
+          () =>
+            new Promise<'verified'>((r) => {
+              answer = r;
+            }),
+        ),
+      });
+      const store = new PasskeyStore(dir, codec);
+      const quick = new PasskeyAuthenticator(store, late, { timeoutMs: 50 });
+      const pending = quick.create(input(createOptions()));
+      await vi.advanceTimersByTimeAsync(60);
+      expect(await pending).toEqual({ ok: false, error: 'NotAllowedError' });
+      answer('verified'); // the user finally approves, too late
+      await vi.runAllTimersAsync();
+      expect(store.all()).toEqual([]); // no credential was persisted
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('PasskeyAuthenticator prompt cool-down', () => {
+  it('refuses the next ceremony silently within the cool-down after a decline', async () => {
+    let clock = 1000;
+    const confirmGet = vi.fn<PasskeyPrompt['confirmGet']>(async () => false);
+    const p = prompt({ confirmGet });
+    const store = new PasskeyStore(dir, codec);
+    store.add(stored('dXNlci0x', 1, generateKeyPair().privateKeyPem));
+    const auth = new PasskeyAuthenticator(store, p, { now: () => clock, cooldownMs: 5_000 });
+    // first get is declined
+    expect(await auth.get(input(getOptions()))).toEqual({ ok: false, error: 'NotAllowedError' });
+    expect(confirmGet).toHaveBeenCalledTimes(1);
+    // a second, within the window, never reaches the prompt
+    clock = 3000;
+    expect(await auth.get(input(getOptions()))).toEqual({ ok: false, error: 'NotAllowedError' });
+    expect(confirmGet).toHaveBeenCalledTimes(1);
+    // past the window, the prompt is offered again
+    clock = 7000;
+    confirmGet.mockResolvedValueOnce('verified');
+    expect((await auth.get(input(getOptions()))).ok).toBe(true);
+    expect(confirmGet).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('PasskeyAuthenticator honest user verification', () => {
+  it('leaves UV clear when the confirm was presence, not verification', async () => {
+    const p = prompt({
+      confirmCreate: vi.fn(async () => 'presence' as const),
+      confirmGet: vi.fn(async () => 'presence' as const),
+    });
+    const store = new PasskeyStore(dir, codec);
+    const auth = new PasskeyAuthenticator(store, p, { now: () => 1000 });
+    const created = await auth.create(input(createOptions()));
+    if (!created.ok) throw new Error('setup');
+    const ad = fromBase64Url(created.value.authenticatorData) as Uint8Array;
+    expect(ad[32]).toBe(0x41); // UP | AT, no UV
+    const got = await auth.get(input(getOptions()));
+    if (!got.ok) throw new Error('get');
+    expect((fromBase64Url(got.value.authenticatorData) as Uint8Array)[32]).toBe(0x01); // UP only
+  });
+
+  it('refuses userVerification:required when only presence is available', async () => {
+    const p = prompt({ confirmGet: vi.fn(async () => 'presence' as const) });
+    const store = new PasskeyStore(dir, codec);
+    store.add(stored('dXNlci0x', 1));
+    const auth = new PasskeyAuthenticator(store, p, { now: () => 1000 });
+    expect(await auth.get(input(getOptions({ userVerification: 'required' })))).toEqual({
+      ok: false,
+      error: 'NotAllowedError',
+    });
   });
 });

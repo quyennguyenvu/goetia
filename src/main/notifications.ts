@@ -7,7 +7,12 @@ import { performBannerAction } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { resolveBannerClick } from './lib/notification-click';
 import { resolveIcons } from './lib/notification-icons';
-import { notificationTitle, shouldNotify, soundOptions } from './lib/notification-rules';
+import {
+  notificationTitle,
+  sanitizeBanner,
+  shouldNotify,
+  soundOptions,
+} from './lib/notification-rules';
 import { NotificationThrottle } from './lib/notification-throttle';
 
 // Packaged, extraResources drops these beside the asar rather than inside it,
@@ -30,12 +35,15 @@ export class NotificationRouter {
 
   handle({
     serviceId,
-    title,
-    body,
+    title: rawTitle,
+    body: rawBody,
     synthetic,
     clickId,
     href,
   }: RendererToMain['notification:fired']): void {
+    // the payload crossed IPC from an unisolated page: type and size are
+    // attacker-controlled until re-checked here
+    const { title, body } = sanitizeBanner(rawTitle, rawBody);
     const s = this.ctx.settings.get();
     const silenced = !shouldNotify({
       serviceMuted: s.muted[serviceId],

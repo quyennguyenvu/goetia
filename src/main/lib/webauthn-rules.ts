@@ -25,6 +25,14 @@ export class WebAuthnError extends Error {
   }
 }
 
+export type UserVerification = 'required' | 'preferred' | 'discouraged';
+
+/** The RP's userVerification, coerced to the spec's three values; anything
+ *  else (absent, garbage) is the spec default 'preferred'. */
+export function parseUserVerification(raw: unknown): UserVerification {
+  return raw === 'required' || raw === 'discouraged' ? raw : 'preferred';
+}
+
 export interface CreationRequest {
   rpId: string;
   challenge: string;
@@ -33,12 +41,14 @@ export interface CreationRequest {
   displayName: string;
   excludeIds: string[];
   wantsCredProps: boolean;
+  uv: UserVerification;
 }
 
 export interface AssertionRequest {
   rpId: string;
   challenge: string;
   allowIds: string[];
+  uv: UserVerification;
 }
 
 /** The rpId must be the origin's host or a dot-suffix of it with at least two
@@ -95,6 +105,7 @@ export function parseCreation(raw: WireCreateOptions, originHost: string): Creat
     ),
     excludeIds: descriptorIds(raw.excludeCredentials),
     wantsCredProps: raw?.extensions?.credProps === true,
+    uv: parseUserVerification(raw?.authenticatorSelection?.userVerification),
   };
 }
 
@@ -103,6 +114,7 @@ export function parseAssertion(raw: WireGetOptions, originHost: string): Asserti
     rpId: resolveRpId(raw?.rpId, originHost),
     challenge: base64Field(raw?.challenge, 'challenge'),
     allowIds: descriptorIds(raw?.allowCredentials),
+    uv: parseUserVerification(raw?.userVerification),
   };
 }
 

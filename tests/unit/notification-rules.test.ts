@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   audioMuted,
+  BANNER_BODY_MAX,
+  BANNER_TITLE_MAX,
   notificationTitle,
+  sanitizeBanner,
   shouldNotify,
   soundOptions,
 } from '../../src/main/lib/notification-rules';
@@ -62,5 +65,27 @@ describe('notificationTitle', () => {
 
   it.each(['', '   ', '\n\t'])('falls back to the service name for %j', (raw) => {
     expect(notificationTitle(raw, 'Zalo')).toBe('Zalo');
+  });
+});
+
+describe('sanitizeBanner', () => {
+  it('coerces non-string title/body to empty strings', () => {
+    expect(sanitizeBanner(null, undefined)).toEqual({ title: '', body: '' });
+    expect(sanitizeBanner(5, {})).toEqual({ title: '', body: '' });
+    expect(sanitizeBanner(['x'], () => 'y')).toEqual({ title: '', body: '' });
+  });
+
+  it('passes normal page strings through untouched, newlines included', () => {
+    expect(sanitizeBanner('Anh Quyền', 'line one\nline two')).toEqual({
+      title: 'Anh Quyền',
+      body: 'line one\nline two',
+    });
+  });
+
+  it('clamps oversized page strings', () => {
+    const { title, body } = sanitizeBanner('t'.repeat(10_000), 'b'.repeat(10_000));
+    expect(title.length).toBeLessThanOrEqual(BANNER_TITLE_MAX);
+    expect(body.length).toBeLessThanOrEqual(BANNER_BODY_MAX);
+    expect(title.endsWith('…')).toBe(true);
   });
 });

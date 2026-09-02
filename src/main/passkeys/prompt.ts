@@ -1,6 +1,6 @@
 import { app, type BrowserWindow, dialog, systemPreferences } from 'electron';
 import { PASSKEY_CAP } from '../../shared/passkeys';
-import type { PasskeyPrompt } from './authenticator';
+import type { PasskeyPrompt, Verification } from './authenticator';
 
 /** e2e drives ceremonies headless; a packaged build ignores this entirely,
  *  the way GOETIA_NAV_ENFORCE=off exists only to confirm a suspected bug. */
@@ -58,7 +58,6 @@ export function identitySharePrompt(win: BrowserWindow): (serviceName: string) =
 }
 
 export function electronPrompt(win: BrowserWindow): PasskeyPrompt {
-  const touchId = hasTouchId();
   const device = process.platform === 'darwin' ? 'Mac' : 'computer';
 
   const notice = async (message: string, detail: string): Promise<void> => {
@@ -66,29 +65,35 @@ export function electronPrompt(win: BrowserWindow): PasskeyPrompt {
   };
 
   return {
-    async confirmCreate(rpId, account) {
-      if (AUTO_ACCEPT) return true;
-      if (touchId) return biometric(`create a passkey for ${rpId}`);
-      return ask(
-        win,
-        `Create a Goetia passkey for ${rpId}?`,
-        `${account} · You'll sign in here with a click instead of a password.`,
-        'Create',
+    async confirmCreate(rpId, account): Promise<Verification> {
+      if (AUTO_ACCEPT) return 'verified';
+      // re-checked per call: a Mac that could not prompt at launch (lid shut,
+      // external keyboard) may be able to now, and vice versa
+      if (hasTouchId()) return (await biometric(`create a passkey for ${rpId}`)) && 'verified';
+      return (
+        (await ask(
+          win,
+          `Create a Goetia passkey for ${rpId}?`,
+          `${account} · You'll sign in here with a click instead of a password.`,
+          'Create',
+        )) && 'presence'
       );
     },
-    async confirmGet(rpId, account, afterChooser) {
-      if (AUTO_ACCEPT) return true;
-      if (touchId) return biometric(`sign in to ${rpId}`);
-      // without biometrics, picking the account was the confirmation
-      if (afterChooser) return true;
-      return ask(win, `Sign in to ${rpId} as ${account}?`, '', 'Sign in');
+    async confirmGet(rpId, account, afterChooser): Promise<Verification> {
+      if (AUTO_ACCEPT) return 'verified';
+      if (hasTouchId()) return (await biometric(`sign in to ${rpId}`)) && 'verified';
+      // without biometrics, picking the account was presence, not verification
+      if (afterChooser) return 'presence';
+      return (await ask(win, `Sign in to ${rpId} as ${account}?`, '', 'Sign in')) && 'presence';
     },
     async chooseAccount(rpId, accounts) {
       if (AUTO_ACCEPT) return accounts[0]?.id ?? null;
       const { response } = await dialog.showMessageBox(win, {
         type: 'question',
         message: `Which account on ${rpId}?`,
-        buttons: [...accounts.map((a) => a.label), 'Cancel'],
+        // quote the page-supplied labels so a credential named "Cancel" cannot
+        // masquerade as the cancel button
+        buttons: [...accounts.map((a) => `“${a.label}”`), 'Cancel'],
         defaultId: 0,
         cancelId: accounts.length,
       });

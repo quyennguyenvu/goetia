@@ -127,3 +127,13 @@ describe('PasskeyStore', () => {
     ]);
   });
 });
+
+describe('a corrupt passkeys.json', () => {
+  it('is backed up rather than silently wiped, and the store starts empty', () => {
+    writeFileSync(join(dir, 'passkeys.json'), '{ this is not valid json');
+    const store = new PasskeyStore(dir, codec);
+    expect(store.all()).toEqual([]);
+    const { readdirSync } = require('node:fs');
+    expect(readdirSync(dir).some((f: string) => f.startsWith('passkeys.json.corrupt-'))).toBe(true);
+  });
+});

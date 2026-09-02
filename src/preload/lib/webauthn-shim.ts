@@ -78,7 +78,19 @@ export function installWebAuthnShim(
       const abort = () => reject(domError('AbortError', 'The operation was aborted.'));
       if (signal?.aborted) return abort();
       signal?.addEventListener('abort', abort, { once: true });
-      work?.().then(resolve, reject);
+      // drop the abort listener once the ceremony settles, so a long-lived
+      // page signal does not retain this closure per call
+      const done = () => signal?.removeEventListener('abort', abort);
+      work?.().then(
+        (v) => {
+          done();
+          resolve(v);
+        },
+        (e) => {
+          done();
+          reject(e);
+        },
+      );
     });
 
   const unwrap = <T>(result: WireResult<T>): T => {

@@ -56,6 +56,11 @@ function createWindow(): BrowserWindow {
       sandbox: true,
     },
   });
+  // the shell renderer never navigates and never opens windows: a drag-dropped
+  // file or URL would otherwise replace the document while keeping the shell's
+  // webContents id, and with it the reach of every SHELL_ONLY channel
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
@@ -139,6 +144,7 @@ app
       (id) => state.runtime(id).waking,
       (id) => settings.get().zoom[id],
       identityShare,
+      () => state.switcherOpen || state.settingsOpen || state.homeOpen,
       overlay,
     );
 
@@ -263,7 +269,9 @@ app
       updates,
       activity: new ActivityLog(),
       pins,
-      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win)),
+      // a 5s cool-down after a declined ceremony refuses the next one silently,
+      // so a scripted loop cannot chain endless modal prompts
+      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), { cooldownMs: 5_000 }),
       passkeyStore,
       identityShare,
       broadcast,
@@ -271,6 +279,8 @@ app
         hibernation.noteActivated(id),
       noteUnreadReport: (id: Parameters<HibernationController['noteUnreadReport']>[0]) =>
         hibernation.noteUnreadReport(id),
+      noteDestroyed: (id: Parameters<HibernationController['noteDestroyed']>[0]) =>
+        hibernation.noteDestroyed(id),
       noteBannerFired: (id: Parameters<HibernationController['noteBannerFired']>[0]) =>
         hibernation.noteBannerFired(id),
       banishServices: (ids) => {

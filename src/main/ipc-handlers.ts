@@ -53,6 +53,9 @@ export interface AppContext {
   noteActivated(id: import('../shared/types').ServiceId): void;
   /** ends a Light Sleep peek on the service's first report; late-bound in index.ts */
   noteUnreadReport(id: import('../shared/types').ServiceId): void;
+  /** frees a Light Sleep peek when its view is destroyed externally (banish,
+   *  purge); late-bound in index.ts */
+  noteDestroyed(id: import('../shared/types').ServiceId): void;
   /** stamps banner-grace so a peek view survives long enough to click;
    *  late-bound in index.ts */
   noteBannerFired(id: import('../shared/types').ServiceId): void;
@@ -97,11 +100,20 @@ function register(ctx: AppContext) {
     fn: (payload: RendererToMain[C]) => void,
   ): void => {
     ipcMain.on(channel, (e, payload) => {
-      const p = payload as { serviceId?: ServiceId };
-      if (!senderAllowed(ctx, channel, e.sender.id, p?.serviceId)) {
-        return; // drop spoofed / cross-service messages
+      // never let a page-shaped payload throw out of an ipcMain listener — an
+      // uncaught exception here kills the whole main process
+      try {
+        // service preloads run main-frame only and the shell has no subframes,
+        // so a message from any other frame is spoofed by construction
+        if (e.senderFrame && e.senderFrame !== e.sender.mainFrame) return;
+        const p = payload as { serviceId?: ServiceId };
+        if (!senderAllowed(ctx, channel, e.sender.id, p?.serviceId)) {
+          return; // drop spoofed / cross-service messages
+        }
+        fn(payload as RendererToMain[C]);
+      } catch (err) {
+        console.error(`[ipc] ${channel} handler failed:`, err);
       }
-      fn(payload as RendererToMain[C]);
     });
   };
 }
@@ -120,10 +132,16 @@ function registerInvoke(ctx: AppContext) {
     ) => RendererInvoke[C]['result'] | Promise<RendererInvoke[C]['result']>,
   ): void => {
     ipcMain.handle(channel, (e, payload) => {
-      const p = payload as { serviceId?: ServiceId } | undefined;
-      return senderAllowed(ctx, channel, e.sender.id, p?.serviceId)
-        ? fn(payload as InvokePayload<C>, e)
-        : blocked;
+      try {
+        if (e.senderFrame && e.senderFrame !== e.sender.mainFrame) return blocked;
+        const p = payload as { serviceId?: ServiceId } | undefined;
+        return senderAllowed(ctx, channel, e.sender.id, p?.serviceId)
+          ? fn(payload as InvokePayload<C>, e)
+          : blocked;
+      } catch (err) {
+        console.error(`[ipc] ${channel} handler failed:`, err);
+        return blocked;
+      }
     });
   };
 }
@@ -132,9 +150,10 @@ function registerInvoke(ctx: AppContext) {
  *  the page that asked, and a subframe, a blank page or a stale frame gets
  *  nothing. Never read from the payload. */
 function invokeOrigin(e: IpcMainInvokeEvent): string | null {
-  const frame = e.senderFrame;
-  if (!frame || frame !== e.sender.mainFrame) return null;
+  // inside the try: property access on a disposed WebFrameMain throws
   try {
+    const frame = e.senderFrame;
+    if (!frame || frame !== e.sender.mainFrame) return null;
     const url = new URL(frame.url);
     return url.protocol === 'https:' ? url.origin : null;
   } catch {
@@ -149,6 +168,7 @@ export function applyDisabledChange(ctx: AppContext, before: Settings): void {
   for (const id of after.order) {
     if (after.disabled[id] && ctx.views.has(id)) {
       ctx.views.destroy(id);
+      ctx.noteDestroyed(id); // free a peek that was mid-flight on this view
       ctx.waking.end(id, 'destroyed');
       ctx.state.setRuntime(id, {
         unread: { direct: 0, indirect: 0 },

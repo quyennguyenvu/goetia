@@ -14,11 +14,13 @@ const serviceId = (arg?.split('=')[1] ?? '') as ServiceId;
 const recipe = recipes[serviceId];
 
 /** A popup the view was allowed to open (a call guest, a sign-in dialog) can
- *  inherit this preload. The popup is its own surface: no recipes, shims, or
- *  keep-alive belong here. */
-const inPopup = window.opener !== null;
+ *  inherit this preload, and so can any subframe a chat site embeds (ads,
+ *  widgets, embeds). Both are their own surface: no recipes, shims, keep-alive
+ *  or IPC belong anywhere but the view's own top document — a subframe with the
+ *  shim would get an unthrottled OS-banner and keep-alive-click primitive. */
+const inSubcontext = window.opener !== null || window !== window.top;
 
-if (!inPopup) {
+if (!inSubcontext) {
   if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
 
   // every service: passkeys are Goetia's own software authenticator in main;

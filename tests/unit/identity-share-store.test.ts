@@ -166,6 +166,44 @@ describe('unseed', () => {
   });
 });
 
+// A popup can be closed by its opener before the user answers the confirm.
+// The 'closed' handler fires unseedSoon while seed() is mid-prompt — nothing
+// is marked yet, so a naive unseedSoon would no-op and the later seed would
+// strand a live session with no timer to take it back.
+describe('a popup closed while the confirm is still open', () => {
+  it('still gets unseeded once the seed lands', async () => {
+    vi.useFakeTimers();
+    let resolveConfirm!: (v: boolean) => void;
+    const share = new IdentityShare(
+      dir,
+      jarFor,
+      () => true,
+      () =>
+        new Promise<boolean>((r) => {
+          resolveConfirm = r;
+        }),
+    );
+    const seeding = share.seed('tiktok', () => true);
+    share.unseedSoon('tiktok'); // popup closed mid-prompt: nothing marked yet
+    await vi.waitFor(() => expect(resolveConfirm).toBeInstanceOf(Function));
+    resolveConfirm(true);
+    await seeding;
+    expect(jars.tiktok.cookies).toHaveLength(2); // seeded
+    await vi.advanceTimersByTimeAsync(IDENTITY_SEED_GRACE_MS);
+    expect(jars.tiktok.cookies).toEqual([]); // and the parked unseed took it back
+  });
+
+  it('seeds nothing when the popup is already gone by confirm time', async () => {
+    const share = build();
+    await expect(share.seed('tiktok', () => false)).resolves.toBe(false);
+    expect(jars.tiktok.cookies).toEqual([]);
+    // and nothing was marked, so the next boot sweeps nothing
+    jars.tiktok.cookies.push(fbCookie({ name: 'c_user', value: '99' }));
+    await build().sweepStale();
+    expect(jars.tiktok.cookies).toHaveLength(1);
+  });
+});
+
 describe('unseedSoon', () => {
   it('waits out the grace, then unseeds', async () => {
     vi.useFakeTimers();
@@ -284,3 +322,5 @@ describe('maySeed', () => {
     expect(build(false).maySeed('tiktok' as ServiceId, DIALOG)).toBe(false);
   });
 });
+
+// The popup can close while the Tou

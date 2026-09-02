@@ -48,6 +48,12 @@ const removalUrl = (c: Cookie): string =>
 export class IdentityShare {
   private conf: Conf<SeedsFile>;
   private timers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
+  /** seeds whose confirm/copy is still in flight — nothing is marked yet, so a
+   *  popup that closes here would find no marker and arm no unseed */
+  private inFlight = new Set<ServiceId>();
+  /** unseed requests that arrived during an in-flight seed, honoured once it
+   *  lands (a popup closed before its own confirm resolved) */
+  private pendingUnseed = new Set<ServiceId>();
 
   constructor(
     cwd: string,
@@ -70,46 +76,71 @@ export class IdentityShare {
     return maySeed({ enabled: this.enabled(), target, popupUrl });
   }
 
-  /** Rules 5-6, then the copy. Resolves to whether anything was seeded. */
-  async seed(target: ServiceId): Promise<boolean> {
+  /** Rules 5-6, then the copy. Resolves to whether anything was seeded.
+   *  `isLive` reports whether the popup still exists: an unbounded confirm
+   *  (Touch ID left unanswered) can outlast a popup the page closed, and a
+   *  seed written after that would strand a Facebook session in the target jar
+   *  with nothing to take it back but the next boot. */
+  async seed(target: ServiceId, isLive: () => boolean = () => true): Promise<boolean> {
     if (IDENTITY_SOURCE === null || target === IDENTITY_SOURCE) return false;
-    const source = this.jarFor(IDENTITY_SOURCE);
-    const dest = this.jarFor(target);
-    const filter = { domain: FACEBOOK_COOKIE_DOMAIN.slice(1) };
-    const [from, to] = await Promise.all([source.get(filter), dest.get(filter)]);
-    // the filter is Chromium's, so re-check ours: a lookalike domain must
-    // never be read as the Facebook session, nor written to the target
-    if (!hasFacebookSession(from) || hasFacebookSession(to)) return false;
-    // Ask only here — after rules 5 and 6 — so a popup that would not be
-    // seeded anyway never puts a prompt on screen. FB_APP_IDS refuses an
-    // attacker's OWN app id but cannot refuse a compromised service page
-    // opening its own real dialog against a seeded jar; this is the step that
-    // makes the credential move visible and refusable.
-    if (!(await this.confirmShare(target))) {
-      debugIdentity(`share refused for ${target}`);
-      return false;
-    }
-    // durable, and BEFORE the first set: a crash between here and the unseed
-    // is exactly what the marker exists for
-    this.mark(target);
-    const share = from.filter((c) => isFacebookCookieDomain(c.domain ?? ''));
-    for (const c of share) {
-      // one rejected cookie must not abort the set — a partial session still
-      // beats a full password prompt, and Facebook re-issues what it needs
-      try {
-        await dest.set(cookieSetDetails(c));
-      } catch {
-        /* ignore */
+    this.inFlight.add(target);
+    try {
+      const source = this.jarFor(IDENTITY_SOURCE);
+      const dest = this.jarFor(target);
+      const filter = { domain: FACEBOOK_COOKIE_DOMAIN.slice(1) };
+      const [from, to] = await Promise.all([source.get(filter), dest.get(filter)]);
+      // the filter is Chromium's, so re-check ours: a lookalike domain must
+      // never be read as the Facebook session, nor written to the target
+      if (!hasFacebookSession(from) || hasFacebookSession(to)) return false;
+      // Ask only here — after rules 5 and 6 — so a popup that would not be
+      // seeded anyway never puts a prompt on screen. FB_APP_IDS refuses an
+      // attacker's OWN app id but cannot refuse a compromised service page
+      // opening its own real dialog against a seeded jar; this is the step that
+      // makes the credential move visible and refusable.
+      if (!(await this.confirmShare(target))) {
+        debugIdentity(`share refused for ${target}`);
+        return false;
       }
+      // the popup died while the confirm was on screen: seed nothing. Its
+      // 'closed' handler already fired unseedSoon, which parked in pendingUnseed
+      // because no marker existed yet — the finally drops it, so no stray timer.
+      if (!isLive()) {
+        debugIdentity(`popup for ${target} closed before seeding; nothing written`);
+        return false;
+      }
+      // durable, and BEFORE the first set: a crash between here and the unseed
+      // is exactly what the marker exists for
+      this.mark(target);
+      const share = from.filter((c) => isFacebookCookieDomain(c.domain ?? ''));
+      for (const c of share) {
+        // one rejected cookie must not abort the set — a partial session still
+        // beats a full password prompt, and Facebook re-issues what it needs
+        try {
+          await dest.set(cookieSetDetails(c));
+        } catch {
+          /* ignore */
+        }
+      }
+      debugIdentity(`seeded ${share.length} cookie(s) into ${target}`);
+      return true;
+    } finally {
+      this.inFlight.delete(target);
+      // a close that raced this seed parked its unseed here; honour it now that
+      // the marker (if any) exists
+      if (this.pendingUnseed.delete(target)) this.unseedSoon(target);
     }
-    debugIdentity(`seeded ${share.length} cookie(s) into ${target}`);
-    return true;
   }
 
   /** Take the session back after the popup's completion has had time to
    *  finish. A no-op for a service that was never seeded, so a deliberate
    *  direct login in a service jar is never collected by this path. */
   unseedSoon(target: ServiceId): void {
+    // a seed is still deciding: it has not marked yet, so there is nothing to
+    // take back. Park the request and let seed()'s finally re-issue it.
+    if (this.inFlight.has(target)) {
+      this.pendingUnseed.add(target);
+      return;
+    }
     if (!this.conf.store.seeded.includes(target)) return;
     this.cancel(target);
     this.timers.set(
@@ -158,6 +189,7 @@ export class IdentityShare {
    *  and any pending timer without touching cookies. */
   forget(target: ServiceId): void {
     this.cancel(target);
+    this.pendingUnseed.delete(target);
     this.unmark(target);
   }
 
@@ -171,6 +203,7 @@ export class IdentityShare {
   dispose(): void {
     for (const t of this.timers.values()) clearTimeout(t);
     this.timers.clear();
+    this.pendingUnseed.clear();
   }
 
   private cancel(target: ServiceId): void {

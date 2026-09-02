@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import instagram from '../../src/preload/recipes/instagram';
 
 function load(name: string): Document {
@@ -70,5 +70,20 @@ describe('instagram chrome hiding', () => {
     const doc = load('instagram');
     doc.querySelector('#rail')?.remove();
     expect(instagram.hideChrome?.(doc)).toEqual([]);
+  });
+});
+
+describe('instagram rail reclaim is memoized', () => {
+  it('does not re-read styles on a second tick with the same DOM', () => {
+    const doc = load('instagram');
+    const win = doc.defaultView;
+    if (!win) throw new Error('no window');
+    const spy = vi.spyOn(win, 'getComputedStyle');
+    instagram.hideChrome?.(doc);
+    const first = spy.mock.calls.length;
+    expect(first).toBeGreaterThan(0);
+    instagram.hideChrome?.(doc);
+    expect(spy.mock.calls.length).toBe(first); // no new style reads on tick 2
+    spy.mockRestore();
   });
 });

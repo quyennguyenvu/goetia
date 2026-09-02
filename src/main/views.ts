@@ -5,6 +5,7 @@ import {
   type ContextMenuParams,
   clipboard,
   desktopCapturer,
+  dialog,
   Menu,
   type MenuItemConstructorOptions,
   safeStorage,
@@ -18,10 +19,11 @@ import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
 import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
+import { resolveClickPoint } from './lib/click-point';
 import { clientHintHeaders } from './lib/client-hints';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
 import { isSafeExternalUrl } from './lib/external-url';
-import { isIdentityHost, isIdentityPopup } from './lib/identity-policy';
+import { identityUrlPatterns, isIdentityHost, isIdentityPopup } from './lib/identity-policy';
 import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
 import { NavigationAudit } from './lib/navigation-audit';
 import { isNavigationAllowed, shouldContainNavigation } from './lib/navigation-policy';
@@ -39,8 +41,10 @@ const EDIT_LABELS = { cut: 'Cut', copy: 'Copy', paste: 'Paste', selectAll: 'Sele
 const DEBUG_CALLS = Boolean(process.env.GOETIA_DEBUG_CALLS);
 
 /** Navigation containment is enforced unless explicitly switched off, which
- *  exists only so a suspected false block can be confirmed as one. */
-const NAV_ENFORCED = process.env.GOETIA_NAV_ENFORCE !== 'off';
+ *  exists only so a suspected false block can be confirmed as one — and, like
+ *  the passkey AUTO_ACCEPT, the escape hatch is dev-only: a packaged build
+ *  always enforces. */
+const NAV_ENFORCED = app.isPackaged || process.env.GOETIA_NAV_ENFORCE !== 'off';
 
 /** `keepRendered` does two separable things: the preload spoof pins the page's
  *  visibility, and setBackgroundThrottling(false) exempts its timers from
@@ -55,7 +59,11 @@ const KEEP_RENDERED_THROTTLED = process.env.GOETIA_KEEP_RENDERED === 'throttled'
  *  one. `off` also exists to confirm a suspected shim bug against the old
  *  block behaviour. */
 const webAuthnEnabled = (): boolean =>
-  process.env.GOETIA_WEBAUTHN !== 'off' && safeStorage.isEncryptionAvailable();
+  process.env.GOETIA_WEBAUTHN !== 'off' &&
+  safeStorage.isEncryptionAvailable() &&
+  // Linux's basic_text backend "encrypts" with a hardcoded key — a private key
+  // under it is effectively plaintext, so advertise no authenticator there
+  (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text');
 function debugCalls(message: string): void {
   if (DEBUG_CALLS) console.error(`[calls-debug] ${message}`);
 }
@@ -101,6 +109,8 @@ export class ServiceViewManager {
   private layoutScheduled = false;
   private clickHideTimers = new Map<ServiceId, ReturnType<typeof setTimeout>>();
   private lastRefreshAt = new Map<ServiceId, number>();
+  /** last OS-browser open per service — throttles a scripted popup loop */
+  private lastExternalAt = new Map<ServiceId, number>();
   /** last rect actually applied; every view and the overlay share it */
   private lastBounds: ViewBounds | null = null;
   /** which unlisted origins each service reached — see lib/navigation-audit.ts */
@@ -119,6 +129,9 @@ export class ServiceViewManager {
     private waking: (id: ServiceId) => boolean,
     private zoomLevel: (id: ServiceId) => number,
     private identityShare: IdentityShare,
+    /** any shell surface (Home, Settings, switcher) covering the views — a
+     *  hidden keep-alive flash must never raise a service over it */
+    private overlayOpen: () => boolean,
     private overlay?: {
       setBounds(b: { x: number; y: number; width: number; height: number }): void;
       raise(): void;
@@ -178,11 +191,23 @@ export class ServiceViewManager {
     );
     ses.setDisplayMediaRequestHandler(
       (_request, callback) => {
-        // fallback when the native picker is unavailable (Windows/Linux,
-        // older macOS) or fails: share the primary screen, don't fail the call
-        desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+        // fallback when the native picker is unavailable (Windows/Linux, older
+        // macOS): never hand the screen over silently — getDisplayMedia() from
+        // a compromised page must cost a visible confirm naming the service
+        void (async () => {
+          const { response } = await dialog.showMessageBox(this.win, {
+            type: 'question',
+            message: `Share your screen with ${serviceById(id).name}?`,
+            detail:
+              'The page asked to capture your screen (usually for a call). Your entire primary screen will be visible to it.',
+            buttons: ['Share Screen', 'Cancel'],
+            defaultId: 1,
+            cancelId: 1,
+          });
+          if (response !== 0) return callback({});
+          const sources = await desktopCapturer.getSources({ types: ['screen'] });
           callback(sources[0] ? { video: sources[0] } : {});
-        });
+        })().catch(() => callback({}));
       },
       { useSystemPicker: true },
     );
@@ -192,7 +217,10 @@ export class ServiceViewManager {
     // popup runs in this same partition) so a Continue-with-Google dialog
     // clears the "this browser may not be secure" wall.
     const hints = clientHintHeaders(app.userAgentFallback, process.platform);
-    ses.webRequest.onBeforeSendHeaders((details, cb) => {
+    // the URL filter is the load-bearing part: without it Chromium suspends
+    // every request in this partition for a JS round-trip. isIdentityHost then
+    // runs on a handful of requests, not all of them (defence in depth).
+    ses.webRequest.onBeforeSendHeaders({ urls: identityUrlPatterns() }, (details, cb) => {
       if (isIdentityHost(details.url)) Object.assign(details.requestHeaders, hints);
       cb({ requestHeaders: details.requestHeaders });
     });
@@ -276,8 +304,10 @@ export class ServiceViewManager {
         if (record) console.warn(`[nav] popup denied: ${record} (${url})`);
       }
       // external links open in the OS browser, never inside Goetia; only
-      // web schemes — a hostile page must not reach file:/smb:/custom
-      if (isSafeExternalUrl(url)) shell.openExternal(url);
+      // web schemes — a hostile page must not reach file:/smb:/custom. Rate
+      // limited: Electron ships no popup blocker, so a scripted loop could
+      // otherwise spray the OS browser with tabs.
+      if (isSafeExternalUrl(url)) this.openExternalThrottled(id, url);
       return { action: 'deny' };
     });
     wc.on('did-create-window', (child, { url }) => {
@@ -294,8 +324,10 @@ export class ServiceViewManager {
       // the call guest never navigates and never spawns: its first call-URL
       // navigation is adopted into a standalone call window, anything else
       // closes it. Closing an idle guest is safe — only an in-process
-      // navigation commit races the opener's Node env (see above).
-      child.webContents.on('will-navigate', (e, navUrl) => {
+      // navigation commit races the opener's Node env (see above). will-redirect
+      // too: a 302 off the initial URL would otherwise commit in a window that
+      // still carries contextIsolation:false and the inherited service preload.
+      const guardGuestNav = (e: { preventDefault(): void }, navUrl: string): void => {
         debugCalls(`guest nav on ${id}: "${navUrl}"`);
         e.preventDefault();
         if (isCallPopup(id, navUrl)) {
@@ -304,7 +336,9 @@ export class ServiceViewManager {
         }
         if (isSafeExternalUrl(navUrl)) shell.openExternal(navUrl);
         if (!child.isDestroyed()) child.close();
-      });
+      };
+      child.webContents.on('will-navigate', (e, navUrl) => guardGuestNav(e, navUrl));
+      child.webContents.on('will-redirect', (e, navUrl) => guardGuestNav(e, navUrl));
       if (DEBUG_CALLS) child.on('closed', () => debugCalls(`guest closed (${id})`));
     });
     wc.on('context-menu', (_e, params) => {
@@ -361,7 +395,9 @@ export class ServiceViewManager {
       if (record) console.warn(`[nav] contained: ${record} (${url})`);
       if (!NAV_ENFORCED) return;
       e.preventDefault();
-      this.openContainedWindow(id, url);
+      // only a web URL earns a contained window; file:/smb:/custom schemes are
+      // dropped, and nothing legitimate reaches them from a chat page
+      if (isSafeExternalUrl(url)) this.openContainedWindow(id, url);
     };
     wc.on('will-navigate', (e, url, _inPlace, isMainFrame) =>
       containNavigation(e, url, isMainFrame),
@@ -393,6 +429,15 @@ export class ServiceViewManager {
     const [w, h] = this.win.getContentSize();
     view.setBounds(viewBounds(w, h, this.railPosition()));
     return view;
+  }
+
+  /** Open a URL in the OS browser, at most once per second per service, so a
+   *  page that scripts a window.open loop cannot spray the browser with tabs. */
+  private openExternalThrottled(id: ServiceId, url: string): void {
+    const now = Date.now();
+    if (now - (this.lastExternalAt.get(id) ?? 0) < 1_000) return;
+    this.lastExternalAt.set(id, now);
+    shell.openExternal(url);
   }
 
   /** A hardened window in the service's partition: isolated, sandboxed, no
@@ -428,6 +473,10 @@ export class ServiceViewManager {
       return;
     }
     const win = this.hardenedWindow(id);
+    // name the window and pin the title: attacker HTML landing here must not be
+    // able to pass itself off as a first-party Goetia surface
+    win.setTitle(`Sign-in for ${serviceById(id).name} — Goetia`);
+    win.webContents.on('page-title-updated', (e) => e.preventDefault());
     this.containedWindows.set(id, win);
     win.on('closed', () => {
       if (this.containedWindows.get(id) === win) this.containedWindows.delete(id);
@@ -620,19 +669,25 @@ export class ServiceViewManager {
     if (view) toggleDetachedDevTools(view.webContents);
   }
 
-  trustedClick(id: ServiceId, x: number, y: number): void {
+  trustedClick(id: ServiceId, x: unknown, y: unknown): void {
     const view = this.views.get(id);
     if (!view) return;
+    const wc = view.webContents;
+    const b = view.getBounds();
+    const pt = resolveClickPoint(x, y, wc.getZoomFactor(), { width: b.width, height: b.height });
+    if (!pt) return; // non-finite or out-of-view: never fabricate a click
     const hidden = id !== this.activeId;
+    // a keep-alive flash must never cover an open shell surface (Home,
+    // Settings, switcher): drop it — the next one comes in 30s
+    if (hidden && this.overlayOpen()) return;
     if (hidden) {
       if (!this.win.contentView.children.includes(view)) {
         this.win.contentView.addChildView(view, 0);
       }
       view.setVisible(true);
     }
-    const wc = view.webContents;
-    wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
-    wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+    wc.sendInputEvent({ type: 'mouseDown', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
+    wc.sendInputEvent({ type: 'mouseUp', x: pt.x, y: pt.y, button: 'left', clickCount: 1 });
     if (hidden) {
       const prev = this.clickHideTimers.get(id);
       if (prev !== undefined) clearTimeout(prev);
@@ -640,7 +695,12 @@ export class ServiceViewManager {
         id,
         setTimeout(() => {
           this.clickHideTimers.delete(id);
-          if (!view.webContents.isDestroyed()) view.setVisible(false);
+          if (view.webContents.isDestroyed()) return;
+          view.setVisible(false);
+          // symmetric teardown: a flashed hidden view is detached again, so the
+          // compositor's child list does not accumulate every service that has
+          // ever run a keep-alive click
+          if (id !== this.activeId) this.win.contentView.removeChildView(view);
         }, 300),
       );
     }
@@ -764,7 +824,7 @@ export class ServiceViewManager {
     // read before the await: the opener may navigate while we are seeding
     const httpReferrer = opener.getURL();
     popup.webContents.stop();
-    const seeded = await this.identityShare.seed(id);
+    const seeded = await this.identityShare.seed(id, () => !popup.isDestroyed());
     if (popup.isDestroyed()) return;
     debugCalls(`identity popup replay on ${id} (seeded=${seeded}): "${url}"`);
     popup.webContents.loadURL(url, { httpReferrer });
@@ -820,8 +880,10 @@ export class ServiceViewManager {
     this.identityWindows.delete(id);
   }
 
-  /** A contained navigation belongs to the view that triggered it. */
-  private closeContainedWindow(id: ServiceId): void {
+  /** A contained navigation belongs to the view that triggered it. Public so
+   *  purge can close it: an SSO/login page lives here, in the partition being
+   *  wiped, and leaving it open would let it re-establish the erased session. */
+  closeContainedWindow(id: ServiceId): void {
     const win = this.containedWindows.get(id);
     if (win && !win.isDestroyed()) win.close();
     this.containedWindows.delete(id);

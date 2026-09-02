@@ -2,7 +2,6 @@ import type { Cookie, CookiesSetDetails } from 'electron';
 import { SERVICES } from '../../shared/services';
 import type { ServiceId } from '../../shared/types';
 import { hostMatches } from './host-match';
-import { isIdentityPopup } from './identity-policy';
 
 /** Suffix entry, as in navigation-policy: matches facebook.com and any
  *  subdomain, never a lookalike. */
@@ -40,22 +39,35 @@ export function isFacebookCookieDomain(domain: string): boolean {
   return hostMatches(domain.replace(/^\./, ''), FACEBOOK_COOKIE_DOMAIN);
 }
 
-/** A Facebook sign-in dialog specifically — isIdentityPopup already owns the
- *  https check, the version-segment strip and the entry-path prefixes, so
- *  this narrows its verdict to the one provider that is shared. */
-export function isFacebookDialog(url: string): boolean {
-  if (!isIdentityPopup(url)) return false;
+/** Seeding-eligible: the OAuth dialog itself, and nothing else. `/login` stays
+ *  an identity-popup ENTRY path (a popup may open there — see isIdentityPopup)
+ *  but must never be seedable: its `next=` redirect can walk a lent session
+ *  onto an attacker's own dialog. The dialog path alone is the gate — the FB
+ *  JS SDK's real dialog carries its completion target as the xd_arbiter, not a
+ *  visible redirect_uri, so requiring one would refuse the genuine flow. */
+export function isSeedableFacebookDialog(url: string): boolean {
   try {
-    return hostMatches(new URL(url).host, FACEBOOK_COOKIE_DOMAIN);
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return false;
+    if (!hostMatches(u.host, FACEBOOK_COOKIE_DOMAIN)) return false;
+    const path = u.pathname.replace(/^\/v\d+(\.\d+)?(?=\/)/, '');
+    return path.startsWith('/dialog/oauth');
   } catch {
     return false;
   }
 }
 
+/** The one app id the dialog targets, or null when the URL disagrees with
+ *  itself. Facebook's backend reads the LAST duplicate of a query param while
+ *  URLSearchParams.get reads the first — so a page could seed one app id and
+ *  render a dialog for another (parameter pollution). Any disagreement, across
+ *  duplicated params or between client_id and app_id, is refused. */
 export function facebookAppId(url: string): string | null {
   try {
     const q = new URL(url).searchParams;
-    return q.get('client_id') ?? q.get('app_id');
+    const all = [...q.getAll('client_id'), ...q.getAll('app_id')];
+    if (all.length === 0) return null;
+    return all.every((v) => v === all[0]) ? all[0] : null;
   } catch {
     return null;
   }
@@ -110,7 +122,7 @@ export function maySeed({
   appIds = FB_APP_IDS,
 }: SeedSyncInput): boolean {
   if (!enabled) return false;
-  if (!isFacebookDialog(popupUrl)) return false;
+  if (!isSeedableFacebookDialog(popupUrl)) return false;
   const wanted = appIds[target];
   if (!wanted || facebookAppId(popupUrl) !== wanted) return false;
   return IDENTITY_SOURCE !== null && target !== IDENTITY_SOURCE;

@@ -22,7 +22,7 @@ const api = {
     channel: C,
     ...payload: InvokePayload<C> extends undefined ? [] : [InvokePayload<C>]
   ): Promise<RendererInvoke[C]['result']> {
-    if (!invokable.has(channel)) return Promise.reject(new Error(`blocked channel: `));
+    if (!invokable.has(channel)) return Promise.reject(new Error(`blocked channel: ${channel}`));
     return ipcRenderer.invoke(channel, ...payload) as Promise<RendererInvoke[C]['result']>;
   },
   onState(cb: (s: ShellState) => void): () => void {

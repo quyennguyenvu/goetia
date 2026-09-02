@@ -57,6 +57,17 @@ export function isIdentityPopup(url: string): boolean {
   );
 }
 
+/** webRequest match patterns for the hosts UA client hints are restored on.
+ *  Registering onBeforeSendHeaders without a filter forces Chromium to hand
+ *  EVERY request in the session to main's JS thread — this keeps the other
+ *  99.9% off it. A `.suffix` host expands to the wildcard plus the bare host,
+ *  matching hostMatches. */
+export function identityUrlPatterns(): string[] {
+  return [...IDENTITY_PROVIDERS.map((p) => p.host), ...ROAMING_HOSTS].flatMap((h) =>
+    h.startsWith('.') ? [`https://*${h}/*`, `https://${h.slice(1)}/*`] : [`https://${h}/*`],
+  );
+}
+
 /** May an open identity popup navigate here? Any path on a provider host —
  *  the IdP roams its own pages (account picker, consent, 2FA). */
 export function isIdentityHost(url: string): boolean {

@@ -48,7 +48,12 @@ export function installNotificationShim(
         const oldest = live.keys().next().value;
         if (oldest !== undefined) live.delete(oldest);
       }
-      forward(title, typeof options?.body === 'string' ? options.body : '', id);
+      // title too: main re-checks, but a non-string must not cross IPC at all
+      forward(
+        typeof title === 'string' ? title : '',
+        typeof options?.body === 'string' ? options.body : '',
+        id,
+      );
     }
     close(): void {
       // a banner the site closed (read elsewhere) must not replay

@@ -36,3 +36,18 @@ export function soundOptions(opts: { enabled: boolean; synthetic: boolean }): {
 export function notificationTitle(raw: string, fallback: string): string {
   return raw.trim() || fallback;
 }
+
+export const BANNER_TITLE_MAX = 200;
+export const BANNER_BODY_MAX = 500;
+
+const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+
+/** Banner text is page-controlled and typed only by convention — the shim can
+ *  be bypassed by the page itself, so main re-coerces and clamps before any
+ *  use. Newlines are kept: bodies render multiline. */
+export function sanitizeBanner(title: unknown, body: unknown): { title: string; body: string } {
+  return {
+    title: typeof title === 'string' ? clip(title, BANNER_TITLE_MAX) : '',
+    body: typeof body === 'string' ? clip(body, BANNER_BODY_MAX) : '',
+  };
+}

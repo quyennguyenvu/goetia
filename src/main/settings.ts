@@ -162,6 +162,11 @@ export class SettingsStore {
    *  synchronous I/O on the main thread. An edit made to settings.json
    *  underneath a running app is consequently not observed until restart. */
   private cached: Settings;
+  /** the persisted shape, mirrored in memory. `conf.store`'s getter does a
+   *  readFileSync + JSON.parse on every access; this store is the only writer,
+   *  so mirroring it lets write() assign once and re-read zero times (the old
+   *  path paid two synchronous reads on every rememberSurface). */
+  private raw: Record<string, unknown>;
   private deferred: Partial<Settings> | null = null;
   private deferTimer: ReturnType<typeof setTimeout> | null = null;
   /** Disk writes performed. Exists so the batching this class does can be
@@ -173,7 +178,8 @@ export class SettingsStore {
 
   constructor(cwd: string) {
     this.conf = new Conf<Settings>({ cwd, configName: 'settings', defaults: DEFAULT_SETTINGS });
-    const first = normalize({ ...DEFAULT_SETTINGS, ...this.conf.store });
+    this.raw = { ...this.conf.store }; // one read, at boot
+    const first = normalize({ ...DEFAULT_SETTINGS, ...this.raw } as Settings);
     this.bootTrimmed = first.trimmed;
     this.cached = deepFreeze(first.settings);
     if (first.trimmed.length > 0) this.write({ disabled: first.settings.disabled });
@@ -222,9 +228,11 @@ export class SettingsStore {
     // assigning the store commits in a single _write, where a conf.set() per
     // key paid a full atomic write each. Merging onto the file's own contents
     // keeps exactly the persisted shape the per-key loop produced.
-    this.conf.store = { ...this.conf.store, ...merged };
+    const nextRaw = { ...this.raw, ...merged };
+    this.raw = nextRaw;
+    this.conf.store = nextRaw as unknown as Settings; // one atomic write, no reads
     this.writeCount++;
-    this.cached = deepFreeze(normalize({ ...DEFAULT_SETTINGS, ...this.conf.store }).settings);
+    this.cached = deepFreeze(normalize({ ...DEFAULT_SETTINGS, ...nextRaw } as Settings).settings);
     return this.cached;
   }
 }

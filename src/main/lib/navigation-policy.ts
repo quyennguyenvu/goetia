@@ -14,7 +14,7 @@ import { hostMatches } from './host-match';
  *  it refuses is therefore NOT dead — it is adopted into a hardened contained
  *  window (see ServiceViewManager), which is what makes enforcing this safe
  *  before every service has had a live login pass. */
-const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
+export const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
   messenger: ['www.facebook.com', 'm.facebook.com', 'facebook.com', 'messenger.com'],
   // facebook hosts for the Log-in-with-Facebook bounce
   instagram: [
@@ -42,7 +42,10 @@ const ALLOWED_HOSTS: Record<ServiceId, string[]> = {
 export function isNavigationAllowed(id: ServiceId, url: string): boolean {
   try {
     const { protocol, host } = new URL(url);
-    if (protocol !== 'https:' && protocol !== 'http:') return false;
+    // https only: every listed host is HTTPS/HSTS in practice, so a downgrade
+    // to http is a redirect worth containing (into the hardened window), never
+    // keeping in the unsandboxed view
+    if (protocol !== 'https:') return false;
     return ALLOWED_HOSTS[id].some((entry) => hostMatches(host, entry));
   } catch {
     return false;

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isNavigationAllowed, shouldContainNavigation } from '../../src/main/lib/navigation-policy';
+import {
+  ALLOWED_HOSTS,
+  isNavigationAllowed,
+  shouldContainNavigation,
+} from '../../src/main/lib/navigation-policy';
 
 describe('isNavigationAllowed', () => {
   it('allows the service host and known auth hosts', () => {
@@ -76,5 +80,40 @@ describe('shouldContainNavigation', () => {
   it('never contains a subframe, whatever its host', () => {
     expect(shouldContainNavigation('teams', 'https://df.cfp.microsoft.com/fp', false)).toBe(false);
     expect(shouldContainNavigation('messenger', 'https://evil.example/', false)).toBe(false);
+  });
+});
+
+describe('scheme handling', () => {
+  it('refuses a downgrade to http even on an allowed host', () => {
+    expect(isNavigationAllowed('shopee', 'http://shopee.vn/')).toBe(false);
+    expect(isNavigationAllowed('slack', 'http://team.slack.com/')).toBe(false);
+  });
+});
+
+// The passkey rpId rule (rpIdAllowed) assumes no allowed host sits under a
+// multi-label public suffix; a passkey scoped to `co.uk` would be shared
+// across every allowed host under it. Encode that assumption as a test.
+describe('no allowed host sits under a multi-label public suffix', () => {
+  const PSL2 = new Set([
+    'co.uk',
+    'com.au',
+    'com.br',
+    'com.vn',
+    'com.my',
+    'com.sg',
+    'co.jp',
+    'co.id',
+    'co.th',
+    'com.ph',
+    'github.io',
+  ]);
+  it('holds for every ALLOWED_HOSTS entry', () => {
+    for (const hosts of Object.values(ALLOWED_HOSTS)) {
+      for (const entry of hosts) {
+        const host = entry.replace(/^\./, '');
+        const tail2 = host.split('.').slice(-2).join('.');
+        expect(host === tail2 || !PSL2.has(tail2)).toBe(true);
+      }
+    }
   });
 });

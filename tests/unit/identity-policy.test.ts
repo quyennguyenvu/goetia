@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   IDENTITY_PROVIDERS,
+  identityUrlPatterns,
   isIdentityHost,
   isIdentityPopup,
 } from '../../src/main/lib/identity-policy';
@@ -83,5 +84,22 @@ describe('isIdentityHost', () => {
     expect(isIdentityHost('https://evil.example/')).toBe(false);
     expect(isIdentityHost('http://accounts.google.com/')).toBe(false);
     expect(isIdentityHost('not a url')).toBe(false);
+  });
+});
+
+// The webRequest client-hints handler must carry a URL filter, or Chromium
+// suspends EVERY request in the session for a main-process JS round-trip.
+describe('identityUrlPatterns', () => {
+  it('covers every provider host and the facebook roaming suffix', () => {
+    const p = identityUrlPatterns();
+    expect(p).toContain('https://accounts.google.com/*');
+    expect(p).toContain('https://login.microsoftonline.com/*');
+    // a `.facebook.com` suffix expands to both the wildcard and the bare host
+    expect(p).toContain('https://*.facebook.com/*');
+    expect(p).toContain('https://facebook.com/*');
+  });
+
+  it('emits only https match patterns', () => {
+    for (const pat of identityUrlPatterns()) expect(pat.startsWith('https://')).toBe(true);
   });
 });

@@ -7,7 +7,7 @@ import {
   hasFacebookSession,
   IDENTITY_SOURCE,
   isFacebookCookieDomain,
-  isFacebookDialog,
+  isSeedableFacebookDialog,
   maySeed,
   shouldSeed,
 } from '../../src/main/lib/identity-share';
@@ -54,30 +54,66 @@ describe('IDENTITY_SOURCE', () => {
   });
 });
 
-describe('isFacebookDialog', () => {
-  it('accepts the dialog entry points, versioned and not', () => {
-    expect(isFacebookDialog('https://www.facebook.com/dialog/oauth?client_id=1')).toBe(true);
-    expect(isFacebookDialog('https://www.facebook.com/v18.0/dialog/oauth?client_id=1')).toBe(true);
-    expect(isFacebookDialog('https://m.facebook.com/login.php?next=x')).toBe(true);
+describe('isSeedableFacebookDialog', () => {
+  it('accepts the oauth dialog, versioned and not', () => {
+    expect(isSeedableFacebookDialog('https://www.facebook.com/dialog/oauth?client_id=1')).toBe(
+      true,
+    );
+    expect(
+      isSeedableFacebookDialog('https://www.facebook.com/v18.0/dialog/oauth?client_id=1'),
+    ).toBe(true);
+    // the live SDK dialog carries no visible redirect_uri (it uses the
+    // xd_arbiter), so it must still pass
+    expect(
+      isSeedableFacebookDialog(
+        'https://www.facebook.com/v23.0/dialog/oauth?client_id=1&response_type=token',
+      ),
+    ).toBe(true);
+  });
+
+  // /login stays an identity-popup ENTRY path (a popup may open there) but is
+  // never seedable: its next= redirect can walk a lent session onto an
+  // attacker's own dialog
+  it('never seeds a /login entry', () => {
+    expect(isSeedableFacebookDialog('https://m.facebook.com/login.php?next=x')).toBe(false);
+    expect(
+      isSeedableFacebookDialog('https://www.facebook.com/login/?client_id=421039428061656'),
+    ).toBe(false);
   });
 
   it('rejects other providers, lookalikes and non-https', () => {
-    expect(isFacebookDialog('https://accounts.google.com/o/oauth2/v2/auth?client_id=1')).toBe(
+    expect(
+      isSeedableFacebookDialog('https://accounts.google.com/o/oauth2/v2/auth?client_id=1'),
+    ).toBe(false);
+    expect(isSeedableFacebookDialog('https://evilfacebook.com/dialog/oauth?client_id=1')).toBe(
       false,
     );
-    expect(isFacebookDialog('https://evilfacebook.com/dialog/oauth?client_id=1')).toBe(false);
-    expect(isFacebookDialog('https://facebook.com.evil.example/dialog/oauth')).toBe(false);
-    expect(isFacebookDialog('http://www.facebook.com/dialog/oauth?client_id=1')).toBe(false);
-    expect(isFacebookDialog('https://www.facebook.com/marketplace')).toBe(false);
-    expect(isFacebookDialog('not a url')).toBe(false);
+    expect(isSeedableFacebookDialog('https://facebook.com.evil.example/dialog/oauth')).toBe(false);
+    expect(isSeedableFacebookDialog('http://www.facebook.com/dialog/oauth?client_id=1')).toBe(
+      false,
+    );
+    expect(isSeedableFacebookDialog('https://www.facebook.com/marketplace')).toBe(false);
+    expect(isSeedableFacebookDialog('not a url')).toBe(false);
   });
 });
 
 describe('facebookAppId', () => {
-  it('reads client_id, then app_id', () => {
+  it('reads client_id or app_id, and accepts the SDK sending both with one value', () => {
     expect(facebookAppId('https://www.facebook.com/v18.0/dialog/oauth?client_id=123')).toBe('123');
     expect(facebookAppId('https://www.facebook.com/dialog/oauth?app_id=456')).toBe('456');
-    expect(facebookAppId('https://www.facebook.com/dialog/oauth?client_id=1&app_id=2')).toBe('1');
+    expect(facebookAppId('https://www.facebook.com/dialog/oauth?app_id=123&client_id=123')).toBe(
+      '123',
+    );
+  });
+
+  // Facebook's backend reads the LAST duplicate while get() read the first, so
+  // a polluted URL would seed one app and render another. Any disagreement —
+  // duplicated params or a client_id/app_id mismatch — is refused outright.
+  it('refuses parameter pollution: any two differing app ids', () => {
+    expect(facebookAppId('https://www.facebook.com/dialog/oauth?client_id=123&client_id=666')).toBe(
+      null,
+    );
+    expect(facebookAppId('https://www.facebook.com/dialog/oauth?client_id=1&app_id=2')).toBe(null);
   });
 
   it('is null when absent or unparseable', () => {
@@ -173,6 +209,20 @@ describe('maySeed', () => {
   it('rule 2: not a facebook dialog', () => {
     expect(
       maySeed(sync({ popupUrl: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=APP' })),
+    ).toBe(false);
+  });
+
+  it('rule 2: a facebook /login entry with the right client_id is still not seedable', () => {
+    expect(
+      maySeed(sync({ popupUrl: 'https://www.facebook.com/login.php?client_id=APP&next=x' })),
+    ).toBe(false);
+  });
+
+  it('rule 3: a polluted dialog URL never matches', () => {
+    expect(
+      maySeed(
+        sync({ popupUrl: 'https://www.facebook.com/dialog/oauth?client_id=APP&client_id=EVIL' }),
+      ),
     ).toBe(false);
   });
 

@@ -81,6 +81,9 @@ function reclaimRailSpace(doc: Document, main: Element, root: Element): void {
   }
 }
 
+/** The last (main, root) pair reclaimRailSpace ran against — see hideChrome. */
+let reclaimed: { main: Element; root: Element } | null = null;
+
 const instagram: Recipe = {
   id: 'instagram',
   intervalMs: 2000,
@@ -126,8 +129,16 @@ const instagram: Recipe = {
     if (!link) return [];
     let el: Element = link;
     while (el.parentElement && !el.parentElement.contains(main)) el = el.parentElement;
-    if (!el.parentElement) return [];
-    reclaimRailSpace(doc, main, el.parentElement);
+    const root = el.parentElement;
+    if (!root) return [];
+    // reclaimRailSpace does getComputedStyle + forced layout on ~20 elements;
+    // its writes are idempotent, so re-run it only when the (main, root) pair
+    // changes (an SPA remount swaps the nodes and misses the memo) rather than
+    // every 2s tick, hidden or not
+    if (!(reclaimed && reclaimed.main === main && reclaimed.root === root && doc.contains(main))) {
+      reclaimRailSpace(doc, main, root);
+      reclaimed = { main, root };
+    }
     return [el];
   },
   // a logged-out /direct/inbox bounces to the login page, which renders no

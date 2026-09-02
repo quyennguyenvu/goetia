@@ -14,6 +14,7 @@ export const AUDIT_CAP = 100;
  *  origin, and it blocks nothing. */
 export class NavigationAudit {
   private seen = new Set<string>();
+  private capped = false;
 
   /** The record for a would-be block, or null when it is already known (or the
    *  cap is reached) and so not worth reporting again. */
@@ -25,7 +26,16 @@ export class NavigationAudit {
       origin = url; // unparseable: report it verbatim, it is still evidence
     }
     const key = `${serviceId} ${origin}`;
-    if (this.seen.has(key) || this.seen.size >= AUDIT_CAP) return null;
+    if (this.seen.has(key)) return null;
+    if (this.seen.size >= AUDIT_CAP) {
+      // log once when the cap is first hit, so a redirect-looping site going
+      // "deaf" is visible rather than silently dropping every later refusal
+      if (!this.capped) {
+        this.capped = true;
+        return `${key} (audit cap reached; further refusals unlogged)`;
+      }
+      return null;
+    }
     this.seen.add(key);
     return key;
   }

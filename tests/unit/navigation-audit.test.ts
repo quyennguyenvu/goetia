@@ -13,12 +13,15 @@ describe('NavigationAudit', () => {
     expect(audit.note('teams', 'https://auth.example.com/sso')).toBe('teams auth.example.com');
   });
 
-  it('stops recording once capped, so a redirect loop cannot grow it forever', () => {
+  it('stops recording once capped, with one final notice, so a redirect loop cannot grow it forever', () => {
     const audit = new NavigationAudit();
     for (let i = 0; i < AUDIT_CAP; i++) {
       expect(audit.note('slack', `https://h${i}.example.com/`)).not.toBeNull();
     }
-    expect(audit.note('slack', 'https://overflow.example.com/')).toBeNull();
+    // the first over-cap refusal logs once so going deaf is visible…
+    expect(audit.note('slack', 'https://overflow.example.com/')).toContain('audit cap reached');
+    // …and everything after is silent
+    expect(audit.note('slack', 'https://overflow2.example.com/')).toBeNull();
   });
 
   it('records an unparseable url without throwing', () => {

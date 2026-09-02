@@ -147,14 +147,25 @@ describe('parseAssertion', () => {
       },
       'teams.microsoft.com',
     );
-    expect(req).toEqual({ rpId: 'microsoft.com', challenge, allowIds: ['YWJj'] });
+    expect(req).toEqual({
+      rpId: 'microsoft.com',
+      challenge,
+      allowIds: ['YWJj'],
+      uv: 'preferred',
+    });
   });
   it('defaults rpId to the host and the allow list to empty (discoverable)', () => {
     expect(parseAssertion({ challenge }, 'teams.microsoft.com')).toEqual({
       rpId: 'teams.microsoft.com',
       challenge,
       allowIds: [],
+      uv: 'preferred',
     });
+  });
+  it('reads a required userVerification', () => {
+    expect(
+      parseAssertion({ challenge, userVerification: 'required' }, 'teams.microsoft.com').uv,
+    ).toBe('required');
   });
   it('rejects a foreign rpId as SecurityError', () => {
     expect(

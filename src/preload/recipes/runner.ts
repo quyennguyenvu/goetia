@@ -35,6 +35,10 @@ export function startRecipe(
   let last: Counts | null = null;
   let stale = false;
   let busy = false;
+  /** count() promises still pending — a hung read (wedged IDB transaction)
+   *  never settles, and issuing a fresh one every tick would accumulate open
+   *  transactions without bound. Two in flight is the ceiling. */
+  let pendingCounts = 0;
   let lastKeepAlive = Number.NEGATIVE_INFINITY;
   let lastSnapBack = Number.NEGATIVE_INFINITY;
   let sentToLogin = false;
@@ -68,11 +72,16 @@ export function startRecipe(
     observer = new Observer(() => {
       dirty = true;
     });
+    // class + aria-label are where Meta's unread markers move (bold weight,
+    // the "Unread" screen-reader string, the blue dot). characterData is
+    // relative-timestamp churn ("2 min") that set dirty every tick and defeated
+    // the gate entirely; the FORCE_RECOUNT_TICKS floor bounds any signal this
+    // misses to ~10s.
     observer.observe(target, {
       subtree: true,
       childList: true,
-      characterData: true,
       attributes: true,
+      attributeFilter: ['class', 'aria-label'],
     });
   };
 
@@ -152,12 +161,24 @@ export function startRecipe(
     skipped = 0;
     dirty = false;
     lastTitle = doc.title;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
+      if (pendingCounts >= 2) throw new Error('counts backed up');
+      pendingCounts++;
+      // the abandoned count keeps running on timeout; this decrement is how the
+      // pending ceiling clears once (if) it ever settles. The async wrapper
+      // turns a synchronous throw into a rejection so the finally always
+      // attaches; its rejection is swallowed so an abandoned read never
+      // surfaces as an unhandled rejection.
+      const counting = (async () => recipe.count(doc))().finally(() => {
+        pendingCounts--;
+      });
+      counting.catch(() => {});
       const counts = await Promise.race([
-        recipe.count(doc),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('count timeout')), countTimeoutMs),
-        ),
+        counting,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('count timeout')), countTimeoutMs);
+        }),
       ]);
       const rose = last !== null && counts.direct > last.direct;
       if (!last || counts.direct !== last.direct || counts.indirect !== last.indirect) {
@@ -175,6 +196,7 @@ export function startRecipe(
         reportStale();
       }
     } finally {
+      clearTimeout(timer);
       busy = false;
     }
   }, recipe.intervalMs);
