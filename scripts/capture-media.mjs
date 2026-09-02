@@ -118,6 +118,38 @@ const SURFACES = {
     return (path) => switcher.screenshot({ path, scale: SCALE });
   },
 
+  async pins({ win }) {
+    await win.locator('[data-testid="home-btn"]').click();
+    const band = win.locator('[data-testid="welcome-section-pinned"]');
+    await band.waitFor();
+    // pin 0's altar styling has a 150ms transition like the tiles
+    await win.locator('[data-testid="pin-altar"]').waitFor();
+    await win.evaluate(() => document.activeElement?.blur());
+    await win.mouse.move(4, 4);
+    await win.waitForTimeout(400);
+    const clip = await clipAround(win, ['[data-testid="welcome-section-pinned"]'], 24);
+    return (path) => win.screenshot({ path, clip, scale: SCALE });
+  },
+
+  async passkeys({ win }) {
+    await win.locator('[data-testid="settings-btn"]').click();
+    await win.locator('[data-testid="settings"]').waitFor();
+    await win.locator('[data-testid="settings-nav-passkeys"]').click();
+    await win.locator('[data-testid="passkey-facebook.com"]').waitFor();
+    await win.waitForTimeout(250);
+    // same crop as the settings shot: the card's lower half is empty
+    const card = win.locator('[data-testid="settings"] > div');
+    const box = await card.boundingBox();
+    const lastNav = await win.locator('[data-testid="settings-nav-updates"]').boundingBox();
+    const clip = {
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: lastNav.y + lastNav.height + 28 - box.y,
+    };
+    return (path) => win.screenshot({ path, clip, scale: SCALE });
+  },
+
   async settings({ win }) {
     await win.locator('[data-testid="settings-btn"]').click();
     await win.locator('[data-testid="settings"]').waitFor();
@@ -159,6 +191,9 @@ const SURFACES = {
 async function capture(shot) {
   const profile = mkdtempSync(join(tmpdir(), 'goetia-media-'));
   writeFileSync(join(profile, 'settings.json'), JSON.stringify(settingsFor(shot), null, 2));
+  if (shot.pins) writeFileSync(join(profile, 'pins.json'), JSON.stringify({ pins: shot.pins }));
+  if (shot.passkeys)
+    writeFileSync(join(profile, 'passkeys.json'), JSON.stringify({ credentials: shot.passkeys }));
 
   const app = await electron.launch({
     args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${profile}`],

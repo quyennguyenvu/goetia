@@ -24,7 +24,13 @@ Your chat apps in one window — native notifications, unread badges, and **noth
 
 **Badges that don't lie.** One unread recipe per service, each locked to a DOM fixture in the test suite. When a service redesigns, its tile shows a grey stale dot instead of a confident zero.
 
-**Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, a per-service rate limit so a page can't spam you — plus synthetic notifications for the services that never fire one in-page. Click a banner and you land in that conversation, not just the app — even if the service was asleep when it fired.
+**Notifications done properly.** Native banners carrying each service's own icon, mute per service or globally, quiet hours on a schedule, a per-service rate limit so a page can't spam you — plus synthetic notifications for the services that never fire one in-page. Click a banner and you land in that conversation, not just the app — even if the service was asleep when it fired.
+
+**Pin a message, get a todo list.** Select any message, press ⌘/Ctrl+⇧+S (or right-click → Pin Message), and it lands on Home's pinboard: the top pin is the one in progress, drag to reprioritize, mark it Done when it's done. Clicking a pin drops you back into the exact conversation it came from — and pins survive banishing the service and even purging its login.
+
+**Sign in without the browser dance.** "Continue with Facebook" and its cousins open as a hardened in-app popup instead of bouncing you to a browser that doesn't share your logins. If you're signed in to Messenger, Goetia can even lend that Facebook session to the popup for a one-click sign-in — after Touch ID (or your password) approves it, every single time, and the loan is taken back seconds after the popup closes.
+
+**Passkeys, no browser required.** Goetia ships its own software authenticator: accept a site's passkey offer once and every later sign-in is a Touch ID tap (a native confirm elsewhere). Keys live encrypted on your device, survive login purges, and are listed — and forgotten — in Settings → Passkeys.
 
 **Light Sleep.** Idle services give up their renderer but never go dark — each one wakes hidden every few minutes just long enough to refresh its badge and fire any banner, then sleeps again. Nine chats without nine browsers' worth of RAM; Keep Awake stays a per-service opt-out.
 
@@ -44,6 +50,16 @@ Nothing loads until you pick — a fresh install starts with every service off. 
   </picture>
 </p>
 
+Pinned messages sit above the board — the top pin wears the "in progress" badge, a pin from a banished service dims but keeps its place, and clicking one reopens the exact conversation it was pinned in:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/pins-dark.png">
+    <img src="docs/media/pins-light.png" width="760"
+      alt="Home's pinboard: four pinned messages from Slack, WhatsApp, Zalo and Discord, the first marked in progress, the last dimmed because its service is banished">
+  </picture>
+</p>
+
 Unread counts land on the rail, on the dock or taskbar, and in the tray tooltip. Muted services keep counting quietly:
 
 <p align="center">
@@ -54,7 +70,7 @@ Unread counts land on the rail, on the dock or taskbar, and in the tray tooltip.
   </picture>
 </p>
 
-<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> fuzzy-jumps to any service:
+<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> fuzzy-jumps to any service — or straight into a conversation: recent banners sit on top of the list (silenced ones too, marked 🌙), and picking one lands in that exact thread, not just the app:
 
 <p align="center">
   <picture>
@@ -74,6 +90,16 @@ Theme, menu position, and everything else the app lets you set:
   </picture>
 </p>
 
+Every passkey Goetia has made on this device, one row each — signing in becomes a Touch ID tap, and Forget is the only way one leaves:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/passkeys-dark.png">
+    <img src="docs/media/passkeys-light.png" width="720"
+      alt="Settings → Passkeys: three passkeys listed with the service each was created in and a Forget button per row">
+  </picture>
+</p>
+
 A service waking up gets Goetia's own loading screen, not a white flash:
 
 <p align="center">
@@ -84,7 +110,7 @@ A service waking up gets Goetia's own loading screen, not a white flash:
   </picture>
 </p>
 
-> These show Goetia's own interface only. The app is never captured signed in to anything, so no conversation appears in this repo — regenerate the whole set yourself with `pnpm media`.
+> These show Goetia's own interface only. The app is never captured signed in to anything, so no real conversation appears in this repo — the pins and passkeys above are staged demo data, and you can regenerate the whole set yourself with `pnpm media`.
 
 ## How an unread count reaches you
 
@@ -174,6 +200,7 @@ Closing the window does **not** quit Goetia — it keeps running in the menu bar
   - *Service page*: ⌘/Ctrl + / − / 0 zoom the current service (remembered per service), ⌘/Ctrl+R (or F5) reloads it, ⌥⌘I / Ctrl+⇧+I opens its developer tools.
   - *Notifications and rail*: ⌘/Ctrl+⇧+M mutes everything, right-click an icon to mute or banish a service, drag icons to reorder.
 - **Purging a login**: Settings → Services → `Purge login…` clears one service's saved login on this device; Home's `Purge all logins…` clears every service's, summoned and unbound alike — the only way to reach a banished service's credentials. Neither revokes the session on the service's own servers: the site keeps listing this device until the token expires there. Purging never changes which services are summoned, and banishing never touches a login.
+- **"Continue with Facebook / Google / Apple" works in-app**: identity-provider sign-in popups open in their own hardened Goetia window instead of your browser (which doesn't share Goetia's logins), and they close with the service. When a site offers **Continue with Facebook** and you're signed in to Messenger, Goetia can lend that Facebook session to the popup so the sign-in is one click — it asks first with Touch ID (or a native confirm) every time, and takes the session back moments after the popup closes.
 - **Passkeys**: when a service offers to create a passkey after you sign in, accept it — Goetia keeps its own passkey for that site (Touch ID on a Mac, a confirm elsewhere), and the next sign-in is one tap, no password or code. It's a separate passkey from the ones on your phone or in iCloud Keychain, and those can't be used inside Goetia — Apple only allows real browsers to. Passkeys survive `Purge login`; forget them in **Settings → Passkeys**. Deleting Goetia's data folder loses them: sign in with your password once and accept the offer again.
 - **Right-click in a chat** to fix a misspelled word (English and Vietnamese), copy and paste, copy or save a photo, or copy a link and open it in your browser. Where a service shows its own right-click menu, that one still wins.
 - **Calls work like in the browser**: voice and video calls, and screen sharing, work wherever the service's web app supports them (macOS asks once each for microphone, camera, and screen recording). Services that open calls in a pop-up get their own Goetia call window.
