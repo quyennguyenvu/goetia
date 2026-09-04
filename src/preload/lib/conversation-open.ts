@@ -1,50 +1,69 @@
+import type { OpenLane, OpenRequest } from '../../shared/ipc';
+
+export type Point = { x: number; y: number };
+
 export interface OpenOptions {
-  conversation?: string;
-  /** the recipe's name-based opener; a point means "click here, trusted" */
-  byName?: (doc: Document, name: string) => boolean | { x: number; y: number };
+  /** the shim's replay; false when the registry lost the id */
+  replay?: (clickId: number) => boolean;
+  /** the recipe's name-based opener; a point means "click here, trusted".
+   *  May be async — a virtualized chat list has to be scrolled to render the
+   *  row (WhatsApp). */
+  byName?: (doc: Document, name: string) => MaybePromise<boolean | Point>;
   /** hands a point to main for a trusted click — the site ignores synthetic ones */
-  trustedClick?: (pt: { x: number; y: number }) => void;
+  trustedClick?: (pt: Point) => void;
   assign?: (url: string) => void;
 }
 
-/** Lane B on a live view: route in-page so the SPA never reboots and the
- *  waking cover never rises. A named conversation goes through the recipe's
- *  own opener first (WhatsApp: click the chat-list row) — for those sites
- *  the URL is the same for every thread, so nothing below could tell them
- *  apart. Then: already on the URL, nothing to do. Otherwise click the
- *  anchor that leads there — the newest-unread row a recipe extracted, or the
- *  sidebar link to a pinned thread — comparing origin + path + hash, with a
- *  trailing slash and the query string ignored, so "/t/1/" meets "/t/1?x".
- *  Only when no such anchor exists does this fall back to a full navigation. */
-export function openConversationInPage(
+type MaybePromise<T> = T | Promise<T>;
+
+/** Open a thread on a live view, in-page, so the SPA never reboots and the
+ *  waking cover never rises. The lanes run in order and each hands over only
+ *  on a reported miss — main can't know that a shim handle is gone (the site
+ *  closed its banner, the registry evicted it, the document was replaced),
+ *  so picking one lane blind is what made recents rows silently do nothing.
+ *
+ *  1. replay: the site's own onclick, which knows the thread id.
+ *  2. name: the recipe clicks the chat-list row (WhatsApp, Zalo) — first of
+ *     the URL lanes, since for those sites every thread shares one URL.
+ *  3. same: already on the URL, nothing to do.
+ *  4. anchor: click the anchor that leads there — the newest-unread row a
+ *     recipe extracted, or the sidebar link to a pinned thread — comparing
+ *     origin + path + hash, trailing slash and query ignored, so "/t/1/"
+ *     meets "/t/1?x".
+ *  5. load: a full navigation, only when a URL exists. With none (a recents
+ *     row on whatsapp/zalo) a miss stays put: reloading the chat list would
+ *     be a strictly worse answer than doing nothing. */
+export async function openConversationInPage(
   doc: Document,
-  href: string,
-  url: string,
+  req: OpenRequest,
   opts: OpenOptions = {},
-): void {
-  const assign = opts.assign ?? ((u: string) => doc.defaultView?.location.assign(u));
-  if (opts.conversation && opts.byName) {
-    const found = opts.byName(doc, opts.conversation);
-    if (found === true) return;
+): Promise<OpenLane> {
+  if (req.clickId !== undefined && opts.replay?.(req.clickId)) return 'replay';
+  if (req.conversation && opts.byName) {
+    const found = await opts.byName(doc, req.conversation);
+    if (found === true) return 'name';
     if (found) {
       opts.trustedClick?.(found);
-      return;
+      return 'name';
     }
   }
+  if (req.href === undefined || req.url === undefined) return 'miss';
+  const assign = opts.assign ?? ((u: string) => doc.defaultView?.location.assign(u));
   const here = doc.defaultView?.location.href ?? '';
-  const target = urlKey(url, here);
-  if (target !== null && target === urlKey(here, here)) return;
-  const wanted = urlKey(href, here);
+  const target = urlKey(req.url, here);
+  if (target !== null && target === urlKey(here, here)) return 'same';
+  const wanted = urlKey(req.href, here);
   for (const a of doc.querySelectorAll('a[href]')) {
     const attr = a.getAttribute('href') ?? '';
     const k = urlKey(attr, here);
-    const hit = attr === href || (k !== null && (k === wanted || k === target));
+    const hit = attr === req.href || (k !== null && (k === wanted || k === target));
     if (hit) {
       (a as HTMLElement).click();
-      return;
+      return 'anchor';
     }
   }
-  assign(url);
+  assign(req.url);
+  return 'load';
 }
 
 /** Comparison key for `u` against `base`: origin + pathname without its

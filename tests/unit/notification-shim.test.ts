@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { installNotificationShim } from '../../src/preload/lib/notification-shim';
+import { ACTIVITY_CAP } from '../../src/main/lib/activity-log';
+import { installNotificationShim, REGISTRY_CAP } from '../../src/preload/lib/notification-shim';
 
 function freshWindow(): Window & typeof globalThis {
   // happy-dom's window, but with a stubbed ServiceWorkerRegistration like real Chromium
@@ -83,7 +84,10 @@ describe('notification shim', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('a closed notification no longer replays', () => {
+  // the site closes its banner on a timer or when the thread is read elsewhere;
+  // its onclick still leads to that thread, which is exactly where a ⌘K row
+  // for it should land — the 2026-09-04 "recents do nothing" report
+  it('a closed notification still replays — the handler still names the thread', () => {
     const forward = vi.fn();
     const win = freshWindow();
     const shim = installNotificationShim(win, forward);
@@ -93,11 +97,25 @@ describe('notification shim', () => {
     // biome-ignore lint/suspicious/noExplicitAny: page-side assignment
     (n as any).onclick = onclick;
     n.close();
-    shim.replayClick(id);
-    expect(onclick).not.toHaveBeenCalled();
+    expect(shim.replayClick(id)).toBe(true);
+    expect(onclick).toHaveBeenCalledTimes(1);
   });
 
-  it('caps the registry at 20, evicting the oldest', () => {
+  it('reports a hit even when the page attached no handler', () => {
+    const forward = vi.fn();
+    const win = freshWindow();
+    const shim = installNotificationShim(win, forward);
+    new win.Notification('t');
+    expect(shim.replayClick(forward.mock.calls[0][2] as number)).toBe(true);
+  });
+
+  // the recents list keeps ACTIVITY_CAP rows; a smaller registry made every
+  // row past the cap dead on arrival
+  it('keeps at least as many handles as the recents list keeps rows', () => {
+    expect(REGISTRY_CAP).toBeGreaterThanOrEqual(ACTIVITY_CAP);
+  });
+
+  it('caps the registry at REGISTRY_CAP, evicting the oldest', () => {
     const forward = vi.fn();
     const win = freshWindow();
     const shim = installNotificationShim(win, forward);
@@ -106,13 +124,15 @@ describe('notification shim', () => {
     const onclick = vi.fn();
     // biome-ignore lint/suspicious/noExplicitAny: page-side assignment
     (first as any).onclick = onclick;
-    for (let i = 0; i < 20; i++) new win.Notification(`n${i}`);
-    shim.replayClick(firstId);
-    expect(onclick).not.toHaveBeenCalled();
+    for (let i = 0; i < REGISTRY_CAP - 1; i++) new win.Notification(`n${i}`);
+    expect(shim.replayClick(firstId)).toBe(true);
+    new win.Notification('one too many');
+    expect(shim.replayClick(firstId)).toBe(false);
+    expect(onclick).toHaveBeenCalledTimes(1);
   });
 
-  it('an unknown id is a no-op', () => {
+  it('an unknown id is a reported miss', () => {
     const shim = installNotificationShim(freshWindow(), vi.fn());
-    expect(() => shim.replayClick(999)).not.toThrow();
+    expect(shim.replayClick(999)).toBe(false);
   });
 });

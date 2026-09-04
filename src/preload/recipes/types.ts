@@ -51,8 +51,12 @@ export interface Recipe {
    *  was clicked). A point: the row is on screen at these view coordinates
    *  but the site ignores synthetic clicks (Zalo, like its keepAlive), so
    *  main must click there. `false`: no row carries the name — the caller
-   *  falls back to the URL. */
-  openConversation?(doc: Document, name: string): boolean | { x: number; y: number };
+   *  falls back to the URL. May be async: a virtualized list has to be
+   *  scrolled before a row below the fold exists (WhatsApp); keep it bounded. */
+  openConversation?(
+    doc: Document,
+    name: string,
+  ): boolean | { x: number; y: number } | Promise<boolean | { x: number; y: number }>;
   /** The page to load when this document is the site's logged-OUT shell — a
    *  surface with no sign-in form in sight (TikTok's /messages logged out is
    *  the feed nav plus an empty DM drawer). Return the login URL only for that

@@ -1,8 +1,10 @@
 import { ipcRenderer } from 'electron';
+import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
 import { openConversationInPage } from './lib/conversation-open';
 import { installNotificationShim } from './lib/notification-shim';
+import { offChatLinkUrl } from './lib/off-chat-link';
 import { installVisibilitySpoof } from './lib/visibility-spoof';
 import { installWebAuthnShim } from './lib/webauthn-shim';
 import { recipes } from './recipes';
@@ -19,6 +21,9 @@ const recipe = recipes[serviceId];
  *  or IPC belong anywhere but the view's own top document — a subframe with the
  *  shim would get an unthrottled OS-banner and keep-alive-click primitive. */
 const inSubcontext = window.opener !== null || window !== window.top;
+
+/** How long a replayed banner onclick is given to push its route. */
+const REPLAY_SETTLE_MS = 300;
 
 if (!inSubcontext) {
   if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
@@ -40,22 +45,54 @@ if (!inSubcontext) {
   const shim = installNotificationShim(window, (title, body, clickId) =>
     ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: false, clickId }),
   );
-  // banner click, lane A: main asks the page to run its own onclick
-  ipcRenderer.on('notification:replayClick', (_e, payload: { clickId: number }) =>
-    shim.replayClick(payload.clickId),
-  );
-  // banner or pin click, lane B on a live view: route to the thread in-page.
-  // A pin from a URL-less site (WhatsApp, Zalo) carries the conversation's
-  // name instead, which the recipe's openConversation turns into a row click
-  // — or, where the site ignores synthetic clicks, a point main clicks.
-  ipcRenderer.on(
-    'notification:openConversation',
-    (_e, payload: { href: string; url: string; conversation?: string }) =>
-      openConversationInPage(document, payload.href, payload.url, {
-        conversation: payload.conversation,
-        byName: recipe?.openConversation?.bind(recipe),
-        trustedClick: (pt) => ipcRenderer.send('service:trusted-click', { serviceId, ...pt }),
-      }),
+  // banner, recents row or pin click on a live view: route to the thread
+  // in-page, replay → recipe row click → anchor → full load, each lane
+  // handing over only on a miss (see openConversationInPage). The answer
+  // goes back on the port main sent along — which lane landed and where the
+  // document is now — so main can log a miss and remember a landed URL.
+  ipcRenderer.on('notification:openConversation', (e, req: OpenRequest) => {
+    const port = e.ports[0];
+    void openConversationInPage(document, req, {
+      replay: (clickId) => shim.replayClick(clickId),
+      byName: recipe?.openConversation?.bind(recipe),
+      trustedClick: (pt) => ipcRenderer.send('service:trusted-click', { serviceId, ...pt }),
+    })
+      // a recipe opener that throws on a changed DOM is a miss, not silence
+      .catch((): OpenLane => 'miss')
+      .then(async (lane) => {
+        // the replayed onclick routes through the SPA's own router; give it a
+        // beat so the URL reported is the thread's, not the one before
+        if (lane === 'replay') await new Promise((r) => setTimeout(r, REPLAY_SETTLE_MS));
+        port?.postMessage({ lane, url: window.location.href });
+        port?.close();
+      });
+  });
+
+  // Chat only: a link out of the chat surface belongs in a browser, not in
+  // this view. Capture phase and stopPropagation, so the site's own router
+  // never sees the click — Messenger routes facebook.com/share/p/… in place,
+  // and no host rule can refuse the service's own origin. Trusted clicks
+  // only: a page-synthesized one gains nothing it cannot already do through
+  // window.open, and this way our own row clicks can never be diverted.
+  // on window, not document: capture runs window → document → target, so a
+  // site listener on window would otherwise get to stopPropagation first
+  window.addEventListener(
+    'click',
+    (e) => {
+      if (!e.isTrusted || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // browser's own
+      const url = offChatLinkUrl({
+        target: e.target,
+        here: window.location.href,
+        serviceUrl: serviceById(serviceId).url,
+        chatPaths: recipe?.chatPaths,
+      });
+      if (!url) return;
+      e.preventDefault();
+      e.stopPropagation();
+      ipcRenderer.send('service:openExternal', { serviceId, url });
+    },
+    true,
   );
 
   // Main reads the open conversation's name through executeJavaScript at pin

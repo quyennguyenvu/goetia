@@ -103,6 +103,7 @@ app
 
     const overlay = new LoadingOverlay(win, effectiveTheme());
     const waking = new WakingTracker(state);
+    const activity = new ActivityLog();
     let resilience: ResilienceManager | null = null;
     const views = new ServiceViewManager(
       win,
@@ -114,7 +115,12 @@ app
             resilience?.noteRecovered(id);
           }
         },
-        onNavigate: (id) => waking.begin(id),
+        onNavigate: (id, wake) => {
+          // the page's JS context is being replaced, taking the notification
+          // shim's registry with it — its ids restart at 1 in the new document
+          activity.forgetReplay(id);
+          if (wake) waking.begin(id);
+        },
         onCrashed: (id) => {
           waking.end(id, 'crashed');
           resilience?.onCrashed(id);
@@ -267,7 +273,7 @@ app
       settings,
       waking,
       updates,
-      activity: new ActivityLog(),
+      activity,
       pins,
       // a 5s cool-down after a declined ceremony refuses the next one silently,
       // so a scripted loop cannot chain endless modal prompts

@@ -83,14 +83,12 @@ export function whatsAppConversation(doc: Document): string | null {
   return name === '' ? null : name;
 }
 
-/** Click the chat-list row named `name`. Rows are role=row grid cells whose
- *  name is the span[title] in cell-frame-title; the message preview beneath
- *  is a span[title] too, so the search is scoped to the title cell. The
- *  press is replayed as mousedown → mouseup → click on the name itself: the
- *  handler may sit on any wrapper between it and the row, and a bubbling
- *  event crosses all of them. False when no row carries the name (scrolled
- *  out of the virtual list, archived, renamed) — the caller decides then. */
-export function openWhatsAppConversation(doc: Document, name: string): boolean {
+/** Rows in view carry the name in the span[title] of cell-frame-title; the
+ *  message preview beneath is a span[title] too, so the search is scoped to
+ *  the title cell. The press is replayed as mousedown → mouseup → click on
+ *  the name itself: the handler may sit on any wrapper between it and the
+ *  row, and a bubbling event crosses all of them. */
+function clickRow(doc: Document, name: string): boolean {
   for (const row of doc.querySelectorAll('#pane-side [role="row"], #pane-side [role="listitem"]')) {
     const span =
       row.querySelector('[data-testid="cell-frame-title"] span[title]') ??
@@ -103,6 +101,41 @@ export function openWhatsAppConversation(doc: Document, name: string): boolean {
     }
     return true;
   }
+  return false;
+}
+
+/** How long a scrolled page is given to render before its rows are read. */
+const SCROLL_SETTLE_MS = 60;
+/** Pages of the chat list walked before a name is declared gone — ~8 rows a
+ *  page, so several hundred chats; bounded so a miss costs seconds, not a hang. */
+const SCROLL_MAX_PAGES = 80;
+
+/** Click the chat-list row named `name`. The list is virtualized — only the
+ *  rows in view exist in the DOM — so a name with no row is walked for: the
+ *  pane is scrolled from the top a page at a time, each page given a moment
+ *  to render, until the row appears or the bottom is reached. A miss puts the
+ *  pane back where it was. False when no row carries the name (archived,
+ *  renamed, or beyond the page cap) — the caller decides then. */
+export async function openWhatsAppConversation(
+  doc: Document,
+  name: string,
+  opts: { settle?: () => Promise<void>; maxPages?: number } = {},
+): Promise<boolean> {
+  if (clickRow(doc, name)) return true;
+  const pane = doc.querySelector('#pane-side') as HTMLElement | null;
+  if (!pane || pane.clientHeight <= 0) return false;
+  const settle = opts.settle ?? (() => new Promise<void>((r) => setTimeout(r, SCROLL_SETTLE_MS)));
+  const maxPages = opts.maxPages ?? SCROLL_MAX_PAGES;
+  const start = pane.scrollTop;
+  pane.scrollTop = 0;
+  for (let page = 0; page < maxPages; page++) {
+    await settle();
+    if (clickRow(doc, name)) return true;
+    const before = pane.scrollTop;
+    pane.scrollTop = before + pane.clientHeight;
+    if (pane.scrollTop === before) break; // the bottom
+  }
+  pane.scrollTop = start;
   return false;
 }
 

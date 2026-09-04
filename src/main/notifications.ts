@@ -5,6 +5,7 @@ import type { RendererToMain } from '../shared/ipc';
 import { SERVICES, serviceById } from '../shared/services';
 import { performBannerAction } from './activate';
 import type { AppContext } from './ipc-handlers';
+import { splitBannerTitle } from './lib/banner-title';
 import { resolveBannerClick } from './lib/notification-click';
 import { resolveIcons } from './lib/notification-icons';
 import {
@@ -53,7 +54,20 @@ export class NotificationRouter {
     // the throttle bounds the log too: a spammy page during quiet hours
     // must not flood the recents list any more than it may flood banners
     if (!this.throttle.allow(serviceId, Date.now())) return;
-    this.ctx.activity.append({ serviceId, title, href, synthetic, silenced, at: Date.now() });
+    // Discord packs "Author (#channel, Server)" into one title, and its author
+    // half is not always a name — the row leads with the channel instead
+    const { conversation, author } = splitBannerTitle(serviceId, title);
+    const entryId = this.ctx.activity.append({
+      serviceId,
+      title,
+      conversation,
+      author,
+      href,
+      clickId,
+      synthetic,
+      silenced,
+      at: Date.now(),
+    });
     if (silenced) return;
     const icon = this.icons.get(serviceId);
     const notification = new Notification({
@@ -72,10 +86,11 @@ export class NotificationRouter {
         hasView: this.ctx.views.has(serviceId),
         clickId,
         href,
+        conversation: meta.bannerTitleNamesConversation ? conversation : undefined,
         serviceUrl: meta.url,
         chatPaths: meta.chatPaths,
       });
-      performBannerAction(this.ctx, serviceId, action);
+      void performBannerAction(this.ctx, serviceId, action, { entryId });
     });
     this.ctx.noteBannerFired(serviceId);
     notification.show();

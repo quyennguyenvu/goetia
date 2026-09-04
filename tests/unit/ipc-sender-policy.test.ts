@@ -178,6 +178,26 @@ describe('ipcSenderAllowed', () => {
       ).toBe(false);
     }
   });
+  // chat-only link diversion: the sending frame must own the id it names, or
+  // one service page could spray the OS browser on another's behalf
+  it('validates service:openExternal against the sending frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:openExternal',
+        fromShell: false,
+        senderServiceId: 'messenger',
+        payloadServiceId: 'messenger',
+      }),
+    ).toBe(true);
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:openExternal',
+        fromShell: false,
+        senderServiceId: 'messenger',
+        payloadServiceId: 'slack',
+      }),
+    ).toBe(false);
+  });
   it('lets a service view run its own WebAuthn ceremony, and no other', () => {
     expect(
       ipcSenderAllowed({

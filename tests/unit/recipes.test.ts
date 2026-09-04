@@ -139,6 +139,16 @@ describe('countWhatsAppChats', () => {
   });
 });
 
+describe('bannerTitleNamesConversation', () => {
+  // the flag tells main a shim banner's title IS the thread name, which is
+  // only actionable through the recipe's own row-clicking opener
+  it('is set exactly where the URL names no thread, and openConversation exists', () => {
+    const flagged = SERVICES.filter((s) => s.bannerTitleNamesConversation).map((s) => s.id);
+    expect(flagged).toEqual(['whatsapp', 'zalo']);
+    for (const id of flagged) expect(recipes[id].openConversation, id).toBeDefined();
+  });
+});
+
 describe('chatPaths mirror', () => {
   // main validates lane-B hrefs against ServiceMeta.chatPaths; the recipe's
   // copy is what the runner contains with — they must never drift

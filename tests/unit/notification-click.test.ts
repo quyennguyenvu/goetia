@@ -30,17 +30,29 @@ describe('resolveBannerClick', () => {
     });
   });
 
-  it('href wins over clickId — it works dead or alive', () => {
+  it('a live view gets every lane at once — the preload tries them in order', () => {
     expect(resolveBannerClick({ ...base, href: '/messages/t/222', clickId: 4 })).toEqual({
       kind: 'open-in-page',
+      clickId: 4,
       href: '/messages/t/222',
       url: 'https://www.facebook.com/messages/t/222',
     });
+  });
+
+  it('a dead view has no page to replay in: the URL is its wake load', () => {
     expect(
       resolveBannerClick({ ...base, hasView: false, href: '/messages/t/222', clickId: 4 }),
     ).toEqual({
       kind: 'navigate',
       url: 'https://www.facebook.com/messages/t/222',
+    });
+  });
+
+  // a rejected href is dropped, not fatal: the other lanes still run
+  it('an href outside chatPaths is dropped while the replay lane stays', () => {
+    expect(resolveBannerClick({ ...base, href: '/marketplace/item/9', clickId: 4 })).toEqual({
+      kind: 'open-in-page',
+      clickId: 4,
     });
   });
 
@@ -60,20 +72,24 @@ describe('resolveBannerClick', () => {
     expect(resolveBannerClick({ ...base, href: 'http://' })).toEqual({ kind: 'activate' });
   });
 
-  it('no chatPaths: the service URL own path is the boundary', () => {
-    const insta = {
+  // a chat-only site (no chatPaths) is all chat: same origin is the whole
+  // check. Discord's service URL is /channels/@me, and a server channel pin
+  // lives at /channels/<guild>/<channel> — the path was never a boundary
+  it('no chatPaths: same origin is the only boundary (discord server channel)', () => {
+    const discord = {
       ...base,
-      serviceUrl: 'https://www.instagram.com/direct/inbox/',
+      serviceUrl: 'https://discord.com/channels/@me',
       chatPaths: undefined,
     };
-    expect(resolveBannerClick({ ...insta, href: '/direct/inbox/x' })).toEqual({
+    const href = 'https://discord.com/channels/1329647866888589434/1545386122287517717';
+    expect(resolveBannerClick({ ...discord, href })).toEqual({
       kind: 'open-in-page',
-      href: '/direct/inbox/x',
-      url: 'https://www.instagram.com/direct/inbox/x',
+      href,
+      url: href,
     });
-    expect(resolveBannerClick({ ...insta, href: '/direct/t/17801' })).toEqual({
-      kind: 'activate',
-    });
+    expect(resolveBannerClick({ ...discord, href: 'https://discordapp.com/channels/1/2' })).toEqual(
+      { kind: 'activate' },
+    );
   });
 
   it('hash-routed chatPaths match pathname + hash (teams)', () => {
@@ -91,10 +107,59 @@ describe('resolveBannerClick', () => {
   });
 
   it('clickId replays only while the view is alive', () => {
-    expect(resolveBannerClick({ ...base, clickId: 7 })).toEqual({ kind: 'replay', clickId: 7 });
+    expect(resolveBannerClick({ ...base, clickId: 7 })).toEqual({
+      kind: 'open-in-page',
+      clickId: 7,
+    });
     expect(resolveBannerClick({ ...base, clickId: 7, hasView: false })).toEqual({
       kind: 'activate',
     });
+  });
+
+  it('carries the conversation name into the in-page open', () => {
+    expect(resolveBannerClick({ ...base, href: '/messages/t/222', conversation: 'Mai' })).toEqual({
+      kind: 'open-in-page',
+      href: '/messages/t/222',
+      url: 'https://www.facebook.com/messages/t/222',
+      conversation: 'Mai',
+    });
+  });
+
+  // whatsapp/zalo: every thread shares one URL, so the recipe's row click is
+  // the only handle — and with no URL in the action, a miss stays put
+  const named = {
+    disabled: false,
+    hasView: true,
+    serviceUrl: 'https://web.whatsapp.com/',
+    chatPaths: undefined,
+  };
+
+  it('a named thread with no href routes by name alone on a live view', () => {
+    expect(resolveBannerClick({ ...named, conversation: 'Nguyên Diêu' })).toEqual({
+      kind: 'open-in-page',
+      conversation: 'Nguyên Diêu',
+    });
+  });
+
+  // the site's own handler knows the thread id; a display name can name two
+  // chats — so both ride along, and the preload replays before it looks a
+  // row up by name, falling to the name only when the handle is gone
+  it('clickId and the name lane travel together on a live view', () => {
+    expect(resolveBannerClick({ ...named, conversation: 'Nguyên Diêu', clickId: 5 })).toEqual({
+      kind: 'open-in-page',
+      clickId: 5,
+      conversation: 'Nguyên Diêu',
+    });
+  });
+
+  it('a named thread on a dead view falls back to activate — no live DOM to click', () => {
+    expect(resolveBannerClick({ ...named, hasView: false, conversation: 'Nguyên Diêu' })).toEqual({
+      kind: 'activate',
+    });
+  });
+
+  it('an empty conversation name is not a lane', () => {
+    expect(resolveBannerClick({ ...named, conversation: '' })).toEqual({ kind: 'activate' });
   });
 
   it('nothing to go on: activate', () => {

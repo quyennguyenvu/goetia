@@ -8,12 +8,14 @@ import {
   dialog,
   Menu,
   type MenuItemConstructorOptions,
+  MessageChannelMain,
   safeStorage,
   session,
   shell,
   type WebContents,
   WebContentsView,
 } from 'electron';
+import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { RailPosition, ServiceId } from '../shared/types';
@@ -25,8 +27,10 @@ import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-me
 import { isSafeExternalUrl } from './lib/external-url';
 import { identityUrlPatterns, isIdentityHost, isIdentityPopup } from './lib/identity-policy';
 import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
+import { MainLoads } from './lib/main-loads';
 import { NavigationAudit } from './lib/navigation-audit';
 import { isNavigationAllowed, shouldContainNavigation } from './lib/navigation-policy';
+import { OPEN_REPLY_TIMEOUT_MS, parseOpenReply } from './lib/open-reply';
 import { permissionAllowed } from './lib/permission-policy';
 import { reloadAllowed } from './lib/reload-guard';
 import { type ShellCommand, shellCommandFor } from './lib/shortcuts';
@@ -73,8 +77,10 @@ export interface ViewHooks {
   /** Main-frame, cross-document navigation started (initial load, reload,
    *  redirect) — never same-document SPA routing or subframe loads, which
    *  also spin the tab spinner (did-start-loading) but must not re-cover
-   *  the service with the waking overlay. */
-  onNavigate(id: ServiceId): void;
+   *  the service with the waking overlay. `wake` is true only for a load
+   *  main itself requested (MainLoads): a navigation the page made on its
+   *  own runs over a live document and must not look like a cold start. */
+  onNavigate(id: ServiceId, wake: boolean): void;
   onCrashed(id: ServiceId): void;
   onLoadFailed(id: ServiceId): void;
   /** "Pin Message" from the page's context menu or the Pin Selection
@@ -113,6 +119,9 @@ export class ServiceViewManager {
   private lastExternalAt = new Map<ServiceId, number>();
   /** last rect actually applied; every view and the overlay share it */
   private lastBounds: ViewBounds | null = null;
+  /** when a conversation open was last asked of each view — a full load right
+   *  after one is that request's fallback, not a wake */
+  private mainLoads = new MainLoads();
   /** which unlisted origins each service reached — see lib/navigation-audit.ts */
   private navAudit = new NavigationAudit();
   /** the one contained window per service holding a refused navigation */
@@ -413,7 +422,8 @@ export class ServiceViewManager {
       this.hooks.onLoading(id, false);
     });
     wc.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
-      if (isMainFrame && !isSameDocument) this.hooks.onNavigate(id);
+      if (!isMainFrame || isSameDocument) return;
+      this.hooks.onNavigate(id, this.mainLoads.claim(id));
     });
     wc.on('render-process-gone', (_e, d) => {
       debugCalls(`service ${id} GONE reason=${d.reason} exit=${d.exitCode}`);
@@ -422,7 +432,7 @@ export class ServiceViewManager {
     wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.hooks.onLoadFailed(id);
     });
-    wc.loadURL(svc.url);
+    this.load(id, wc, svc.url);
     this.views.set(id, view);
     // real bounds even while hidden: pages get desktop-class layout and
     // keep-alive click coordinates from getBoundingClientRect stay valid
@@ -490,7 +500,7 @@ export class ServiceViewManager {
     const handBack = (_e: unknown, landedUrl: string): void => {
       if (!isNavigationAllowed(id, landedUrl)) return;
       const wc = this.views.get(id)?.webContents;
-      if (wc && !wc.isDestroyed()) wc.loadURL(landedUrl);
+      if (wc && !wc.isDestroyed()) this.load(id, wc, landedUrl);
       if (!win.isDestroyed()) win.close();
     };
     win.webContents.on('did-navigate', handBack);
@@ -779,6 +789,7 @@ export class ServiceViewManager {
     }
     this.win.contentView.removeChildView(view);
     this.lastRefreshAt.delete(id);
+    this.mainLoads.forget(id);
     this.closeCallWindows(id);
     this.closeIdentityWindows(id);
     this.closeContainedWindow(id);
@@ -889,8 +900,17 @@ export class ServiceViewManager {
     this.containedWindows.delete(id);
   }
 
+  /** Every load main asks for goes through here, so the waking cover knows
+   *  the navigation it is about to see is one of ours. */
+  private load(id: ServiceId, wc: WebContents, url?: string): void {
+    this.mainLoads.mark(id);
+    if (url === undefined) wc.reload();
+    else wc.loadURL(url);
+  }
+
   reload(id: ServiceId): void {
-    this.views.get(id)?.webContents.reload();
+    const wc = this.views.get(id)?.webContents;
+    if (wc && !wc.isDestroyed()) this.load(id, wc);
   }
 
   /** User-initiated reload: return a live service to its chat URL — Goetia
@@ -910,7 +930,7 @@ export class ServiceViewManager {
     }
     this.lastRefreshAt.set(id, now);
     if (this.activeId === id) this.activate(id);
-    view.webContents.loadURL(serviceById(id).url);
+    this.load(id, view.webContents, serviceById(id).url);
   }
 
   /** Post-purge reset: land a live view back on the chat URL. Not the ⌘R
@@ -918,7 +938,7 @@ export class ServiceViewManager {
    *  wake just to show a login page. */
   loadServiceUrl(id: ServiceId): void {
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) wc.loadURL(serviceById(id).url);
+    if (wc && !wc.isDestroyed()) this.load(id, wc, serviceById(id).url);
   }
 
   /** Banner click, lane B: land the (possibly just-woken) view on the
@@ -926,22 +946,45 @@ export class ServiceViewManager {
   openConversation(id: ServiceId, url: string): void {
     this.ensure(id);
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) wc.loadURL(url);
+    if (wc && !wc.isDestroyed()) this.load(id, wc, url);
   }
 
-  /** Banner click, lane A: ask the page to run its own notification onclick. */
-  sendReplayClick(id: ServiceId, clickId: number): void {
+  /** Banner, recents or pin click on a live view: route in-page — a loadURL
+   *  here would reboot the SPA and raise the waking cover for a thread
+   *  switch. The request rides with a MessagePort the preload answers on once
+   *  its lane chain settles, so the caller learns whether the open landed.
+   *  `url` is set only when the document URL moved during the open and the
+   *  page reports the same URL main sees — the lesson a shim-only row keeps.
+   *  Null when the view is gone or never answered. */
+  async openInPage(
+    id: ServiceId,
+    req: OpenRequest,
+  ): Promise<{ lane: OpenLane; url?: string } | null> {
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) wc.send('notification:replayClick', { clickId });
+    if (!wc || wc.isDestroyed()) return null;
+    const before = wc.getURL();
+    const { port1, port2 } = new MessageChannelMain();
+    const reply = new Promise<ReturnType<typeof parseOpenReply>>((resolve) => {
+      const done = (r: ReturnType<typeof parseOpenReply>) => {
+        clearTimeout(timer);
+        port1.close();
+        resolve(r);
+      };
+      const timer = setTimeout(() => done(null), OPEN_REPLY_TIMEOUT_MS);
+      port1.on('message', (e) => done(parseOpenReply(e.data)));
+      port1.start();
+    });
+    wc.postMessage('notification:openConversation', req, [port2]);
+    const r = await reply;
+    if (!r) return null;
+    const after = wc.isDestroyed() ? before : wc.getURL();
+    return after !== before && after === r.url ? { lane: r.lane, url: after } : { lane: r.lane };
   }
 
-  /** Banner click, lane B on a live view: route in-page — a loadURL here
-   *  would reboot the SPA and raise the waking cover for a thread switch. */
-  sendOpenConversation(id: ServiceId, href: string, url: string, conversation?: string): void {
-    const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) {
-      wc.send('notification:openConversation', { href, url, conversation });
-    }
+  /** Chat only: a link the page tried to follow out of its chat surface in
+   *  place. Same validation and per-service throttle as a scripted popup. */
+  openExternalFromPage(id: ServiceId, url: string): void {
+    if (isSafeExternalUrl(url)) this.openExternalThrottled(id, url);
   }
 
   layout(): void {

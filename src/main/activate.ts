@@ -68,21 +68,30 @@ export function activateService(ctx: AppContext, id: ServiceId): void {
   ctx.state.touch();
 }
 
-/** Shared tail of a banner or recents click: land on the service, then route
- *  as deep as the resolved action allows. show-only means the service was
- *  banished after the fact — activate nothing. */
-export function performBannerAction(
+/** Shared tail of a banner, recents or pin click: land on the service, then
+ *  route as deep as the resolved action allows. show-only means the service
+ *  was banished — the window is up, nothing else. A live view runs the lane
+ *  chain in-page and reports back: a miss is logged as evidence (the row did
+ *  nothing but switch services, and this line says which lanes it had), and
+ *  a replay that moved the document teaches the activity entry its URL — the
+ *  one durable handle a shim-only (Discord) row can have. */
+export async function performBannerAction(
   ctx: AppContext,
   id: ServiceId,
   action: BannerClickAction,
-  /** a pin's conversation name, for sites whose URL cannot single out a thread */
-  conversation?: string,
-): void {
+  opts: { entryId?: number } = {},
+): Promise<void> {
   if (action.kind === 'show-only') return;
   activateService(ctx, id);
   if (action.kind === 'navigate') ctx.views.openConversation(id, action.url);
-  if (action.kind === 'open-in-page') {
-    ctx.views.sendOpenConversation(id, action.href, action.url, conversation);
+  if (action.kind !== 'open-in-page') return;
+  const { kind: _kind, ...req } = action;
+  const result = await ctx.views.openInPage(id, req);
+  if (!result) return;
+  if (result.lane === 'miss') {
+    const lanes = Object.keys(req).join(',');
+    console.warn(`[open] ${id} miss: lanes=${lanes}`);
+  } else if (result.lane === 'replay' && result.url && opts.entryId !== undefined) {
+    ctx.activity.learnUrl(opts.entryId, result.url);
   }
-  if (action.kind === 'replay') ctx.views.sendReplayClick(id, action.clickId);
 }

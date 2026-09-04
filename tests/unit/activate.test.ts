@@ -128,75 +128,99 @@ describe('setHomeOpen', () => {
 });
 
 describe('performBannerAction', () => {
-  function makeBannerCtx() {
+  function makeBannerCtx(result: { lane: string; url: string } | null = null) {
     const state = new MainState();
     const views = {
       activate: vi.fn(),
       hideActive: vi.fn(),
       showActive: vi.fn(),
       openConversation: vi.fn(),
-      sendOpenConversation: vi.fn(),
-      sendReplayClick: vi.fn(),
+      openInPage: vi.fn().mockResolvedValue(result),
     };
+    const activity = { learnUrl: vi.fn() };
     const ctx = {
       state,
       views,
+      activity,
       settings: { update: vi.fn(), get: () => DEFAULT_SETTINGS },
       noteActivated: vi.fn(),
     } as unknown as AppContext;
-    return { ctx, views };
+    return { ctx, views, activity };
   }
 
-  it('does nothing for show-only', () => {
+  it('does nothing for show-only', async () => {
     const { ctx, views } = makeBannerCtx();
-    performBannerAction(ctx, 'telegram', { kind: 'show-only' });
+    await performBannerAction(ctx, 'telegram', { kind: 'show-only' });
     expect(views.activate).not.toHaveBeenCalled();
   });
 
-  it('activates then hands a dead view the conversation URL', () => {
+  it('activates then hands a dead view the conversation URL', async () => {
     const { ctx, views } = makeBannerCtx();
-    performBannerAction(ctx, 'telegram', { kind: 'navigate', url: 'https://t.example/1' });
+    await performBannerAction(ctx, 'telegram', { kind: 'navigate', url: 'https://t.example/1' });
     expect(views.activate).toHaveBeenCalledWith('telegram');
     expect(views.openConversation).toHaveBeenCalledWith('telegram', 'https://t.example/1');
   });
 
-  it('routes in-page on a live view', () => {
-    const { ctx, views } = makeBannerCtx();
-    performBannerAction(ctx, 'telegram', {
+  it('hands a live view every lane in one in-page request', async () => {
+    const { ctx, views } = makeBannerCtx({ lane: 'anchor', url: 'https://t.example/#123' });
+    await performBannerAction(ctx, 'telegram', {
       kind: 'open-in-page',
+      clickId: 7,
       href: '#123',
       url: 'https://t.example/#123',
+      conversation: 'Mai',
     });
-    expect(views.sendOpenConversation).toHaveBeenCalledWith(
-      'telegram',
-      '#123',
-      'https://t.example/#123',
-      undefined,
-    );
+    expect(views.activate).toHaveBeenCalledWith('telegram');
+    expect(views.openInPage).toHaveBeenCalledWith('telegram', {
+      clickId: 7,
+      href: '#123',
+      url: 'https://t.example/#123',
+      conversation: 'Mai',
+    });
   });
 
-  // a pin from a URL-less site rides its conversation name along, so the
-  // preload can open the thread by clicking its row
-  it('passes a pin conversation through to the in-page open', () => {
-    const { ctx, views } = makeBannerCtx();
-    performBannerAction(
+  // the replayed onclick moved the SPA to the thread: that URL is the one
+  // durable handle a shim-only (Discord) recents row can ever get
+  it('learns the URL a replayed banner landed on', async () => {
+    const { ctx, views, activity } = makeBannerCtx({
+      lane: 'replay',
+      url: 'https://discord.com/channels/1/2',
+    });
+    views.openInPage.mockResolvedValue({
+      lane: 'replay',
+      url: 'https://discord.com/channels/1/2',
+    });
+    await performBannerAction(ctx, 'discord', { kind: 'open-in-page', clickId: 7 }, { entryId: 4 });
+    expect(activity.learnUrl).toHaveBeenCalledWith(4, 'https://discord.com/channels/1/2');
+  });
+
+  it('learns nothing from a lane that was not the replay, or with no entry', async () => {
+    const { ctx, activity } = makeBannerCtx({ lane: 'name', url: 'https://web.whatsapp.com/' });
+    await performBannerAction(
       ctx,
       'whatsapp',
-      { kind: 'open-in-page', href: 'https://web.whatsapp.com/', url: 'https://web.whatsapp.com/' },
-      'FULL TEAM - Ticketbox',
+      { kind: 'open-in-page', conversation: 'Mẹ' },
+      {
+        entryId: 4,
+      },
     );
-    expect(views.sendOpenConversation).toHaveBeenCalledWith(
-      'whatsapp',
-      'https://web.whatsapp.com/',
-      'https://web.whatsapp.com/',
-      'FULL TEAM - Ticketbox',
-    );
+    await performBannerAction(ctx, 'whatsapp', { kind: 'open-in-page', clickId: 1 });
+    expect(activity.learnUrl).not.toHaveBeenCalled();
   });
 
-  it('replays the page click for shim banners', () => {
-    const { ctx, views } = makeBannerCtx();
-    performBannerAction(ctx, 'discord', { kind: 'replay', clickId: 7 });
-    expect(views.sendReplayClick).toHaveBeenCalledWith('discord', 7);
+  it('a miss is logged as evidence, never thrown', async () => {
+    const { ctx } = makeBannerCtx({ lane: 'miss', url: 'https://web.whatsapp.com/' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await performBannerAction(ctx, 'whatsapp', { kind: 'open-in-page', conversation: 'Mẹ' });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[open] whatsapp miss'));
+    warn.mockRestore();
+  });
+
+  it('a view that never answered (destroyed mid-open) is not an error', async () => {
+    const { ctx } = makeBannerCtx(null);
+    await expect(
+      performBannerAction(ctx, 'discord', { kind: 'open-in-page', clickId: 1 }),
+    ).resolves.toBeUndefined();
   });
 });
 

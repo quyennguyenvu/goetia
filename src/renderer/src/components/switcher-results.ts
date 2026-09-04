@@ -23,7 +23,9 @@ export function switcherRows(opts: {
     return { recents: live.slice(0, MAX_RECENTS), services: opts.services };
   }
   const recents = live
-    .map((r) => ({ r, score: fuzzyScore(opts.query, r.title) }))
+    // the sender counts as part of the row: "github" must find the channel
+    // its alerts land in, which the title alone no longer names
+    .map((r) => ({ r, score: fuzzyScore(opts.query, recentHaystack(r)) }))
     .filter((x) => x.score >= 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_RECENTS)
@@ -34,6 +36,10 @@ export function switcherRows(opts: {
     .sort((a, b) => b.score - a.score)
     .map((x) => x.svc);
   return { recents, services };
+}
+
+function recentHaystack(r: ActivityEntryView): string {
+  return r.author ? `${r.title} ${r.author}` : r.title;
 }
 
 export function relativeTime(at: number, now: number): string {

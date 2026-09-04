@@ -20,7 +20,11 @@ export interface Counts {
 export interface ActivityEntryView {
   id: number;
   serviceId: ServiceId;
+  /** the conversation the banner came from — what the row leads with */
   title: string;
+  /** who sent it, shown after the conversation; absent unless the service
+   *  named the two separately (Discord alone does) */
+  author?: string;
   /** mute or quiet hours suppressed the banner itself at fire time (🌙) */
   silenced: boolean;
   at: number;
@@ -78,6 +82,12 @@ export interface ServiceMeta {
   /** Mirror of the recipe's chatPaths (recipes.test.ts enforces sync) — main
    *  validates banner hrefs against it without importing preload code. */
   chatPaths?: string[];
+  /** This site's banner title IS the thread's name (whatsapp, zalo), and its
+   *  URL names no thread — so a recents row can be opened only by handing the
+   *  title to the recipe's openConversation. Set it solely where that hook
+   *  exists (recipes.test.ts enforces it); a name that matches no row is a
+   *  no-op, never a wrong thread. */
+  bannerTitleNamesConversation?: boolean;
 }
 
 export interface QuietHoursSchedule {

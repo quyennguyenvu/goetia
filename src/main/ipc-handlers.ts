@@ -12,7 +12,8 @@ import {
 import { applyOverlay } from './badges';
 import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
-import type { ActivityLog } from './lib/activity-log';
+import { type ActivityLog, openHref } from './lib/activity-log';
+import { stampSummoned } from './lib/banish-rules';
 import { isSafeExternalUrl } from './lib/external-url';
 import { ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
@@ -246,7 +247,19 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('settings:update', (patch) => {
     const before = ctx.settings.get();
-    const after = ctx.settings.update(patch);
+    // summoning restarts the unused clock, in the same write as the summon:
+    // Home commits adds, banishes and reorders as one frame, and a second
+    // settings write here would cost a second broadcast and menu rebuild
+    const stamped = patch.disabled
+      ? stampSummoned({
+          order: before.order,
+          before: before.disabled,
+          after: patch.disabled,
+          lastUsedAt: before.lastUsedAt,
+          now: Date.now(),
+        })
+      : null;
+    const after = ctx.settings.update(stamped ? { ...patch, lastUsedAt: stamped } : patch);
     if ('launchAtLogin' in patch) {
       app.setLoginItemSettings({ openAtLogin: patch.launchAtLogin === true });
     }
@@ -313,11 +326,14 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     const action = resolveBannerClick({
       disabled: ctx.settings.get().disabled[entry.serviceId],
       hasView: ctx.views.has(entry.serviceId),
-      href: entry.synthetic ? entry.href : undefined,
+      // the shim's replay handle, still same-document (onNavigate forgets it)
+      clickId: entry.clickId,
+      href: openHref(entry),
+      conversation: meta.bannerTitleNamesConversation ? entry.conversation : undefined,
       serviceUrl: meta.url,
       chatPaths: meta.chatPaths,
     });
-    performBannerAction(ctx, entry.serviceId, action);
+    void performBannerAction(ctx, entry.serviceId, action, { entryId });
   });
   // every mutation broadcasts only when the store actually changed — a stale
   // renderer's no-op must not cost a fan-out
@@ -342,12 +358,16 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       disabled: ctx.settings.get().disabled[pin.serviceId],
       hasView: ctx.views.has(pin.serviceId),
       href: pin.href,
+      conversation: pin.conversation || undefined,
       serviceUrl: meta.url,
       chatPaths: meta.chatPaths,
     });
-    performBannerAction(ctx, pin.serviceId, action, pin.conversation || undefined);
+    void performBannerAction(ctx, pin.serviceId, action);
   });
   on('service:trusted-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
+  on('service:openExternal', ({ serviceId, url }) =>
+    ctx.views.openExternalFromPage(serviceId, url),
+  );
   on('updates:check', () => void ctx.updates.check('manual'));
   on('updates:openDownload', () => {
     // the URL is built here from a version main validated — the renderer

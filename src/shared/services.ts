@@ -78,6 +78,7 @@ export const SERVICES: ServiceMeta[] = [
     url: 'https://web.whatsapp.com/',
     color: '#25D366',
     waitForReady: true,
+    bannerTitleNamesConversation: true,
   },
   // keepRendered: Zalo idles into a "Kích hoạt" modal and unmounts its UI when
   // it believes the tab is hidden — badges freeze and trusted clicks can't
@@ -89,6 +90,7 @@ export const SERVICES: ServiceMeta[] = [
     color: '#0068FF',
     keepRendered: true,
     waitForReady: true,
+    bannerTitleNamesConversation: true,
   },
 ];
 

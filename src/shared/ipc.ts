@@ -57,6 +57,11 @@ export interface RendererToMain {
   /** a recipe asks for a trusted click at a point in its own view: keep-alive
    *  buttons and Zalo's conversation rows ignore synthetic events */
   'service:trusted-click': { serviceId: ServiceId; x: number; y: number };
+  /** chat only: the page tried to follow a link out of its chat surface in
+   *  place (see offChatLinkUrl). Main re-checks the URL with
+   *  isSafeExternalUrl and throttles it exactly like a scripted popup — no
+   *  new reach, since window.open already lands there. */
+  'service:openExternal': { serviceId: ServiceId; url: string };
   'service:ready': { serviceId: ServiceId };
   'updates:check': Record<string, never>;
   'updates:openDownload': Record<string, never>;
@@ -69,12 +74,30 @@ export interface MainToRenderer {
   'loading:state': { theme: 'light' | 'dark'; serviceName: string };
 }
 
-/** main -> service view preload, via webContents.send */
+/** Everything main knows about a thread to open on a live view; each field is
+ *  one lane, tried in the preload in the order replay → name → URL (see
+ *  openConversationInPage). */
+export interface OpenRequest {
+  /** the shim registry id of the banner — the site's own onclick */
+  clickId?: number;
+  /** the anchor to click, as the recipe or pin captured it */
+  href?: string;
+  /** the validated absolute URL — the full-load fallback */
+  url?: string;
+  /** the thread's name, for a recipe's row click (whatsapp, zalo) */
+  conversation?: string;
+}
+
+/** Which lane landed. `same`: already on the thread. `miss`: every lane the
+ *  request carried reported a miss and the page was left where it was. */
+export type OpenLane = 'replay' | 'name' | 'same' | 'anchor' | 'load' | 'miss';
+
+/** main -> service view preload, via webContents.postMessage: the request
+ *  travels with a MessagePort the preload answers on with `{ lane, url }`
+ *  (url = location.href once the chain settled), so main learns whether the
+ *  open landed instead of firing blind — main-created port, no new channel. */
 export interface MainToService {
-  'notification:replayClick': { clickId: number };
-  /** banner click on a live view: route to the thread in-page (anchor click),
-   *  falling back to a full navigation to `url` if the anchor is gone */
-  'notification:openConversation': { href: string; url: string; conversation?: string };
+  'notification:openConversation': OpenRequest;
 }
 
 export const R2M_CHANNELS = [
@@ -100,6 +123,7 @@ export const R2M_CHANNELS = [
   'pins:setNote',
   'pins:open',
   'service:trusted-click',
+  'service:openExternal',
   'service:ready',
   'updates:check',
   'updates:openDownload',

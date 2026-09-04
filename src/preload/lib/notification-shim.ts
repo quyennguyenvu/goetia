@@ -1,14 +1,18 @@
 export type NotifyForward = (title: string, body: string, clickId: number) => void;
 
 export interface NotificationShimHandle {
-  /** Fire the page's own click handlers for the banner the user clicked. */
-  replayClick(clickId: number): void;
+  /** Fire the page's own click handlers for the banner the user clicked.
+   *  False when the registry no longer holds the id (evicted, or a different
+   *  document's id) — the caller's cue to try another lane. */
+  replayClick(clickId: number): boolean;
 }
 
-/** Registered instances kept for replay; oldest evicted past this. The
- *  registry lives and dies with the page's JS context — correct, since the
- *  handlers it holds are page closures. */
-const REGISTRY_CAP = 20;
+/** Registered instances kept for replay; oldest evicted past this. Sized to
+ *  the recents list (ACTIVITY_CAP, asserted in the shim test): a smaller
+ *  registry left every ⌘K row past it dead on arrival. The registry lives
+ *  and dies with the page's JS context — correct, since the handlers it
+ *  holds are page closures. */
+export const REGISTRY_CAP = 50;
 
 /** Replace the page's Notification API with a proxy that forwards to main.
  *  Covers the constructor, the legacy callback form of requestPermission
@@ -24,7 +28,6 @@ export function installNotificationShim(
 ): NotificationShimHandle {
   let nextId = 1;
   const live = new Map<number, GoetiaNotification>();
-  const ids = new WeakMap<GoetiaNotification, number>();
   const clickListeners = new WeakMap<GoetiaNotification, Set<EventListener>>();
 
   class GoetiaNotification {
@@ -41,7 +44,6 @@ export function installNotificationShim(
     onclose: unknown = null;
     constructor(title: string, options?: NotificationOptions) {
       const id = nextId++;
-      ids.set(this, id);
       clickListeners.set(this, new Set());
       live.set(id, this);
       if (live.size > REGISTRY_CAP) {
@@ -56,9 +58,9 @@ export function installNotificationShim(
       );
     }
     close(): void {
-      // a banner the site closed (read elsewhere) must not replay
-      const id = ids.get(this);
-      if (id !== undefined) live.delete(id);
+      // deliberately kept in the registry: sites close banners on a timer or
+      // when the thread is read elsewhere, and the onclick still leads to
+      // that thread — which is where a recents row for it should land
     }
     addEventListener(type: string, fn: EventListener): void {
       if (type === 'click' && typeof fn === 'function') clickListeners.get(this)?.add(fn);
@@ -89,9 +91,9 @@ export function installNotificationShim(
   }
 
   return {
-    replayClick(clickId: number): void {
+    replayClick(clickId: number): boolean {
       const n = live.get(clickId);
-      if (!n) return;
+      if (!n) return false;
       const ev = new win.Event('click');
       const handlers: unknown[] = [n.onclick, ...(clickListeners.get(n) ?? [])];
       for (const fn of handlers) {
@@ -102,6 +104,7 @@ export function installNotificationShim(
           // page handler errors stay the page's problem
         }
       }
+      return true;
     },
   };
 }

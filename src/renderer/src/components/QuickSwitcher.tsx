@@ -28,6 +28,11 @@ export default function QuickSwitcher() {
   const [recents, setRecents] = useState<ActivityEntryView[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const activeRef = useRef<HTMLButtonElement | null>(null);
+  /** only the keyboard scrolls: a hover that lands on a half-visible row must
+   *  not nudge the list out from under the wheel */
+  const navByKey = useRef(false);
 
   const open = state?.switcherOpen ?? false;
 
@@ -36,6 +41,7 @@ export default function QuickSwitcher() {
       setQuery('');
       setCursor(0);
       setNowMs(Date.now());
+      navByKey.current = false;
       // one fetch per open — recents are never broadcast
       window.goetia
         .invoke('activity:recent')
@@ -74,6 +80,14 @@ export default function QuickSwitcher() {
     [query, recents, enabled],
   );
   const total = rows.recents.length + rows.services.length;
+
+  // The list scrolls, so the cursor has to carry the viewport with it.
+  useEffect(() => {
+    if (!open || !navByKey.current) return;
+    // the first row's section label sits above it — only the top shows that
+    if (cursor === 0) listRef.current?.scrollTo({ top: 0 });
+    else activeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [open, cursor]);
 
   if (!state || !open) return null;
 
@@ -119,6 +133,11 @@ export default function QuickSwitcher() {
           }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') close();
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              navByKey.current = true;
+              // the caret would otherwise jump to either end of the query
+              e.preventDefault();
+            }
             if (e.key === 'ArrowDown') setCursor((c) => Math.min(c + 1, total - 1));
             if (e.key === 'ArrowUp') setCursor((c) => Math.max(c - 1, 0));
             if (e.key === 'Enter') submit(cursor);
@@ -126,18 +145,25 @@ export default function QuickSwitcher() {
           placeholder="Search services and recent chats…"
           className="w-full border-b border-border bg-transparent px-4 py-3 text-[15px] text-text-1 outline-none placeholder:text-text-2"
         />
-        <ul className="max-h-[420px] overflow-y-auto">
+        <ul ref={listRef} className="max-h-[420px] overflow-y-auto">
           {rows.recents.length > 0 && <SectionLabel>Recent</SectionLabel>}
           {rows.recents.map((r, i) => (
             <li key={`recent-${r.id}`}>
               <button
                 type="button"
+                ref={i === cursor ? activeRef : null}
                 onClick={() => openRecent(r.id)}
-                onMouseEnter={() => setCursor(i)}
+                onMouseEnter={() => {
+                  navByKey.current = false;
+                  setCursor(i);
+                }}
                 className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-accent/15' : ''}`}
               >
                 <img src={logos[`../assets/logos/${r.serviceId}.svg`]} alt="" className="h-5 w-5" />
-                <span className="flex-1 truncate text-text-1">{r.title}</span>
+                <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                  <span className="truncate text-text-1">{r.title}</span>
+                  {r.author && <span className="truncate text-[12px] text-text-2">{r.author}</span>}
+                </span>
                 <span className="tabular text-[11px] text-text-2">
                   {relativeTime(r.at, nowMs)}
                   {r.silenced && <span title="Silenced by mute or quiet hours"> 🌙</span>}
@@ -156,8 +182,12 @@ export default function QuickSwitcher() {
               <li key={svc.id}>
                 <button
                   type="button"
+                  ref={i === cursor ? activeRef : null}
                   onClick={() => pick(svc.id)}
-                  onMouseEnter={() => setCursor(i)}
+                  onMouseEnter={() => {
+                    navByKey.current = false;
+                    setCursor(i);
+                  }}
                   className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-accent/15' : ''}`}
                 >
                   <img src={logos[`../assets/logos/${svc.id}.svg`]} alt="" className="h-5 w-5" />
