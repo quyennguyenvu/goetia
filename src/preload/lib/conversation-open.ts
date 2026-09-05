@@ -9,6 +9,9 @@ export interface OpenOptions {
    *  May be async — a virtualized chat list has to be scrolled to render the
    *  row (WhatsApp). */
   byName?: (doc: Document, name: string) => MaybePromise<boolean | Point>;
+  /** the recipe's URL opener, for a site whose document URL never names the
+   *  thread (Slack): true when the thread is on screen, false for a miss */
+  byUrl?: (doc: Document, url: string) => MaybePromise<boolean>;
   /** hands a point to main for a trusted click — the site ignores synthetic ones */
   trustedClick?: (pt: Point) => void;
   assign?: (url: string) => void;
@@ -26,11 +29,14 @@ type MaybePromise<T> = T | Promise<T>;
  *  2. name: the recipe clicks the chat-list row (WhatsApp, Zalo) — first of
  *     the URL lanes, since for those sites every thread shares one URL.
  *  3. same: already on the URL, nothing to do.
- *  4. anchor: click the anchor that leads there — the newest-unread row a
+ *  4. url: the recipe opens the URL in-page — Slack's thread lives in a
+ *     flexpane the address bar never shows, so only a recipe click reaches
+ *     it; a throw is a miss, not a failure of the chain.
+ *  5. anchor: click the anchor that leads there — the newest-unread row a
  *     recipe extracted, or the sidebar link to a pinned thread — comparing
  *     origin + path + hash, trailing slash and query ignored, so "/t/1/"
  *     meets "/t/1?x".
- *  5. load: a full navigation, only when a URL exists. With none (a recents
+ *  6. load: a full navigation, only when a URL exists. With none (a recents
  *     row on whatsapp/zalo) a miss stays put: reloading the chat list would
  *     be a strictly worse answer than doing nothing. */
 export async function openConversationInPage(
@@ -52,6 +58,15 @@ export async function openConversationInPage(
   const here = doc.defaultView?.location.href ?? '';
   const target = urlKey(req.url, here);
   if (target !== null && target === urlKey(here, here)) return 'same';
+  if (opts.byUrl) {
+    let opened = false;
+    try {
+      opened = await opts.byUrl(doc, req.url);
+    } catch {
+      opened = false; // a recipe opener that throws on a changed DOM is a miss
+    }
+    if (opened) return 'url';
+  }
   const wanted = urlKey(req.href, here);
   for (const a of doc.querySelectorAll('a[href]')) {
     const attr = a.getAttribute('href') ?? '';

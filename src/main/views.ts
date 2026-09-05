@@ -30,7 +30,7 @@ import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
 import { MainLoads } from './lib/main-loads';
 import { NavigationAudit } from './lib/navigation-audit';
 import { isNavigationAllowed, shouldContainNavigation } from './lib/navigation-policy';
-import { OPEN_REPLY_TIMEOUT_MS, parseOpenReply } from './lib/open-reply';
+import { learnedUrl, OPEN_REPLY_TIMEOUT_MS, parseOpenReply } from './lib/open-reply';
 import { permissionAllowed } from './lib/permission-policy';
 import { reloadAllowed } from './lib/reload-guard';
 import { type ShellCommand, shellCommandFor } from './lib/shortcuts';
@@ -642,8 +642,10 @@ export class ServiceViewManager {
   }
 
   /** Both capture doors end here: the title is the generic conversation
-   *  hint, and the recipe's own name (WhatsApp) is fetched from the page —
-   *  the one thing that can later open a thread whose URL is shared by all. */
+   *  hint, and the recipe's own handles are fetched from the page — the name
+   *  (WhatsApp), the one thing that can later open a thread whose URL is
+   *  shared by all, and the canonical thread URL (Slack), for a thread the
+   *  document URL never names. */
   private async capturePin(
     id: ServiceId,
     wc: WebContents,
@@ -652,19 +654,23 @@ export class ServiceViewManager {
   ): Promise<void> {
     const title = wc.getTitle();
     let conversation: unknown = null;
+    let threadHref: unknown = null;
     try {
-      conversation = await wc.executeJavaScript(
-        'globalThis.__goetia?.conversation?.() ?? null',
+      [conversation, threadHref] = (await wc.executeJavaScript(
+        '[globalThis.__goetia?.conversation?.() ?? null, globalThis.__goetia?.conversationUrl?.() ?? null]',
         true,
-      );
+      )) as unknown[];
     } catch {
       // page mid-navigation: the title alone will have to do
     }
     if (wc.isDestroyed()) return;
+    // a recipe that names the thread by URL (Slack) beats the document URL,
+    // which on such a site is the channel; validated at open time like any href
+    const pinHref = typeof threadHref === 'string' && threadHref !== '' ? threadHref : href;
     this.hooks.onPinMessage(
       id,
       text,
-      href,
+      pinHref,
       title,
       typeof conversation === 'string' && conversation.trim() !== '' ? conversation : null,
     );
@@ -953,9 +959,11 @@ export class ServiceViewManager {
    *  here would reboot the SPA and raise the waking cover for a thread
    *  switch. The request rides with a MessagePort the preload answers on once
    *  its lane chain settles, so the caller learns whether the open landed.
-   *  `url` is set only when the document URL moved during the open and the
-   *  page reports the same URL main sees — the lesson a shim-only row keeps.
-   *  Null when the view is gone or never answered. */
+   *  `url` is set when the document moved and the page reports the same URL
+   *  main sees, or when the page reports a recipe-minted URL that validates
+   *  like a click-time href (Slack's thread: the document never moves) — the
+   *  lesson a shim-only row keeps. Null when the view is gone or never
+   *  answered. */
   async openInPage(
     id: ServiceId,
     req: OpenRequest,
@@ -978,7 +986,15 @@ export class ServiceViewManager {
     const r = await reply;
     if (!r) return null;
     const after = wc.isDestroyed() ? before : wc.getURL();
-    return after !== before && after === r.url ? { lane: r.lane, url: after } : { lane: r.lane };
+    const meta = serviceById(id);
+    const learned = learnedUrl({
+      before,
+      after,
+      reported: r.url,
+      serviceUrl: meta.url,
+      chatPaths: meta.chatPaths,
+    });
+    return learned ? { lane: r.lane, url: learned } : { lane: r.lane };
   }
 
   /** Chat only: a link the page tried to follow out of its chat surface in

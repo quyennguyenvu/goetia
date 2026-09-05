@@ -57,6 +57,20 @@ export interface Recipe {
     doc: Document,
     name: string,
   ): boolean | { x: number; y: number } | Promise<boolean | { x: number; y: number }>;
+  /** The open thread as its canonical in-service URL, for sites whose address
+   *  bar never names the thread (Slack keeps a thread in the flexpane while
+   *  the URL stays on the channel). A pin captured here carries this instead
+   *  of the document URL; a landed replay teaches a recents row this instead
+   *  of location.href. Cheap and synchronous; null when no thread is open, and
+   *  null when the live selection sits outside the thread surface — that
+   *  selection belongs to the channel, not the thread. Declared together with
+   *  `openUrl` (recipes.test.ts enforces the pair). */
+  conversationUrl?(doc: Document): string | null;
+  /** Open a `conversationUrl`-shaped URL in-page. `true`: the thread is on
+   *  screen. `false`: a miss (unknown URL shape, the channel row is gone, the
+   *  root message is outside the virtualized pane) and the caller moves to the
+   *  next lane. May be async; keep every wait bounded. */
+  openUrl?(doc: Document, url: string): boolean | Promise<boolean>;
   /** The page to load when this document is the site's logged-OUT shell — a
    *  surface with no sign-in form in sight (TikTok's /messages logged out is
    *  the feed nav plus an empty DM drawer). Return the login URL only for that

@@ -75,8 +75,8 @@ export interface MainToRenderer {
 }
 
 /** Everything main knows about a thread to open on a live view; each field is
- *  one lane, tried in the preload in the order replay → name → URL (see
- *  openConversationInPage). */
+ *  one lane, tried in the preload in the order replay → name → same → url →
+ *  anchor → load (see openConversationInPage). */
 export interface OpenRequest {
   /** the shim registry id of the banner — the site's own onclick */
   clickId?: number;
@@ -88,9 +88,11 @@ export interface OpenRequest {
   conversation?: string;
 }
 
-/** Which lane landed. `same`: already on the thread. `miss`: every lane the
- *  request carried reported a miss and the page was left where it was. */
-export type OpenLane = 'replay' | 'name' | 'same' | 'anchor' | 'load' | 'miss';
+/** Which lane landed. `same`: already on the thread. `url`: the recipe opened
+ *  the URL in-page (Slack's thread, which the document URL never shows).
+ *  `miss`: every lane the request carried reported a miss and the page was
+ *  left where it was. */
+export type OpenLane = 'replay' | 'name' | 'same' | 'url' | 'anchor' | 'load' | 'miss';
 
 /** main -> service view preload, via webContents.postMessage: the request
  *  travels with a MessagePort the preload answers on with `{ lane, url }`

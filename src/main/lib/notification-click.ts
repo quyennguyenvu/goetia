@@ -35,7 +35,7 @@ export function resolveBannerClick(input: {
   const url =
     input.href === undefined
       ? null
-      : conversationUrl(input.href, input.serviceUrl, input.chatPaths);
+      : validatedConversationUrl(input.href, input.serviceUrl, input.chatPaths);
   if (!input.hasView) return url === null ? { kind: 'activate' } : { kind: 'navigate', url };
   const action: BannerClickAction = { kind: 'open-in-page' };
   if (input.clickId !== undefined) action.clickId = input.clickId;
@@ -52,8 +52,9 @@ export function resolveBannerClick(input: {
  *  matched against pathname + hash like the runner's containment. A site with
  *  no chatPaths is chat-only, so same origin is the whole check — the service
  *  URL's own path was never a boundary (Discord's is /channels/@me while a
- *  server channel lives at /channels/<guild>/<channel>). */
-function conversationUrl(
+ *  server channel lives at /channels/<guild>/<channel>). Also the gate on a
+ *  URL a page reports after an open (learnedUrl). */
+export function validatedConversationUrl(
   href: string,
   serviceUrl: string,
   chatPaths: string[] | undefined,

@@ -55,6 +55,7 @@ if (!inSubcontext) {
     void openConversationInPage(document, req, {
       replay: (clickId) => shim.replayClick(clickId),
       byName: recipe?.openConversation?.bind(recipe),
+      byUrl: recipe?.openUrl?.bind(recipe),
       trustedClick: (pt) => ipcRenderer.send('service:trusted-click', { serviceId, ...pt }),
     })
       // a recipe opener that throws on a changed DOM is a miss, not silence
@@ -63,7 +64,11 @@ if (!inSubcontext) {
         // the replayed onclick routes through the SPA's own router; give it a
         // beat so the URL reported is the thread's, not the one before
         if (lane === 'replay') await new Promise((r) => setTimeout(r, REPLAY_SETTLE_MS));
-        port?.postMessage({ lane, url: window.location.href });
+        // a site whose address bar never names the thread (Slack) reports the
+        // recipe's canonical URL instead, so the row learns something durable
+        const url =
+          (lane === 'replay' && recipe?.conversationUrl?.(document)) || window.location.href;
+        port?.postMessage({ lane, url });
         port?.close();
       });
   });
@@ -95,12 +100,13 @@ if (!inSubcontext) {
     true,
   );
 
-  // Main reads the open conversation's name through executeJavaScript at pin
-  // time. Frozen and non-enumerable: the page cannot swap it, and all it
-  // does is read the page's own DOM through the recipe.
+  // Main reads the open conversation's name and canonical URL through
+  // executeJavaScript at pin time. Frozen and non-enumerable: the page cannot
+  // swap it, and all it does is read the page's own DOM through the recipe.
   Object.defineProperty(window, '__goetia', {
     value: Object.freeze({
       conversation: (): string | null => recipe?.conversation?.(document) ?? null,
+      conversationUrl: (): string | null => recipe?.conversationUrl?.(document) ?? null,
     }),
     enumerable: false,
     writable: false,

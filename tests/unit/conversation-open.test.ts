@@ -213,4 +213,59 @@ describe('openConversationInPage', () => {
     document.documentElement.innerHTML = '<body></body>';
     await expect(openConversationInPage(document, { clickId: 7 }, {})).resolves.toBe('miss');
   });
+  // Slack: the URL names the thread but the document never moves onto it, so
+  // a recipe opens it by clicking — after the same-URL check, before anchors
+  it('lets a recipe open a URL in-page after same and before anchor', async () => {
+    setURL('https://app.slack.com/client/T1/C1');
+    document.documentElement.innerHTML = '<body><a href="/client/T1/C1/thread/C1-1.2">x</a></body>';
+    const clicked = vi.fn();
+    document.querySelector('a')?.addEventListener('click', clicked);
+    const byUrl = vi.fn(async () => true);
+    const assign = vi.fn();
+    const url = 'https://app.slack.com/client/T1/C1/thread/C1-1.2';
+    const lane = await openConversationInPage(document, { href: url, url }, { byUrl, assign });
+    expect(lane).toBe('url');
+    expect(byUrl).toHaveBeenCalledWith(document, url);
+    expect(clicked).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('skips the url lane without a url and when already on the URL', async () => {
+    setURL('https://app.slack.com/client/T1/C1');
+    document.documentElement.innerHTML = '<body></body>';
+    const byUrl = vi.fn(() => true);
+    expect(await openConversationInPage(document, {}, { byUrl })).toBe('miss');
+    const here = 'https://app.slack.com/client/T1/C1';
+    expect(
+      await openConversationInPage(document, { href: here, url: here }, { byUrl, assign: vi.fn() }),
+    ).toBe('same');
+    expect(byUrl).not.toHaveBeenCalled();
+  });
+
+  it('falls through to anchor and load when the url lane misses or throws', async () => {
+    setURL('https://app.slack.com/client/T1/C1');
+    document.documentElement.innerHTML = '<body><a href="/client/T1/C2">c2</a></body>';
+    const clicked = vi.fn((e: Event) => e.preventDefault());
+    document.querySelector('a')?.addEventListener('click', clicked);
+    const assign = vi.fn();
+    const c2 = 'https://app.slack.com/client/T1/C2';
+    expect(
+      await openConversationInPage(document, { href: c2, url: c2 }, { byUrl: () => false, assign }),
+    ).toBe('anchor');
+    expect(clicked).toHaveBeenCalledTimes(1);
+    const c3 = 'https://app.slack.com/client/T1/C3';
+    expect(
+      await openConversationInPage(
+        document,
+        { href: c3, url: c3 },
+        {
+          byUrl: () => {
+            throw new Error('DOM changed');
+          },
+          assign,
+        },
+      ),
+    ).toBe('load');
+    expect(assign).toHaveBeenCalledWith(c3);
+  });
 });
