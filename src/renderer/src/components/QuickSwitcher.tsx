@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { badgeLabel } from '../../../shared/badges';
 import type { ActivityEntryView, ServiceId } from '../../../shared/types';
@@ -9,6 +10,31 @@ const logos = import.meta.glob<string>('../assets/logos/*.svg', {
   query: '?url',
   import: 'default',
 });
+
+// the rail's molten-squircle language, sized for a list row: the cursor row's
+// tile floods like the active rail tile so the highlight reads the same way
+// on the switcher as on the rail. Resting tiles sit on bg-1 because the panel
+// itself is bg-2.
+function RowTile({ serviceId, active }: { serviceId: ServiceId; active: boolean }) {
+  const face = active
+    ? `scale-105 bg-linear-to-br from-[#FFB43D] via-[#FF8A2A] to-[#F04E3E] text-[#15181F]
+       shadow-[0_0_10px_rgba(255,158,44,0.45),0_2px_14px_rgba(240,78,62,0.5),inset_0_1px_0_rgba(255,255,255,0.25)]`
+    : 'bg-bg-1 text-accent opacity-70';
+  return (
+    <span
+      className={`flex h-7 w-7 flex-none items-center justify-center rounded-tile transition-all duration-150 ease-out ${face}`}
+    >
+      <span
+        className="glyph h-4 w-4"
+        style={
+          {
+            '--glyph': `url("${logos[`../assets/logos/${serviceId}.svg`]}")`,
+          } as React.CSSProperties
+        }
+      />
+    </span>
+  );
+}
 
 function SectionLabel({ children }: { children: string }) {
   return (
@@ -157,9 +183,9 @@ export default function QuickSwitcher() {
                   navByKey.current = false;
                   setCursor(i);
                 }}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-accent/15' : ''}`}
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-text-1/6' : ''}`}
               >
-                <img src={logos[`../assets/logos/${r.serviceId}.svg`]} alt="" className="h-5 w-5" />
+                <RowTile serviceId={r.serviceId} active={i === cursor} />
                 <span className="flex min-w-0 flex-1 items-baseline gap-2">
                   <span className="truncate text-text-1">{r.title}</span>
                   {r.author && <span className="truncate text-[12px] text-text-2">{r.author}</span>}
@@ -188,9 +214,9 @@ export default function QuickSwitcher() {
                     navByKey.current = false;
                     setCursor(i);
                   }}
-                  className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-accent/15' : ''}`}
+                  className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-text-1/6' : ''}`}
                 >
-                  <img src={logos[`../assets/logos/${svc.id}.svg`]} alt="" className="h-5 w-5" />
+                  <RowTile serviceId={svc.id} active={i === cursor} />
                   <span className="flex-1 text-text-1">{svc.name}</span>
                   <span className="tabular text-text-2">⌘{accel}</span>
                   {unread > 0 && (
