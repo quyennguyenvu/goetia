@@ -18,7 +18,7 @@ import {
 import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
-import type { RailPosition, ServiceId } from '../shared/types';
+import type { LoadKind, RailPosition, ServiceId } from '../shared/types';
 import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
 import { resolveClickPoint } from './lib/click-point';
@@ -77,10 +77,10 @@ export interface ViewHooks {
   /** Main-frame, cross-document navigation started (initial load, reload,
    *  redirect) — never same-document SPA routing or subframe loads, which
    *  also spin the tab spinner (did-start-loading) but must not re-cover
-   *  the service with the waking overlay. `wake` is true only for a load
-   *  main itself requested (MainLoads): a navigation the page made on its
-   *  own runs over a live document and must not look like a cold start. */
-  onNavigate(id: ServiceId, wake: boolean): void;
+   *  the service with the waking overlay. `kind` names the load main itself
+   *  requested (MainLoads) and is null for a navigation the page made on its
+   *  own, which runs over a live document and must not look like a cold start. */
+  onNavigate(id: ServiceId, kind: LoadKind | null): void;
   onCrashed(id: ServiceId): void;
   onLoadFailed(id: ServiceId): void;
   /** "Pin Message" from the page's context menu or the Pin Selection
@@ -432,7 +432,7 @@ export class ServiceViewManager {
     wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.hooks.onLoadFailed(id);
     });
-    this.load(id, wc, svc.url);
+    this.load(id, wc, 'wake', svc.url);
     this.views.set(id, view);
     // real bounds even while hidden: pages get desktop-class layout and
     // keep-alive click coordinates from getBoundingClientRect stay valid
@@ -500,7 +500,7 @@ export class ServiceViewManager {
     const handBack = (_e: unknown, landedUrl: string): void => {
       if (!isNavigationAllowed(id, landedUrl)) return;
       const wc = this.views.get(id)?.webContents;
-      if (wc && !wc.isDestroyed()) this.load(id, wc, landedUrl);
+      if (wc && !wc.isDestroyed()) this.load(id, wc, 'hand-back', landedUrl);
       if (!win.isDestroyed()) win.close();
     };
     win.webContents.on('did-navigate', handBack);
@@ -901,16 +901,16 @@ export class ServiceViewManager {
   }
 
   /** Every load main asks for goes through here, so the waking cover knows
-   *  the navigation it is about to see is one of ours. */
-  private load(id: ServiceId, wc: WebContents, url?: string): void {
-    this.mainLoads.mark(id);
+   *  the navigation it is about to see is one of ours, and which one. */
+  private load(id: ServiceId, wc: WebContents, kind: LoadKind, url?: string): void {
+    this.mainLoads.mark(id, kind);
     if (url === undefined) wc.reload();
     else wc.loadURL(url);
   }
 
   reload(id: ServiceId): void {
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) this.load(id, wc);
+    if (wc && !wc.isDestroyed()) this.load(id, wc, 'restart');
   }
 
   /** User-initiated reload: return a live service to its chat URL — Goetia
@@ -930,7 +930,7 @@ export class ServiceViewManager {
     }
     this.lastRefreshAt.set(id, now);
     if (this.activeId === id) this.activate(id);
-    this.load(id, view.webContents, serviceById(id).url);
+    this.load(id, view.webContents, 'reload', serviceById(id).url);
   }
 
   /** Post-purge reset: land a live view back on the chat URL. Not the ⌘R
@@ -938,7 +938,7 @@ export class ServiceViewManager {
    *  wake just to show a login page. */
   loadServiceUrl(id: ServiceId): void {
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) this.load(id, wc, serviceById(id).url);
+    if (wc && !wc.isDestroyed()) this.load(id, wc, 'purge', serviceById(id).url);
   }
 
   /** Banner click, lane B: land the (possibly just-woken) view on the
@@ -946,7 +946,7 @@ export class ServiceViewManager {
   openConversation(id: ServiceId, url: string): void {
     this.ensure(id);
     const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) this.load(id, wc, url);
+    if (wc && !wc.isDestroyed()) this.load(id, wc, 'wake', url);
   }
 
   /** Banner, recents or pin click on a live view: route in-page — a loadURL

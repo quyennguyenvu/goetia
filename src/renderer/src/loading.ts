@@ -2,9 +2,9 @@ import './tokens.css';
 import './loading.css';
 import './portal.css';
 
-const caption = document.getElementById('caption');
+const captionEl = document.getElementById('caption');
 
-window.goetiaLoading.onState(({ theme, serviceName }) => {
+window.goetiaLoading.onState(({ theme, caption }) => {
   document.documentElement.dataset.theme = theme;
-  if (caption) caption.textContent = `Waking ${serviceName}…`;
+  if (captionEl) captionEl.textContent = caption;
 });

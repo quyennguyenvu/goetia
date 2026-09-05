@@ -18,9 +18,10 @@ describe('MainState', () => {
     expect(snap.theme).toBe('dark');
   });
 
-  it('new runtimes start not waking', () => {
+  it('new runtimes start not waking, with no load kind', () => {
     const s = new MainState();
     expect(s.runtime('messenger').waking).toBe(false);
+    expect(s.runtime('messenger').wakeKind).toBeNull();
   });
 
   it('notifies subscribers on mutation', () => {

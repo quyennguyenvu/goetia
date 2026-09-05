@@ -40,7 +40,37 @@ test('waking cover: overlay page exists, tiles breathe, timeout reveals', async 
   // wake, then the 10s timeout reveals and the breathing stops
   const tile = win.locator('[data-testid="rail"] button[aria-label="Messenger"]');
   await expect(tile).toHaveClass(/tile-breathe/);
+  // a cold create is a wake, and the cover says so
+  await expect(overlay.locator('#caption')).toHaveText('Waking Messenger…');
+
+  // ⌘K hides the view and the cover; the shell placeholder behind the
+  // switcher carries the same caption while the wake is on…
+  await app.evaluate(({ webContents }) => {
+    const wc = webContents.getAllWebContents().find((w) => w.getURL().startsWith('https://'));
+    if (!wc) throw new Error('no service view');
+    wc.emit(
+      'before-input-event',
+      { preventDefault() {} },
+      {
+        type: 'keyDown',
+        key: 'K',
+        code: 'KeyK',
+        meta: process.platform === 'darwin',
+        control: process.platform !== 'darwin',
+        shift: false,
+        alt: false,
+        isAutoRepeat: false,
+      },
+    );
+  });
+  await expect(win.locator('[data-testid="switcher"]')).toBeVisible();
+  await expect(win.getByText('Waking Messenger…')).toBeVisible();
+
+  // …and goes blank when the wake ends, even though the logged-out page may
+  // still be loading subframes: the placeholder is keyed on waking, never on
+  // loading (a live Discord read "Waking Discord…" behind ⌘K, 2026-09-05)
   await expect(tile).not.toHaveClass(/tile-breathe/, { timeout: 15_000 });
+  await expect(win.getByText(/^Waking /)).toHaveCount(0);
 
   await app.close();
 });

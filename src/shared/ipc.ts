@@ -71,7 +71,7 @@ export interface RendererToMain {
 export interface MainToRenderer {
   'shell:state': ShellState;
   /** main -> loading overlay page */
-  'loading:state': { theme: 'light' | 'dark'; serviceName: string };
+  'loading:state': { theme: 'light' | 'dark'; caption: string };
 }
 
 /** Everything main knows about a thread to open on a live view; each field is

@@ -178,6 +178,7 @@ export function applyDisabledChange(ctx: AppContext, before: Settings): void {
         hibernated: false,
         loading: false,
         waking: false,
+        wakeKind: null,
       });
     }
     if (!after.disabled[id] && before.disabled[id] && after.neverHibernate[id]) {

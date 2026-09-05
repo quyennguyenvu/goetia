@@ -257,6 +257,9 @@ export const DEFAULT_SETTINGS: Settings = {
   lastHomeOpen: false,
 };
 
+/** Why main asked a view to load; names the waking cover's caption. */
+export type LoadKind = 'wake' | 'reload' | 'restart' | 'purge' | 'hand-back';
+
 export interface ServiceRuntime {
   unread: Counts;
   hibernated: boolean;
@@ -264,6 +267,7 @@ export interface ServiceRuntime {
   stale: boolean; // recipe failed; counts may be outdated
   loading: boolean;
   waking: boolean; // loading screen covers this service
+  wakeKind: LoadKind | null; // which load the cover names; read only while waking
 }
 
 export interface ShellState {

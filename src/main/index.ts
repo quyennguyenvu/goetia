@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor, session } from 'electron';
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { serviceById } from '../shared/services';
+import { wakeCaption } from '../shared/wake-caption';
 import { applyBadges } from './badges';
 import { runShellCommand } from './commands';
 import { HibernationController } from './hibernation';
@@ -115,11 +116,11 @@ app
             resilience?.noteRecovered(id);
           }
         },
-        onNavigate: (id, wake) => {
+        onNavigate: (id, kind) => {
           // the page's JS context is being replaced, taking the notification
           // shim's registry with it — its ids restart at 1 in the new document
           activity.forgetReplay(id);
-          if (wake) waking.begin(id);
+          if (kind) waking.begin(id, kind);
         },
         onCrashed: (id) => {
           waking.end(id, 'crashed');
@@ -206,7 +207,7 @@ app
       }
       overlay.update({
         theme: effectiveTheme(),
-        serviceName: serviceById(state.activeId).name,
+        caption: wakeCaption(rt.wakeKind, serviceById(state.activeId).name),
       });
       overlay.show();
     };

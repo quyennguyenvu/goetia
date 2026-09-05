@@ -1,5 +1,11 @@
+import { wakeCaption } from '../../../shared/wake-caption';
 import { useShell } from '../store';
 
+/** The shell's content area, seen only while the active view is hidden
+ *  behind ⌘K or Settings. Keyed on `waking`, never `loading`: loading is
+ *  did-start-loading, which a live page fires for any subframe fetch, and
+ *  it made a rendered Discord read "Waking Discord…" behind the switcher
+ *  (2026-09-05). */
 export default function ContentPlaceholder() {
   const state = useShell((s) => s.state);
   if (!state) return null;
@@ -19,8 +25,8 @@ export default function ContentPlaceholder() {
             Retry
           </button>
         </>
-      ) : rt.loading ? (
-        <span>Waking {active.name}…</span>
+      ) : rt.waking ? (
+        <span>{wakeCaption(rt.wakeKind, active.name)}</span>
       ) : null}
     </div>
   );

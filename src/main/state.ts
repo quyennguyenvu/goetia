@@ -15,6 +15,7 @@ const defaultRuntime = (): ServiceRuntime => ({
   stale: false,
   loading: false,
   waking: false,
+  wakeKind: null,
 });
 
 const defaultUpdate = (): UpdateState => ({ status: 'idle', latest: null, announce: null });
