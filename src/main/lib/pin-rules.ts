@@ -73,6 +73,11 @@ export function conversationFromTitle(title: string, serviceName: string): strin
   } while (t !== prev);
   // Slack keeps the workspace as a second segment; the thread is the first
   if (serviceName.toLowerCase() === 'slack') t = t.split(/\s[-|•]\s/)[0];
+  // Teams leads with the app section: "Chat | Anh Em Công Nhân | Microsoft Teams"
+  if (serviceName.toLowerCase() === 'microsoft teams') {
+    const [head, ...rest] = t.split(/\s[-|•]\s/);
+    if (rest.length > 0 && GENERIC_TITLES.has(head.trim().toLowerCase())) t = rest.join(' | ');
+  }
   const out = t.trim();
   if (out === '' || isBrand(out) || GENERIC_TITLES.has(out.toLowerCase())) return '';
   return clampText(out, PIN_CONVERSATION_MAX);

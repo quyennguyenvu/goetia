@@ -36,7 +36,7 @@ const cases: [ServiceId, string, number, number][] = [
   ['tiktok', 'tiktok', 2, 0], // header Messages badge total
   ['shopee', 'shopee', 31, 0], // mini-chat header badge
   ['slack', 'slack', 3, 2], // mention badges sum direct; badge-less unread channels indirect; muted skipped
-  ['teams', 'teams', 3, 2], // unread-count badges sum direct; badge-less unread rows indirect
+  ['teams', 'teams-chat', 0, 2], // rows Teams describes as unread are indirect; no badge in the live capture
 ];
 
 describe.each(cases)('%s recipe', (id, fixture, direct, indirect) => {
@@ -121,7 +121,7 @@ describe('ready()', () => {
   });
 
   it('teams is ready once the chat list mounts', () => {
-    expect(recipes.teams.ready?.(load('teams'))).toBe(true);
+    expect(recipes.teams.ready?.(load('teams-chat'))).toBe(true);
     expect(recipes.teams.ready?.(load('blank'))).toBe(false);
   });
 });

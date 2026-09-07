@@ -1,5 +1,20 @@
 <title>(7) Chat | Microsoft Teams</title>
-<div data-tid="chat-list">
-  <div data-tid="chat-list-item"><span>Kim Minh</span></div>
-  <div data-tid="chat-list-item"><span>Nguyen Pham</span></div>
+<!-- live tree shape (see teams-chat.html) with every unread row scrolled out: the title carries the total -->
+<div role="tree" data-tid="simple-collab-dnd-rail" aria-label="Teams">
+  <div role="treeitem" data-conversation-folder="true" data-item-type="chats" aria-level="1" aria-expanded="true">
+    <div role="group">
+      <div role="treeitem" data-testid="list-item" data-item-type="chat" aria-level="2"
+        aria-labelledby=" one-on-one-chat-support-text title-chat-list-item_19:a@thread.v2 message-preview-chat-list-item_19:a@thread.v2 ">
+        <span id="title-chat-list-item_19:a@thread.v2" role="text">Kim Minh</span>
+      </div>
+      <div role="treeitem" data-testid="list-item" data-item-type="chat" aria-level="2"
+        aria-labelledby=" one-on-one-chat-support-text title-chat-list-item_19:b@thread.v2 message-preview-chat-list-item_19:b@thread.v2 ">
+        <span id="title-chat-list-item_19:b@thread.v2" role="text">Nguyen Pham</span>
+      </div>
+    </div>
+  </div>
 </div>
+<span data-testid="simple-collab-aria-support-texts">
+  <div id="chat_list_unread_text" aria-hidden="true"><span dir="auto">Unread message</span></div>
+  <div id="one-on-one-chat-support-text" aria-hidden="true"><span dir="auto">Chat</span></div>
+</span>

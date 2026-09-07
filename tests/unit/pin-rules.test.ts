@@ -25,6 +25,11 @@ const pin = (over: Partial<Pin> = {}): Pin => ({
 describe('conversationFromTitle', () => {
   it('strips unread markers and the brand tail', () => {
     expect(conversationFromTitle('(2) Mẹ | Microsoft Teams', 'Microsoft Teams')).toBe('Mẹ');
+    // Teams leads with the app section; the chat is the middle segment
+    expect(
+      conversationFromTitle('Chat | Anh Em Công Nhân | Microsoft Teams', 'Microsoft Teams'),
+    ).toBe('Anh Em Công Nhân');
+    expect(conversationFromTitle('(3) Chat | Microsoft Teams', 'Microsoft Teams')).toBe('');
     expect(conversationFromTitle('• #release | Ticketbox - Discord', 'Discord')).toBe(
       '#release | Ticketbox',
     );
