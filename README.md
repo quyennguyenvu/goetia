@@ -219,7 +219,7 @@ None of these mean the app is broken — they're the known rough edges of a free
 - **Mac asks to use "confidential information stored in Goetia Safe Storage"**: click **Always Allow**. Goetia locks your saved logins with a key kept in your Mac's keychain, and because the app isn't signed with a paid certificate macOS treats each new version as a different app — so it asks again after every update. Clicking **Deny** leaves those saved logins locked and you'd have to sign in to every service again.
 - **A service shows new messages in its own window but the icon has no red badge** (or shows a small grey dot): that service tweaked its website and Goetia's unread counter for it needs a small update. Chatting still works — only the badge is out of date. Tell me and I'll push a fix.
 - **A service logs you out after a while**: some services do that on their own; just log back in. Your other services stay logged in.
-- **A site's passkey prompt says no passkey was found**: you haven't made a Goetia passkey for it on this computer yet — sign in with your password and accept the site's offer to create one.
+- **A site's passkey prompt says no passkey was found**: you haven't made a Goetia passkey for it on this computer yet. Press Back, choose **Other ways to sign in**, and use your password; if the site then offers to create a passkey, accept it. Some sites never make that offer once your account has a passkey anywhere else (Microsoft) — there, the password is the way in, and Goetia stays a chat app rather than walking you through the site's account settings.
 - **Notifications from a service never appear**: open that service once and check its own notification setting is on, and (Mac) that Goetia is allowed to notify in System Settings.
 
 </details>

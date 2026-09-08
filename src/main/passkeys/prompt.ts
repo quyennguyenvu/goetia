@@ -101,9 +101,10 @@ export function electronPrompt(win: BrowserWindow): PasskeyPrompt {
     },
     async noPasskey(rpId) {
       if (AUTO_ACCEPT) return;
+      // Microsoft's passkey-first page has only Back and Try again: name the way out
       await notice(
         `No Goetia passkey for ${rpId} on this ${device} yet.`,
-        'Sign in with your password; when the site offers to create a passkey, accept it.',
+        'Press Back, choose Other ways to sign in, and use your password. If the site offers to create a passkey, accept it.',
       );
     },
     async capReached() {
