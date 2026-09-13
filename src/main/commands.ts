@@ -27,6 +27,11 @@ function setActiveZoom(ctx: AppContext, next: (current: number) => number): void
  *  `before-input-event` interceptor in the service views — a key pressed
  *  inside a page does exactly what its menu item does. */
 export function runShellCommand(ctx: AppContext, command: ShellCommand): void {
+  // A locked app must not act on a chord or a menu item: Toggle Developer
+  // Tools would open an inspector on the shell, and Cmd-1 would put a service
+  // on screen. One guard here covers both routes, because the menu items and
+  // the in-view interceptor call this same function.
+  if (ctx.lock.locked) return;
   switch (command.kind) {
     case 'home':
       ctx.win.show();
@@ -57,6 +62,12 @@ export function runShellCommand(ctx: AppContext, command: ShellCommand): void {
       return;
     case 'settings':
       openSettings(ctx);
+      return;
+    case 'lock':
+      // lock() refuses when the setting is off or no passcode is set: locking
+      // with no door is a lockout, not a lock
+      ctx.lock.lock();
+      ctx.syncLocked();
       return;
     case 'reload':
       ctx.views.refresh(ctx.state.activeId);

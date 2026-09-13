@@ -94,3 +94,17 @@ describe('accelerator table', () => {
     expect(devtoolsAccelerator('win32')).toBe('Ctrl+Shift+I');
   });
 });
+
+describe('lock chord', () => {
+  const l = { key: 'L', code: 'KeyL', shift: true };
+
+  it('maps the lock chord under Cmd on darwin and Ctrl elsewhere', () => {
+    expect(shellCommandFor(press({ ...l, meta: true }), 'darwin')).toEqual({ kind: 'lock' });
+    expect(shellCommandFor(press({ ...l, control: true }), 'win32')).toEqual({ kind: 'lock' });
+  });
+
+  // Slack and Discord both bind plain Cmd-L; only the shifted chord is ours
+  it('leaves a bare Cmd+L to the page', () => {
+    expect(shellCommandFor(press({ key: 'L', code: 'KeyL', meta: true }), 'darwin')).toBeNull();
+  });
+});

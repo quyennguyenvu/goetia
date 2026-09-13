@@ -5,6 +5,7 @@ const flags = (patch: Partial<Parameters<typeof anyOverlayOpen>[0]> = {}) => ({
   settingsOpen: false,
   switcherOpen: false,
   homeOpen: false,
+  locked: false,
   ...patch,
 });
 
@@ -23,6 +24,11 @@ describe('anyOverlayOpen', () => {
 
   it('is true for home alone', () => {
     expect(anyOverlayOpen(flags({ homeOpen: true }))).toBe(true);
+  });
+
+  // a lock screen a service view can cover is not a lock
+  it('is true while the app is locked', () => {
+    expect(anyOverlayOpen(flags({ locked: true }))).toBe(true);
   });
 
   it('is true when several are open at once', () => {

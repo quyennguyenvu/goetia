@@ -15,6 +15,7 @@ import {
   welcomeSections,
 } from '../../../shared/welcome';
 import { useShell } from '../store';
+import SummonConfirm from './SummonConfirm';
 import HomeHero from './welcome/HomeHero';
 import PickTile from './welcome/PickTile';
 import PinnedBand from './welcome/PinnedBand';
@@ -29,6 +30,9 @@ export default function Welcome() {
   // order both. Nothing reaches main until the confirm commits the whole
   // edit — adds, removals and the new order — in one patch.
   const [staged, setStaged] = useState<ServiceId[]>([]);
+  /** the services a pending commit would bring back, while it waits on the
+   *  credential; local because only this screen opens that confirm */
+  const [askSummon, setAskSummon] = useState<ServiceId[] | null>(null);
   const [query, setQuery] = useState('');
   // read through a ref so the window listener is registered once instead of on
   // every keystroke, and never closes over a stale query
@@ -149,11 +153,22 @@ export default function Welcome() {
 
   // one patch: adds, removals and the new order land together, so activation
   // and the app menu resolve against a single consistent frame
-  const summon = () =>
+  const commit = () =>
     window.goetia.send('settings:update', {
       disabled: buildDisabledPatch(order, stagedSet),
       order: commitOrder(order, staged),
     });
+  // summoning reveals conversations that were deliberately off the rail, so it
+  // asks when the guard is on; banishing and reordering never do
+  const summon = () => {
+    const brought = order.filter((id) => state.settings.disabled[id] && stagedSet.has(id));
+    const guarded = state.settings.appLock.guardActions && state.lockConfigured;
+    if (guarded && brought.length > 0) {
+      setAskSummon(brought);
+      return;
+    }
+    commit();
+  };
   // the same reseed the screen does on every visit, under the user's thumb
   const discard = () => setStaged(liveSummoned);
   // PurgeConfirm owns the gate and the invoke; Home only poses the question.
@@ -333,6 +348,17 @@ export default function Welcome() {
           )}
         </ServiceBand>
       </div>
+
+      {askSummon && (
+        <SummonConfirm
+          names={askSummon.map((id) => byId.get(id)?.name ?? id)}
+          onVerified={() => {
+            setAskSummon(null);
+            commit();
+          }}
+          onCancel={() => setAskSummon(null)}
+        />
+      )}
     </div>
   );
 }

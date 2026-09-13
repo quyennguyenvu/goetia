@@ -73,6 +73,19 @@ function fillAutoBanish(raw: unknown): Settings['autoBanish'] {
   };
 }
 
+/** summonHotkey-style field-by-field coercion for the lock block. A
+ *  non-boolean falls back to the default rather than coercing truthy: a
+ *  corrupt file must not decide whether the app is locked. */
+function fillAppLock(raw: unknown): Settings['appLock'] {
+  const d = DEFAULT_SETTINGS.appLock;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['appLock']>;
+  return {
+    enabled: typeof r.enabled === 'boolean' ? r.enabled : d.enabled,
+    touchId: typeof r.touchId === 'boolean' ? r.touchId : d.touchId,
+    guardActions: typeof r.guardActions === 'boolean' ? r.guardActions : d.guardActions,
+  };
+}
+
 /** Epoch-ms twin of fillZoom(): missing, corrupt, or non-positive stamps
  *  coerce to 0 (= never used, never banishable). */
 function fillLastUsedAt(raw: unknown): Record<ServiceId, number> {
@@ -127,6 +140,7 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
           ? raw.quietOverrideWindowStart
           : null,
       summonHotkey: fillSummonHotkey(raw.summonHotkey),
+      appLock: fillAppLock(raw.appLock),
     },
     trimmed: capped.trimmed,
   };

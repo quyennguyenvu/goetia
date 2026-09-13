@@ -512,6 +512,61 @@ describe('SettingsStore', () => {
     expect(reread.autoBanish).toEqual({ enabled: true, hours: 48 });
     expect(reread.lastUsedAt.discord).toBe(123_456);
   });
+
+  it('defaults the lock off with Touch ID armed for when it is turned on', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).get().appLock).toEqual({
+      enabled: false,
+      touchId: true,
+      guardActions: true,
+    });
+  });
+
+  it('arms the action guard by default, for when the lock is turned on', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).get().appLock.guardActions).toBe(true);
+  });
+
+  it('coerces a non-boolean guardActions to the default', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ appLock: { enabled: true, touchId: true, guardActions: 'no' } }),
+    );
+    expect(new SettingsStore(dir).get().appLock.guardActions).toBe(true);
+  });
+
+  it('keeps guardActions off once a settings.json says so', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ appLock: { enabled: true, touchId: true, guardActions: false } }),
+    );
+    expect(new SettingsStore(dir).get().appLock.guardActions).toBe(false);
+  });
+
+  it('coerces a hand-mangled appLock block field by field', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ appLock: { enabled: 'yes', touchId: false } }),
+    );
+    // a non-boolean falls back to the default rather than coercing truthy: a
+    // corrupt file must never silently switch the lock on or off
+    expect(new SettingsStore(dir).get().appLock).toEqual({
+      enabled: false,
+      touchId: false,
+      guardActions: true,
+    });
+  });
+
+  it('fills a settings.json written before the lock existed', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ globalMuted: true }));
+    const s = new SettingsStore(dir).get();
+    expect(s.appLock).toEqual({ enabled: false, touchId: true, guardActions: true });
+    expect(s.globalMuted).toBe(true);
+  });
 });
 
 describe('shareFacebookLogin', () => {

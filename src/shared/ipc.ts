@@ -1,4 +1,11 @@
 import type {
+  ConsentRequest,
+  LockConfigResult,
+  LockConfigure,
+  UnlockRequest,
+  UnlockResult,
+} from './lock';
+import type {
   ActivityEntryView,
   Counts,
   PasskeyView,
@@ -157,6 +164,16 @@ export interface RendererInvoke {
   'passkeys:list': { result: PasskeyView[] };
   'passkeys:forget': { payload: { id: string }; result: PasskeyView[] };
   'passkeys:restore': { payload: { id: string }; result: PasskeyView[] };
+  /** The lock screen's two channels, and the only shell channels served while
+   *  the app is locked. Invoke rather than send: both are questions with an
+   *  answer the surface must render, and neither belongs in every later
+   *  broadcast. */
+  'lock:unlock': { payload: UnlockRequest; result: UnlockResult };
+  'lock:configure': { payload: LockConfigure; result: LockConfigResult };
+  /** Authorize one guarded action — a summon or a purge — with the lock's
+   *  credential. Shell-only, and deliberately absent from
+   *  LOCKED_ALLOWED_CHANNELS: a locked app performs no actions at all. */
+  'lock:confirm': { payload: ConsentRequest; result: UnlockResult };
 }
 
 export type InvokePayload<C extends keyof RendererInvoke> = RendererInvoke[C] extends {
@@ -173,6 +190,9 @@ export const INVOKE_CHANNELS = [
   'passkeys:list',
   'passkeys:forget',
   'passkeys:restore',
+  'lock:unlock',
+  'lock:configure',
+  'lock:confirm',
 ] as const satisfies readonly (keyof RendererInvoke)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -203,4 +223,18 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'pins:restore',
   'pins:setNote',
   'pins:open',
+  'lock:unlock',
+  'lock:configure',
+  'lock:confirm',
+]);
+
+/** The only shell channels served while the app is locked: the two that
+ *  unlock it, plus the Windows taskbar overlay, which carries a count and no
+ *  content. Every other shell-only channel is refused until unlock. Service
+ *  channels are untouched — recipes keep counting behind the lock screen, and
+ *  refusing service:ready would strand a wake cover forever. */
+export const LOCKED_ALLOWED_CHANNELS = new Set<keyof RendererToMain | keyof RendererInvoke>([
+  'lock:unlock',
+  'lock:configure',
+  'badge:overlay',
 ]);

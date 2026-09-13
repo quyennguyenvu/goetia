@@ -3,18 +3,22 @@ import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor, session } f
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { serviceById } from '../shared/services';
 import { wakeCaption } from '../shared/wake-caption';
+import { applyLocked } from './activate';
 import { applyBadges } from './badges';
 import { runShellCommand } from './commands';
 import { HibernationController } from './hibernation';
 import { IdentityShare } from './identity-share';
 import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
+import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
 import { audioMuted } from './lib/notification-rules';
+import { anyOverlayOpen } from './lib/overlay-rules';
 import { muteToggleResult, quietWindowFor } from './lib/quiet-hours-rules';
 import { resolveStartupSurface } from './lib/startup-surface';
 import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
+import { LockController, LockStore } from './lock';
 import { buildAppMenu } from './menu';
 import { NotificationRouter } from './notifications';
 import { PasskeyAuthenticator } from './passkeys/authenticator';
@@ -82,6 +86,16 @@ app
     const settings = new SettingsStore(app.getPath('userData'));
     const pins = new PinStore(app.getPath('userData'));
     const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
+    const lock = new LockController(new LockStore(app.getPath('userData'), safeStorageCodec()), {
+      enabled: () => settings.get().appLock.enabled,
+      touchIdEnabled: () => settings.get().appLock.touchId,
+      hasTouchId,
+      biometric,
+      persist: (patch) => {
+        settings.update({ appLock: { ...settings.get().appLock, ...patch } });
+      },
+      now: Date.now,
+    });
     const state = new MainState();
     const win = createWindow();
 
@@ -199,8 +213,10 @@ app
 
     const syncOverlay = () => {
       const rt = state.runtime(state.activeId);
-      const show =
-        rt.waking && !rt.crashed && !state.switcherOpen && !state.settingsOpen && !state.homeOpen;
+      // the cover is a third view above the shell renderer, so it obeys the
+      // same predicate the service views do — locked included, or it paints
+      // over the lock screen while the restored service wakes behind it
+      const show = rt.waking && !rt.crashed && !anyOverlayOpen(state);
       if (!show) {
         overlay.hide();
         return;
@@ -219,7 +235,14 @@ app
       const s = settings.get();
       win.webContents.send(
         'shell:state',
-        state.snapshot(s, effectiveTheme(), app.getVersion(), quiet.quietNow(), pins.views()),
+        state.snapshot(
+          s,
+          effectiveTheme(),
+          app.getVersion(),
+          quiet.quietNow(),
+          pins.views(),
+          lock.configured(),
+        ),
       );
       const summary = aggregateBadges(s.order.map((id) => state.runtime(id).unread));
       // setBadgeCount and setToolTip are platform calls; only make them when
@@ -248,11 +271,21 @@ app
       broadcast();
     };
 
+    const sampleTouchId = () => {
+      const available = hasTouchId();
+      if (state.touchIdAvailable === available) return;
+      state.touchIdAvailable = available;
+      state.touch();
+    };
+    sampleTouchId();
+
     state.onChange(broadcast);
     nativeTheme.on('updated', broadcast);
     win.webContents.on('did-finish-load', broadcast);
     win.webContents.on('before-input-event', (_e, input) => {
-      // F5 reload while focus is on the shell (menu covers Cmd/Ctrl+R)
+      // F5 reload while focus is on the shell (menu covers Cmd/Ctrl+R). This
+      // path never reaches runShellCommand, so it carries its own lock guard.
+      if (state.locked) return;
       if (input.type === 'keyDown' && input.key === 'F5') views.refresh(state.activeId);
     });
 
@@ -260,7 +293,8 @@ app
     // keyboard focus must land in the service page, not the shell rail —
     // otherwise auto-typed "user → Tab → password → Enter" walks the rail.
     win.on('focus', () => {
-      if (!state.switcherOpen && !state.settingsOpen && !state.homeOpen) views.focusActive();
+      sampleTouchId();
+      if (!anyOverlayOpen(state)) views.focusActive();
     });
 
     // a check can land while the app sits in the tray; the toast waits
@@ -280,6 +314,7 @@ app
       // so a scripted loop cannot chain endless modal prompts
       passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), { cooldownMs: 5_000 }),
       passkeyStore,
+      lock,
       identityShare,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
@@ -318,6 +353,12 @@ app
         applySummon();
         broadcast();
       },
+      syncLocked: () => {
+        if (!applyLocked(ctx, lock.locked)) return;
+        // both menus bake their disabled state in at build time
+        buildAppMenu(ctx);
+        tray?.refresh();
+      },
     };
     hibernation = new HibernationController(ctx);
     resilience = new ResilienceManager(ctx);
@@ -344,6 +385,13 @@ app
       settings.dispose();
     });
 
+    // Locked at launch is the whole point: the app restores the service you
+    // left, so without this the lock would be a screen behind a live chat.
+    // The surface still resolves normally below — locked simply keeps
+    // presentSurface from showing it, so the view is warm at unlock.
+    lock.lock();
+    applyLocked(ctx, lock.locked);
+
     const s0 = settings.get();
     const surface = resolveStartupSurface({
       order: s0.order,
@@ -361,7 +409,7 @@ app
     if (surface.activeId) {
       ctx.noteActivated(surface.activeId);
       // Home covers the view: resolve now, present when Home closes
-      views.activate(surface.activeId, { show: !state.homeOpen });
+      views.activate(surface.activeId, { show: !anyOverlayOpen(state) });
     }
     // never-hibernate services load hidden from the start, so their unread
     // counts and notifications work before ever being clicked

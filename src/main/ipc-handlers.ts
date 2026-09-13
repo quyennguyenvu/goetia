@@ -1,5 +1,6 @@
 import { app, type BrowserWindow, type IpcMainInvokeEvent, ipcMain, Menu, shell } from 'electron';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
+import type { GuardedAction } from '../shared/lock';
 import { serviceById } from '../shared/services';
 import type { ServiceId, Settings } from '../shared/types';
 import {
@@ -13,12 +14,14 @@ import { applyOverlay } from './badges';
 import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
 import { type ActivityLog, openHref } from './lib/activity-log';
-import { stampSummoned } from './lib/banish-rules';
+import { stampSummoned, summonedIds } from './lib/banish-rules';
 import { isSafeExternalUrl } from './lib/external-url';
-import { ipcSenderAllowed } from './lib/ipc-sender-policy';
+import { actionGuarded } from './lib/guard-policy';
+import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
 import { releaseUrl } from './lib/update-check';
+import type { LockController } from './lock';
 import { buildAppMenu } from './menu';
 import type { NotificationRouter } from './notifications';
 import type { PasskeyAuthenticator } from './passkeys/authenticator';
@@ -46,6 +49,8 @@ export interface AppContext {
   passkeys: PasskeyAuthenticator;
   /** its store — Settings → Passkeys lists and forgets through it */
   passkeyStore: PasskeyStore;
+  /** the app lock: whether Goetia is readable, and the credential behind it */
+  lock: LockController;
   /** lends Messenger's Facebook session to another service's sign-in popup;
    *  see identity-share.ts */
   identityShare: IdentityShare;
@@ -77,6 +82,10 @@ export interface AppContext {
   quietScheduleChanged(): void;
   /** re-register the summon hotkey after a setting edit; late-bound in index.ts */
   summonHotkeyChanged(): void;
+  /** mirror the controller's lock state onto the shell surfaces and both
+   *  menus — one writer, so the two can never disagree; late-bound in
+   *  index.ts, which owns the menu and the tray */
+  syncLocked(): void;
 }
 
 /** The one sender gate, shared by both wrappers below so neither transport can
@@ -87,6 +96,7 @@ function senderAllowed(
   senderId: number,
   payloadServiceId?: ServiceId,
 ): boolean {
+  if (ctx.lock.locked && !channelAllowedWhileLocked(channel)) return false;
   return ipcSenderAllowed({
     channel,
     fromShell: senderId === ctx.win.webContents.id,
@@ -205,6 +215,42 @@ export function applyDisabledChange(ctx: AppContext, before: Settings): void {
   buildAppMenu(ctx);
 }
 
+/** Finish the banner click the lock screen interrupted. The entry is resolved
+ *  and re-validated now rather than at park time, exactly as a live click is:
+ *  the service may have been banished, or the entry rotated out of the ring,
+ *  in the minutes the app spent locked. */
+function replayPending(ctx: AppContext): void {
+  const pending = ctx.lock.takePending();
+  if (!pending) return;
+  const entry = pending.entryId !== undefined ? ctx.activity.get(pending.entryId) : undefined;
+  if (!entry) {
+    activateService(ctx, pending.serviceId);
+    return;
+  }
+  const meta = serviceById(entry.serviceId);
+  const action = resolveBannerClick({
+    disabled: ctx.settings.get().disabled[entry.serviceId],
+    hasView: ctx.views.has(entry.serviceId),
+    clickId: entry.clickId,
+    href: openHref(entry),
+    conversation: meta.bannerTitleNamesConversation ? entry.conversation : undefined,
+    serviceUrl: meta.url,
+    chatPaths: meta.chatPaths,
+  });
+  void performBannerAction(ctx, entry.serviceId, action, { entryId: entry.id });
+}
+
+/** True when this action may proceed: either the guard is off, or the user
+ *  has just authorized exactly this action. A refusal is silent, like every
+ *  other refusal in this file. */
+function authorized(ctx: AppContext, action: GuardedAction): boolean {
+  const guarded = actionGuarded({
+    guardActions: ctx.settings.get().appLock.guardActions,
+    configured: ctx.lock.configured(),
+  });
+  return !guarded || ctx.lock.consumeConsent(action);
+}
+
 function setServiceMuted(ctx: AppContext, serviceId: ServiceId, muted: boolean): void {
   const s = ctx.settings.get();
   ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
@@ -232,7 +278,10 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       { label: `Banish ${name}`, click: () => ctx.banishServices([serviceId]) },
     ]).popup({ window: ctx.win });
   });
-  on('service:purgeLogin', ({ serviceId }) => void purgeLogin(ctx, serviceId));
+  on('service:purgeLogin', ({ serviceId }) => {
+    if (!authorized(ctx, { kind: 'purge-one', serviceId })) return;
+    void purgeLogin(ctx, serviceId);
+  });
   on('service:reorder', ({ orderedIds }) => {
     ctx.settings.update({ order: orderedIds });
     buildAppMenu(ctx); // keep Cmd/Ctrl+1..9 aligned with the new order
@@ -248,6 +297,14 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('settings:update', (patch) => {
     const before = ctx.settings.get();
+    // The whole frame is refused, not just its disabled half: Home commits
+    // adds, removals and the new order together on purpose, so there is no
+    // partial patch to apply. A banish-only or reorder-only commit summons
+    // nothing and never reaches this branch.
+    if (patch.disabled) {
+      const summoned = summonedIds(before.order, before.disabled, patch.disabled);
+      if (summoned.length > 0 && !authorized(ctx, { kind: 'summon' })) return;
+    }
     // summoning restarts the unused clock, in the same write as the summon:
     // Home commits adds, banishes and reorders as one frame, and a second
     // settings write here would cost a second broadcast and menu rebuild
@@ -290,7 +347,12 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
   onInvoke('activity:recent', [], () => ctx.activity.recent());
-  onInvoke('services:purgeAll', { purged: 0 }, () => purgeAll(ctx));
+  onInvoke('services:purgeAll', { purged: 0 }, () => {
+    // the same shape a blocked sender gets, so the toast says nothing
+    // happened — which is true
+    if (!authorized(ctx, { kind: 'purge-all' })) return { purged: 0 };
+    return purgeAll(ctx);
+  });
   onInvoke('webauthn:create', { ok: false, error: 'NotAllowedError' }, (payload, e) => {
     const origin = invokeOrigin(e);
     if (!origin) return { ok: false, error: 'SecurityError' };
@@ -319,6 +381,22 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   onInvoke('passkeys:restore', [], ({ id }) => {
     ctx.passkeyStore.restore(id);
     return ctx.passkeyStore.views();
+  });
+  onInvoke('lock:unlock', { ok: false, waitMs: 0, reason: 'unavailable' }, async (req) => {
+    const result = await ctx.lock.unlock(req);
+    ctx.syncLocked();
+    if (result.ok) replayPending(ctx);
+    return result;
+  });
+  onInvoke('lock:confirm', { ok: false, waitMs: 0, reason: 'unavailable' }, (req) =>
+    ctx.lock.grantConsent(req.action, req.credential),
+  );
+  onInvoke('lock:configure', { ok: false, error: 'wrong' }, async (req) => {
+    const result = await ctx.lock.configure(req);
+    // the pane renders from ShellState.settings and lockConfigured, and
+    // configure() may have moved both
+    if (result.ok) ctx.broadcast();
+    return result;
   });
   on('activity:open', ({ entryId }) => {
     const entry = ctx.activity.get(entryId);

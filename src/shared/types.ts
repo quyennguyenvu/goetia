@@ -138,6 +138,14 @@ export interface Settings {
    *  behaviour exactly — nothing seeded, nothing removed, nothing touched.
    *  See main/lib/identity-share.ts and the 2026-09-01 spec. */
   shareFacebookLogin: boolean;
+  /** Require Touch ID or a passcode before Goetia can be read. The secret
+   *  itself lives in lock.json — never here, because ShellState broadcasts
+   *  this whole object to the renderer. `touchId` is separately switchable
+   *  because Touch ID accepts any finger enrolled on the Mac, which on a
+   *  shared machine is exactly the person the lock is aimed at.
+   *  `guardActions` extends the same credential to three actions an unlocked
+   *  Goetia would otherwise do for anyone — see the 2026-09-13 spec. */
+  appLock: { enabled: boolean; touchId: boolean; guardActions: boolean };
   /** scheduled global mute: window + active days; see lib/quiet-hours-rules */
   quietHours: QuietHoursSchedule;
   /** start (epoch ms) of the one window the user dismissed by unmuting */
@@ -239,6 +247,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lightSleep: true,
   peekSaver: false,
   shareFacebookLogin: true,
+  appLock: { enabled: false, touchId: true, guardActions: true },
   quietHours: {
     enabled: false,
     start: '22:00',
@@ -283,6 +292,12 @@ export interface ShellState {
   switcherOpen: boolean;
   settingsOpen: boolean;
   homeOpen: boolean;
+  /** the lock screen is up; every other surface is behind it */
+  locked: boolean;
+  /** a passcode is set — what the Lock pane's rows depend on */
+  lockConfigured: boolean;
+  /** this machine can prompt Touch ID, as of the last sample */
+  touchIdAvailable: boolean;
   /** ids the summon cap banished at startup; the shell toasts them once */
   capTrimmed: ServiceId[];
   /** the pinboard in priority order; pins[0] is the one in progress */

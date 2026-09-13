@@ -27,6 +27,17 @@ export function shouldBanish(s: BanishCandidate, now: number, banishMs: number):
  *  so its unused clock restarts then — the sweep's own seeding only covers a
  *  service that was NEVER activated, which left one activated long ago and
  *  since banished due the instant it came back to the rail (2026-09-03). */
+/** Services this patch un-banishes. The guard and the unused-clock stamp both
+ *  need "what counts as a summon", and two copies of that predicate is how
+ *  they would come to disagree. */
+export function summonedIds(
+  order: ServiceId[],
+  before: Record<ServiceId, boolean>,
+  after: Record<ServiceId, boolean>,
+): ServiceId[] {
+  return order.filter((id) => before[id] && !after[id]);
+}
+
 export function stampSummoned(opts: {
   order: ServiceId[];
   before: Record<ServiceId, boolean>;
@@ -34,7 +45,7 @@ export function stampSummoned(opts: {
   lastUsedAt: Record<ServiceId, number>;
   now: number;
 }): Record<ServiceId, number> | null {
-  const summoned = opts.order.filter((id) => opts.before[id] && !opts.after[id]);
+  const summoned = summonedIds(opts.order, opts.before, opts.after);
   if (summoned.length === 0) return null;
   const next = { ...opts.lastUsedAt };
   for (const id of summoned) next[id] = opts.now;

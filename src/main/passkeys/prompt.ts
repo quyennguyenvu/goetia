@@ -1,5 +1,6 @@
-import { app, type BrowserWindow, dialog, systemPreferences } from 'electron';
+import { app, type BrowserWindow, dialog } from 'electron';
 import { PASSKEY_CAP } from '../../shared/passkeys';
+import { biometric, hasTouchId } from '../lib/biometrics';
 import type { PasskeyPrompt, Verification } from './authenticator';
 
 /** e2e drives ceremonies headless; a packaged build ignores this entirely,
@@ -7,19 +8,7 @@ import type { PasskeyPrompt, Verification } from './authenticator';
 const AUTO_ACCEPT = !app.isPackaged && process.env.GOETIA_WEBAUTHN_PROMPT === 'accept';
 
 /** Every prompt is native: the service page covers the shell, and a message
- *  box on the window draws over the views. macOS renders promptTouchID as
- *  `"Goetia" is trying to <reason>`. */
-const hasTouchId = (): boolean =>
-  process.platform === 'darwin' && systemPreferences.canPromptTouchID();
-
-async function biometric(reason: string): Promise<boolean> {
-  try {
-    await systemPreferences.promptTouchID(reason);
-    return true;
-  } catch {
-    return false; // cancelled, or no finger matched
-  }
-}
+ *  box on the window draws over the views. */
 
 async function ask(
   win: BrowserWindow,

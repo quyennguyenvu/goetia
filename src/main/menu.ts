@@ -24,6 +24,12 @@ export function buildAppMenu(ctx: AppContext): void {
     checked: s.globalMuted || ctx.quietNow(),
     click: run({ kind: 'mute' }),
   };
+  const lockItem: Electron.MenuItemConstructorOptions = {
+    label: 'Lock Goetia',
+    accelerator: ACCELERATORS.lock,
+    enabled: s.appLock.enabled && ctx.lock.configured(),
+    click: run({ kind: 'lock' }),
+  };
   const checkUpdatesItem: Electron.MenuItemConstructorOptions = {
     label: 'Check for Updates…',
     click: () => {
@@ -41,6 +47,7 @@ export function buildAppMenu(ctx: AppContext): void {
               checkUpdatesItem,
               { type: 'separator' as const },
               muteItem,
+              lockItem,
               settingsItem,
               { type: 'separator' as const },
               { role: 'services' as const },
@@ -127,7 +134,7 @@ export function buildAppMenu(ctx: AppContext): void {
           click: run({ kind: 'switcher' }),
         },
         ...(process.platform !== 'darwin'
-          ? [{ type: 'separator' as const }, muteItem, checkUpdatesItem, settingsItem]
+          ? [{ type: 'separator' as const }, muteItem, lockItem, checkUpdatesItem, settingsItem]
           : []),
       ],
     },

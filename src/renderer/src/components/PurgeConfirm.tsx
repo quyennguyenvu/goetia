@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { purgeAllCopy, purgeLoginCopy } from '../../../shared/purge-copy';
 import { type PurgeRequest, useShell } from '../store';
+import CredentialConfirm from './CredentialConfirm';
 import { purgeToastMessage } from './toast-rules';
 
 /** Confirm gate for both purges. In-app rather than a native dialog for one
@@ -11,11 +12,15 @@ import { purgeToastMessage } from './toast-rules';
 export default function PurgeConfirm() {
   const request = useShell((s) => s.purgeConfirm);
   const [acked, setAcked] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const guardActions = useShell((s) => s.state?.settings.appLock.guardActions ?? false);
+  const lockConfigured = useShell((s) => s.state?.lockConfigured ?? false);
 
   // a fresh request always starts unacknowledged, however the last one ended
   // biome-ignore lint/correctness/useExhaustiveDependencies: request is the trigger, not a read
   useEffect(() => {
     setAcked(false);
+    setVerified(false);
   }, [request]);
 
   useEffect(() => {
@@ -35,7 +40,9 @@ export default function PurgeConfirm() {
 
   const copy = request.kind === 'all' ? purgeAllCopy(request.count) : purgeLoginCopy(request.name);
   const gated = copy.checkboxLabel !== undefined;
-  const ready = !gated || acked;
+  // main is the enforcer; this only decides when to ask
+  const guarded = guardActions && lockConfigured;
+  const ready = (!gated || acked) && (!guarded || verified);
   const close = () => useShell.getState().setPurgeConfirm(null);
 
   const confirm = async (req: PurgeRequest) => {
@@ -77,6 +84,17 @@ export default function PurgeConfirm() {
             />
             {copy.checkboxLabel}
           </label>
+        )}
+        {guarded && !verified && (
+          <CredentialConfirm
+            autoFocus
+            action={
+              request.kind === 'all'
+                ? { kind: 'purge-all' }
+                : { kind: 'purge-one', serviceId: request.id }
+            }
+            onVerified={() => setVerified(true)}
+          />
         )}
         <div className="mt-4 flex justify-end gap-2">
           <button

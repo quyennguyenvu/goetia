@@ -9,6 +9,8 @@ export const ACCELERATORS = {
   pinSelection: 'CmdOrCtrl+Shift+S',
   switcher: 'CmdOrCtrl+K',
   mute: 'CmdOrCtrl+Shift+M',
+  /** left half like Home and Pin: reached one-handed on the way out the door */
+  lock: 'CmdOrCtrl+Shift+L',
   settings: 'CmdOrCtrl+,',
   /** F5 is the browser habit; the menu shows the first */
   reload: ['CmdOrCtrl+R', 'F5'],

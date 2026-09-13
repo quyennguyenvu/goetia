@@ -36,6 +36,16 @@ export function createTray(ctx: AppContext): {
           // it twice risks the toggle firing twice for one keypress
           click: (item) => ctx.setGlobalMuted(item.checked),
         },
+        {
+          label: 'Lock Goetia',
+          enabled: s.appLock.enabled && ctx.lock.configured() && !ctx.lock.locked,
+          // no accelerator here: the app menu owns the binding, and declaring
+          // it twice risks the lock firing twice for one keypress
+          click: () => {
+            ctx.lock.lock();
+            ctx.syncLocked();
+          },
+        },
         { type: 'separator' },
         {
           label: 'Quit Goetia',

@@ -27,6 +27,13 @@ export class MainState {
   /** Home (the welcome screen) is a shell surface, not a persisted
    *  preference: a restart lands on the active service. */
   homeOpen = false;
+  /** The lock screen is up. Joins anyOverlayOpen, so every service view is
+   *  hidden by the same machinery settings and Home already use. */
+  locked = false;
+  /** Whether Touch ID answered "can prompt" at the last sample (boot and
+   *  window focus). Sampled rather than read per broadcast: canPromptTouchID
+   *  is a synchronous system call and broadcasts are frequent. */
+  touchIdAvailable = false;
   /** set once at boot from SettingsStore.bootTrimmed; constant for the run */
   capTrimmed: ServiceId[] = [];
   /** set by the summon-hotkey wiring; true when disabled or registered */
@@ -93,6 +100,7 @@ export class MainState {
     version: string,
     quietActive: boolean,
     pins: PinView[] = [],
+    lockConfigured = false,
   ): ShellState {
     const runtime = {} as ShellState['runtime'];
     for (const id of settings.order) runtime[id] = { ...this.runtime(id) };
@@ -108,7 +116,12 @@ export class MainState {
       settingsOpen: this.settingsOpen,
       homeOpen: this.homeOpen,
       capTrimmed: [...this.capTrimmed],
-      pins,
+      // pinned text is conversation content; a locked app hands the renderer
+      // none of it, so not even devtools on the shell shows a message
+      pins: this.locked ? [] : pins,
+      locked: this.locked,
+      lockConfigured,
+      touchIdAvailable: this.touchIdAvailable,
       theme,
       settings,
       version,

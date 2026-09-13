@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { aggregateBadges, badgeLabel } from '../../shared/badges';
 import CapTrimToast from './components/CapTrimToast';
 import ContentPlaceholder from './components/ContentPlaceholder';
+import LockScreen from './components/LockScreen';
 import { overlayNeedsUpdate, renderOverlayDataUrl } from './components/overlay-badge';
 import PinToast from './components/PinToast';
 import PurgeConfirm from './components/PurgeConfirm';
@@ -84,6 +85,7 @@ export default function App() {
       <SettingsView />
       <QuickSwitcher />
       <PurgeConfirm />
+      <LockScreen />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { SERVICES, serviceById } from '../shared/services';
 import { performBannerAction } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { splitBannerTitle } from './lib/banner-title';
+import { redactBanner } from './lib/lock-rules';
 import { resolveBannerClick } from './lib/notification-click';
 import { resolveIcons } from './lib/notification-icons';
 import {
@@ -70,15 +71,26 @@ export class NotificationRouter {
     });
     if (silenced) return;
     const icon = this.icons.get(serviceId);
+    // the log above keeps the real title: it is in-memory, and activity:recent
+    // is refused while locked, so recents are correct the moment it lifts
+    const shown = this.ctx.lock.locked
+      ? redactBanner(serviceById(serviceId).name)
+      : { title, body };
     const notification = new Notification({
-      title: notificationTitle(title, serviceById(serviceId).name),
-      body,
+      title: notificationTitle(shown.title, serviceById(serviceId).name),
+      body: shown.body,
       ...soundOptions({ enabled: s.notificationSound, synthetic }),
       ...(icon ? { icon } : {}),
     });
     notification.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
     notification.on('click', () => {
       this.ctx.win.show();
+      // a banner click must not be a way past the lock screen: park what the
+      // user reached for and replay it after the unlock, re-validated then
+      if (this.ctx.lock.locked) {
+        this.ctx.lock.setPending({ serviceId, entryId });
+        return;
+      }
       const meta = serviceById(serviceId);
       const action = resolveBannerClick({
         // a stale banner can outlive its service being banished on Home

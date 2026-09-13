@@ -4,6 +4,7 @@ import { ACCELERATORS, devtoolsAccelerator } from '../../../shared/shortcuts';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
+import LockPane from './LockPane';
 import PasskeysPane from './PasskeysPane';
 import { shouldAutoRecheck, updatePending } from './update-rules';
 
@@ -12,6 +13,7 @@ type SectionId =
   | 'appearance'
   | 'services'
   | 'passkeys'
+  | 'lock'
   | 'notifications'
   | 'shortcuts'
   | 'updates';
@@ -21,6 +23,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'services', label: 'Services' },
   { id: 'passkeys', label: 'Passkeys' },
+  { id: 'lock', label: 'Lock' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'updates', label: 'Updates' },
@@ -511,6 +514,11 @@ export default function SettingsView() {
                 <PasskeysPane />
               </Pane>
             )}
+            {active === 'lock' && (
+              <Pane title="Lock">
+                <LockPane />
+              </Pane>
+            )}
             {active === 'notifications' && (
               <Pane title="Notifications">
                 <Row label="Mute all notifications">
@@ -663,6 +671,7 @@ export default function SettingsView() {
                   last
                   rows={[
                     [key(ACCELERATORS.settings), 'settings'],
+                    [key(ACCELERATORS.lock), 'lock Goetia'],
                     ['Right-click a tile', 'mute or banish the service'],
                     ['Drag tiles', 'reorder services'],
                   ]}

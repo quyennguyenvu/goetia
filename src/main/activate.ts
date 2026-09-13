@@ -50,6 +50,21 @@ export function setHomeOpen(ctx: AppContext, open: boolean): void {
   ctx.state.touch();
 }
 
+/** Move the shell onto or off the lock screen. Views come back through the
+ *  same presentSurface every other surface uses. Returns whether anything
+ *  changed, so the caller can skip a menu rebuild and a broadcast.
+ *
+ *  MainState.locked mirrors LockController.locked; this is its only writer,
+ *  and callers pass the controller's answer rather than a literal, so the
+ *  flag the renderer sees cannot disagree with the controller. */
+export function applyLocked(ctx: AppContext, locked: boolean): boolean {
+  if (ctx.state.locked === locked) return false;
+  ctx.state.locked = locked;
+  presentSurface(ctx);
+  ctx.state.touch();
+  return true;
+}
+
 /** Single entry point for switching services: closes any overlay (settings,
  *  quick switcher) first, then activates — keeps shell state and the native
  *  view layer consistent no matter where the switch came from. */

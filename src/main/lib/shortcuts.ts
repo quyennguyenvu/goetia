@@ -14,6 +14,7 @@ export type ShellCommand =
   | { kind: 'pin-selection' }
   | { kind: 'switcher' }
   | { kind: 'mute' }
+  | { kind: 'lock' }
   | { kind: 'settings' }
   | { kind: 'reload' }
   | { kind: 'devtools' }
@@ -92,6 +93,7 @@ const FIXED: ReadonlyArray<readonly [readonly string[], ShellCommand]> = [
   [[ACCELERATORS.pinSelection], { kind: 'pin-selection' }],
   [[ACCELERATORS.switcher], { kind: 'switcher' }],
   [[ACCELERATORS.mute], { kind: 'mute' }],
+  [[ACCELERATORS.lock], { kind: 'lock' }],
   [[ACCELERATORS.settings], { kind: 'settings' }],
   [ACCELERATORS.reload, { kind: 'reload' }],
   [[ACCELERATORS.zoomIn], { kind: 'zoom', step: 1 }],
