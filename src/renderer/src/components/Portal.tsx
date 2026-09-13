@@ -10,7 +10,7 @@ const VIEW = '0 0 96 96';
 export default function Portal({ className }: { className: string }) {
   return (
     <div className={`portal ${className}`} aria-hidden="true">
-      <div className="portal-layer ring">
+      <div className="portal-layer portal-ring">
         <svg viewBox={VIEW} aria-hidden="true">
           <defs>
             <linearGradient

@@ -22,7 +22,9 @@
   width: 100%;
   height: 100%;
 }
-.ring {
+/* not `ring`: Tailwind scans class tokens, and its `ring` utility outlined
+ * the spinning square in currentColor */
+.portal-ring {
   animation: portal-spin 6s linear infinite;
 }
 .core {
