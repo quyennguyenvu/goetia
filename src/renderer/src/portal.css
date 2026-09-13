@@ -1,11 +1,31 @@
 /* Ember-portal animation, shared by the loading page and the shell's
- * welcome screen. Sizing/layout stays with each consumer. */
+ * welcome screen. Sizing/layout stays with each consumer.
+ *
+ * The animated parts are HTML wrappers, not SVG children: a transform on
+ * an SVG <g> re-styles, re-paints and re-rasterizes the blur filters on
+ * every frame for as long as the sigil is on the rail (a steady ~10% of a
+ * core in the shell renderer, 2026-09-13), while a transform/opacity
+ * animation on an HTML layer runs on the compositor alone. */
+/* clips the rotating square layers to the box, as the single SVG root
+ * used to — spilled corners are scrollable overflow for the page */
+.portal {
+  position: relative;
+  overflow: hidden;
+}
+.portal-layer {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.portal-layer > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .ring {
-  transform-origin: 48px 48px;
   animation: portal-spin 6s linear infinite;
 }
 .core {
-  transform-origin: 48px 48px;
   animation: portal-breathe 2.4s ease-in-out infinite;
 }
 @keyframes portal-spin {
@@ -16,7 +36,6 @@
 /* embers drift along the ring band (rotate about the ring center keeps
  * them on its radius), trailing behind the counterclockwise spin */
 .ember {
-  transform-origin: 48px 48px;
   animation: ember-drift 1.8s linear infinite;
 }
 .ember-2 {
