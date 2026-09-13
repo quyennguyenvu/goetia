@@ -43,7 +43,16 @@ export const SERVICES: ServiceMeta[] = [
   // buyer chat lives in the mini-chat widget on the shopping site; the
   // recipe css reshapes it to fill the view. Never target /webchat —
   // it hits Shopee's anti-bot wall (verify/captcha, scene=crawler_item)
-  { id: 'shopee', name: 'Shopee', url: 'https://shopee.vn/', color: '#EE4D2D', waitForReady: true },
+  // the widget never fires a web Notification, so its banners are the
+  // recipe's own, titled with the shop name — the one handle that opens it
+  {
+    id: 'shopee',
+    name: 'Shopee',
+    url: 'https://shopee.vn/',
+    color: '#EE4D2D',
+    waitForReady: true,
+    bannerTitleNamesConversation: true,
+  },
   // the whole client under app.slack.com/client is chat (discord precedent);
   // /client lands on the last-active workspace, the built-in switcher rail
   // covers the rest. Logged out it 302s to the workspace-first signin — the

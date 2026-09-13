@@ -35,6 +35,7 @@ const cases: [ServiceId, string, number, number][] = [
   ['zalo', 'zalo', 2, 0], // fa-2 tab badge
   ['tiktok', 'tiktok', 2, 0], // header Messages badge total
   ['shopee', 'shopee', 31, 0], // mini-chat header badge
+  ['shopee', 'shopee-chat', 33, 0], // same badge, live 2026-09-13 shape
   ['slack', 'slack', 3, 2], // mention badges sum direct; badge-less unread channels indirect; muted skipped
   ['teams', 'teams-chat', 0, 2], // rows Teams describes as unread are indirect; no badge in the live capture
 ];
@@ -85,6 +86,7 @@ describe('ready()', () => {
 
   it('shopee is ready only when the mini-chat is expanded', () => {
     expect(recipes.shopee.ready?.(load('shopee'))).toBe(true);
+    expect(recipes.shopee.ready?.(load('shopee-chat'))).toBe(true);
     expect(recipes.shopee.ready?.(load('shopee-collapsed'))).toBe(false);
     expect(recipes.shopee.ready?.(load('blank'))).toBe(false);
   });
@@ -154,7 +156,7 @@ describe('bannerTitleNamesConversation', () => {
   // only actionable through the recipe's own row-clicking opener
   it('is set exactly where the URL names no thread, and openConversation exists', () => {
     const flagged = SERVICES.filter((s) => s.bannerTitleNamesConversation).map((s) => s.id);
-    expect(flagged).toEqual(['whatsapp', 'zalo']);
+    expect(flagged).toEqual(['shopee', 'whatsapp', 'zalo']);
     for (const id of flagged) expect(recipes[id].openConversation, id).toBeDefined();
   });
 });
