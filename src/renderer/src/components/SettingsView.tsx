@@ -405,7 +405,7 @@ export default function SettingsView() {
                               .getState()
                               .setPurgeConfirm({ kind: 'one', id: svc.id, name: svc.name })
                           }
-                          className="rounded-ctl bg-danger px-2.5 py-1 font-semibold text-white transition-opacity duration-120 hover:opacity-90"
+                          className="rounded-ctl px-1.5 py-0.5 text-text-2 transition-colors duration-120 hover:bg-bg-2 hover:text-danger"
                         >
                           Purge login…
                         </button>

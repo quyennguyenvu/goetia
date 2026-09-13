@@ -20,6 +20,7 @@ import { actionGuarded } from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import { type TileMenuAction, tileMenuItems } from './lib/tile-menu';
 import { releaseUrl } from './lib/update-check';
 import type { LockController } from './lock';
 import { buildAppMenu } from './menu';
@@ -267,16 +268,24 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('service:setMuted', ({ serviceId, muted }) => setServiceMuted(ctx, serviceId, muted));
   on('service:tileMenu', ({ serviceId }) => {
     const muted = ctx.settings.get().muted[serviceId];
-    const name = serviceById(serviceId).name;
-    Menu.buildFromTemplate([
-      {
-        label: muted ? `Unmute ${name}` : `Mute ${name}`,
-        click: () => setServiceMuted(ctx, serviceId, !muted),
-      },
-      { type: 'separator' },
-      // quick and recoverable (login kept, re-summon on Home) — no confirm
-      { label: `Banish ${name}`, click: () => ctx.banishServices([serviceId]) },
-    ]).popup({ window: ctx.win });
+    // every action is quick and recoverable (banish keeps the login) — no confirm
+    const run: Record<TileMenuAction, () => void> = {
+      reload: () => ctx.views.refresh(serviceId),
+      mute: () => setServiceMuted(ctx, serviceId, !muted),
+      banish: () => ctx.banishServices([serviceId]),
+    };
+    const items = tileMenuItems({
+      name: serviceById(serviceId).name,
+      muted,
+      live: ctx.views.has(serviceId),
+    });
+    Menu.buildFromTemplate(
+      items.map((item) =>
+        item.type === 'separator'
+          ? item
+          : { label: item.label, enabled: item.enabled, click: run[item.action] },
+      ),
+    ).popup({ window: ctx.win });
   });
   on('service:purgeLogin', ({ serviceId }) => {
     if (!authorized(ctx, { kind: 'purge-one', serviceId })) return;
