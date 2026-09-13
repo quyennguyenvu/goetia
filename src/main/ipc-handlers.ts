@@ -274,11 +274,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       mute: () => setServiceMuted(ctx, serviceId, !muted),
       banish: () => ctx.banishServices([serviceId]),
     };
-    const items = tileMenuItems({
-      name: serviceById(serviceId).name,
-      muted,
-      live: ctx.views.has(serviceId),
-    });
+    const items = tileMenuItems({ muted, live: ctx.views.has(serviceId) });
     Menu.buildFromTemplate(
       items.map((item) =>
         item.type === 'separator'
