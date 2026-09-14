@@ -3,11 +3,10 @@ import { join } from 'node:path';
 import { app, Notification } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
 import { SERVICES, serviceById } from '../shared/services';
-import { performBannerAction } from './activate';
+import { activateService, openActivityEntry } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { splitBannerTitle } from './lib/banner-title';
 import { redactBanner } from './lib/lock-rules';
-import { resolveBannerClick } from './lib/notification-click';
 import { resolveIcons } from './lib/notification-icons';
 import {
   notificationTitle,
@@ -91,18 +90,11 @@ export class NotificationRouter {
         this.ctx.lock.setPending({ serviceId, entryId });
         return;
       }
-      const meta = serviceById(serviceId);
-      const action = resolveBannerClick({
-        // a stale banner can outlive its service being banished on Home
-        disabled: this.ctx.settings.get().disabled[serviceId],
-        hasView: this.ctx.views.has(serviceId),
-        clickId,
-        href,
-        conversation: meta.bannerTitleNamesConversation ? conversation : undefined,
-        serviceUrl: meta.url,
-        chatPaths: meta.chatPaths,
-      });
-      void performBannerAction(this.ctx, serviceId, action, { entryId });
+      // a Notification Center banner outlives ACTIVITY_CAP newer ones only
+      // rarely; with its entry rotated out there is nothing safe left to open
+      const entry = this.ctx.activity.get(entryId);
+      if (entry) openActivityEntry(this.ctx, entry);
+      else activateService(this.ctx, serviceId);
     });
     this.ctx.noteBannerFired(serviceId);
     notification.show();

@@ -5,6 +5,7 @@ import { serviceById } from '../shared/services';
 import type { ServiceId, Settings } from '../shared/types';
 import {
   activateService,
+  openActivityEntry,
   performBannerAction,
   rememberSurface,
   setHomeOpen,
@@ -13,7 +14,7 @@ import {
 import { applyOverlay } from './badges';
 import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
-import { type ActivityLog, openHref } from './lib/activity-log';
+import type { ActivityLog } from './lib/activity-log';
 import { stampSummoned, summonedIds } from './lib/banish-rules';
 import { isSafeExternalUrl } from './lib/external-url';
 import { actionGuarded } from './lib/guard-policy';
@@ -224,21 +225,8 @@ function replayPending(ctx: AppContext): void {
   const pending = ctx.lock.takePending();
   if (!pending) return;
   const entry = pending.entryId !== undefined ? ctx.activity.get(pending.entryId) : undefined;
-  if (!entry) {
-    activateService(ctx, pending.serviceId);
-    return;
-  }
-  const meta = serviceById(entry.serviceId);
-  const action = resolveBannerClick({
-    disabled: ctx.settings.get().disabled[entry.serviceId],
-    hasView: ctx.views.has(entry.serviceId),
-    clickId: entry.clickId,
-    href: openHref(entry),
-    conversation: meta.bannerTitleNamesConversation ? entry.conversation : undefined,
-    serviceUrl: meta.url,
-    chatPaths: meta.chatPaths,
-  });
-  void performBannerAction(ctx, entry.serviceId, action, { entryId: entry.id });
+  if (entry) openActivityEntry(ctx, entry);
+  else activateService(ctx, pending.serviceId);
 }
 
 /** True when this action may proceed: either the guard is off, or the user
@@ -405,19 +393,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('activity:open', ({ entryId }) => {
     const entry = ctx.activity.get(entryId);
-    if (!entry) return; // rotated out of the ring since the switcher fetched
-    const meta = serviceById(entry.serviceId);
-    const action = resolveBannerClick({
-      disabled: ctx.settings.get().disabled[entry.serviceId],
-      hasView: ctx.views.has(entry.serviceId),
-      // the shim's replay handle, still same-document (onNavigate forgets it)
-      clickId: entry.clickId,
-      href: openHref(entry),
-      conversation: meta.bannerTitleNamesConversation ? entry.conversation : undefined,
-      serviceUrl: meta.url,
-      chatPaths: meta.chatPaths,
-    });
-    void performBannerAction(ctx, entry.serviceId, action, { entryId });
+    if (entry) openActivityEntry(ctx, entry); // else rotated out since the switcher fetched
   });
   // every mutation broadcasts only when the store actually changed — a stale
   // renderer's no-op must not cost a fan-out

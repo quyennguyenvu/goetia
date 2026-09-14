@@ -1,6 +1,8 @@
+import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
-import type { BannerClickAction } from './lib/notification-click';
+import { type ActivityEntry, openHref } from './lib/activity-log';
+import { type BannerClickAction, resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
 
 /** Remember the surface to restore on the next launch. Written on change, not
@@ -109,4 +111,27 @@ export async function performBannerAction(
   } else if (result.lane === 'replay' && result.url && opts.entryId !== undefined) {
     ctx.activity.learnUrl(opts.entryId, result.url);
   }
+}
+
+/** Open the conversation an activity entry names — a banner click, a recents
+ *  row, or a click parked behind the lock. The entry is what the log holds
+ *  NOW, never the payload the banner was built from: a Notification Center
+ *  banner is clicked hours later, and by then onNavigate has forgotten a
+ *  replay handle whose document is gone — the shim's ids restart at 1 in the
+ *  next one, so the fire-time id replays a DIFFERENT banner, a hit on the
+ *  wrong thread that the name lane never gets to correct — and a landed
+ *  replay may have taught the row a URL the payload never had. */
+export function openActivityEntry(ctx: AppContext, entry: ActivityEntry): void {
+  const meta = serviceById(entry.serviceId);
+  const action = resolveBannerClick({
+    // a stale banner can outlive its service being banished on Home
+    disabled: ctx.settings.get().disabled[entry.serviceId],
+    hasView: ctx.views.has(entry.serviceId),
+    clickId: entry.clickId,
+    href: openHref(entry),
+    conversation: meta.bannerTitleNamesConversation ? entry.conversation : undefined,
+    serviceUrl: meta.url,
+    chatPaths: meta.chatPaths,
+  });
+  void performBannerAction(ctx, entry.serviceId, action, { entryId: entry.id });
 }

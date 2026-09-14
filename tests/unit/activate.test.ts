@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   activateService,
+  openActivityEntry,
   performBannerAction,
   setHomeOpen,
   setOverlayOpen,
 } from '../../src/main/activate';
 import type { AppContext } from '../../src/main/ipc-handlers';
+import type { ActivityEntry } from '../../src/main/lib/activity-log';
 import { MainState } from '../../src/main/state';
 import { DEFAULT_SETTINGS } from '../../src/shared/types';
 
@@ -273,5 +275,112 @@ describe('setOverlayOpen', () => {
     state.onChange(cb);
     setOverlayOpen(makeCtx(state).ctx, 'settingsOpen', true);
     expect(cb).toHaveBeenCalled();
+  });
+});
+
+// a banner in Notification Center is clicked hours after it fired: the entry
+// is what the log holds NOW, never the payload the banner was built from
+describe('openActivityEntry', () => {
+  // fresh-install defaults disable every service; these clicks land on a
+  // summoned one unless a case says otherwise
+  const summoned = Object.fromEntries(
+    Object.keys(DEFAULT_SETTINGS.disabled).map((k) => [k, false]),
+  );
+  function makeEntryCtx(hasView = true, disabled: Partial<Record<string, boolean>> = {}) {
+    const state = new MainState();
+    const views = {
+      activate: vi.fn(),
+      hideActive: vi.fn(),
+      showActive: vi.fn(),
+      openConversation: vi.fn(),
+      openInPage: vi.fn().mockResolvedValue({ lane: 'name', url: 'https://web.whatsapp.com/' }),
+      has: () => hasView,
+    };
+    const ctx = {
+      state,
+      views,
+      activity: { learnUrl: vi.fn() },
+      settings: {
+        update: vi.fn(),
+        get: () => ({ ...DEFAULT_SETTINGS, disabled: { ...summoned, ...disabled } }),
+      },
+      noteActivated: vi.fn(),
+    } as unknown as AppContext;
+    return { ctx, views };
+  }
+  const entry = (over: Partial<ActivityEntry>): ActivityEntry => ({
+    id: 4,
+    serviceId: 'whatsapp',
+    title: 'TICKETBOX',
+    conversation: 'TICKETBOX',
+    synthetic: false,
+    silenced: false,
+    at: 1,
+    ...over,
+  });
+
+  // the document was replaced since the banner fired (peek, reload, wake):
+  // onNavigate forgot the handle, and the shim's ids restarted at 1, so the
+  // fire-time id would replay a DIFFERENT banner — the name lane is the truth
+  it('a forgotten replay handle stays out of the request', () => {
+    const { ctx, views } = makeEntryCtx();
+    openActivityEntry(ctx, entry({ clickId: undefined }));
+    expect(views.activate).toHaveBeenCalledWith('whatsapp');
+    expect(views.openInPage).toHaveBeenCalledWith('whatsapp', { conversation: 'TICKETBOX' });
+  });
+
+  it('a live handle and the name travel together', () => {
+    const { ctx, views } = makeEntryCtx();
+    openActivityEntry(ctx, entry({ clickId: 3 }));
+    expect(views.openInPage).toHaveBeenCalledWith('whatsapp', {
+      clickId: 3,
+      conversation: 'TICKETBOX',
+    });
+  });
+
+  it('a URL a landed replay taught the row is a lane on the banner too', () => {
+    const { ctx, views } = makeEntryCtx();
+    openActivityEntry(
+      ctx,
+      entry({
+        serviceId: 'discord',
+        conversation: '#release',
+        landedUrl: 'https://discord.com/channels/1/2',
+      }),
+    );
+    expect(views.openInPage).toHaveBeenCalledWith('discord', {
+      href: 'https://discord.com/channels/1/2',
+      url: 'https://discord.com/channels/1/2',
+    });
+  });
+
+  // a shim banner's href field is page-controlled; only a synthetic one opens
+  it('a shim banner own href is not a lane', () => {
+    const { ctx, views } = makeEntryCtx();
+    openActivityEntry(
+      ctx,
+      entry({ serviceId: 'messenger', conversation: 'Li', href: '/messages/t/9' }),
+    );
+    expect(views.activate).toHaveBeenCalledWith('messenger');
+    expect(views.openInPage).not.toHaveBeenCalled();
+  });
+
+  it('a dead view wakes on the entry URL', () => {
+    const { ctx, views } = makeEntryCtx(false);
+    openActivityEntry(
+      ctx,
+      entry({ serviceId: 'messenger', synthetic: true, href: '/messages/t/9' }),
+    );
+    expect(views.openConversation).toHaveBeenCalledWith(
+      'messenger',
+      'https://www.facebook.com/messages/t/9',
+    );
+  });
+
+  it('a banished service only shows the window', () => {
+    const { ctx, views } = makeEntryCtx(true, { whatsapp: true });
+    openActivityEntry(ctx, entry({ clickId: 3 }));
+    expect(views.activate).not.toHaveBeenCalled();
+    expect(views.openInPage).not.toHaveBeenCalled();
   });
 });
