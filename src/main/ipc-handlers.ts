@@ -1,4 +1,12 @@
-import { app, type BrowserWindow, type IpcMainInvokeEvent, ipcMain, Menu, shell } from 'electron';
+import {
+  app,
+  type BrowserWindow,
+  dialog,
+  type IpcMainInvokeEvent,
+  ipcMain,
+  Menu,
+  shell,
+} from 'electron';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
 import type { GuardedAction } from '../shared/lock';
 import { serviceById } from '../shared/services';
@@ -374,6 +382,13 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   onInvoke('passkeys:restore', [], ({ id }) => {
     ctx.passkeyStore.restore(id);
     return ctx.passkeyStore.views();
+  });
+  onInvoke('downloads:chooseDir', null, async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(ctx.win, {
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: ctx.settings.get().downloads.dir ?? app.getPath('downloads'),
+    });
+    return canceled || filePaths.length === 0 ? null : filePaths[0];
   });
   onInvoke('lock:unlock', { ok: false, waitMs: 0, reason: 'unavailable' }, async (req) => {
     const result = await ctx.lock.unlock(req);

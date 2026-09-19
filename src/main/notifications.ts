@@ -18,7 +18,7 @@ import { NotificationThrottle } from './lib/notification-throttle';
 
 // Packaged, extraResources drops these beside the asar rather than inside it,
 // so the path is one the OS itself can open. Dev mirrors tray.ts.
-const ICON_DIR = app.isPackaged
+export const ICON_DIR = app.isPackaged
   ? join(process.resourcesPath, 'notification-icons')
   : join(__dirname, '../../resources/notification-icons');
 

@@ -244,4 +244,23 @@ describe('ipcSenderAllowed', () => {
       ).toBe(false);
     }
   });
+
+  it('refuses downloads:chooseDir from a service frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'downloads:chooseDir',
+        fromShell: false,
+        senderServiceId: 'zalo',
+        payloadServiceId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      ipcSenderAllowed({
+        channel: 'downloads:chooseDir',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: undefined,
+      }),
+    ).toBe(true);
+  });
 });

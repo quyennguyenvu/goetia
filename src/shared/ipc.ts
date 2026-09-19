@@ -174,6 +174,11 @@ export interface RendererInvoke {
    *  credential. Shell-only, and deliberately absent from
    *  LOCKED_ALLOWED_CHANNELS: a locked app performs no actions at all. */
   'lock:confirm': { payload: ConsentRequest; result: UnlockResult };
+  /** Settings → General → Downloads → Choose…: the native folder picker.
+   *  Returns the picked path, or null on cancel; the renderer then writes it
+   *  through settings:update. Shell-only — a page must never move the
+   *  folder its own downloads land in. */
+  'downloads:chooseDir': { result: string | null };
 }
 
 export type InvokePayload<C extends keyof RendererInvoke> = RendererInvoke[C] extends {
@@ -193,6 +198,7 @@ export const INVOKE_CHANNELS = [
   'lock:unlock',
   'lock:configure',
   'lock:confirm',
+  'downloads:chooseDir',
 ] as const satisfies readonly (keyof RendererInvoke)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -226,6 +232,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'lock:unlock',
   'lock:configure',
   'lock:confirm',
+  'downloads:chooseDir',
 ]);
 
 /** The only shell channels served while the app is locked: the two that

@@ -86,6 +86,18 @@ function fillAppLock(raw: unknown): Settings['appLock'] {
   };
 }
 
+/** summonHotkey-style field-by-field coercion for the downloads block. A
+ *  non-string or empty `dir` is the OS folder: a path must never be built
+ *  from a corrupt value. */
+function fillDownloads(raw: unknown): Settings['downloads'] {
+  const d = DEFAULT_SETTINGS.downloads;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['downloads']>;
+  return {
+    ask: typeof r.ask === 'boolean' ? r.ask : d.ask,
+    dir: typeof r.dir === 'string' && r.dir !== '' ? r.dir : d.dir,
+  };
+}
+
 /** Epoch-ms twin of fillZoom(): missing, corrupt, or non-positive stamps
  *  coerce to 0 (= never used, never banishable). */
 function fillLastUsedAt(raw: unknown): Record<ServiceId, number> {
@@ -141,6 +153,7 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
           : null,
       summonHotkey: fillSummonHotkey(raw.summonHotkey),
       appLock: fillAppLock(raw.appLock),
+      downloads: fillDownloads(raw.downloads),
     },
     trimmed: capped.trimmed,
   };

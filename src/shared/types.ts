@@ -146,6 +146,12 @@ export interface Settings {
    *  `guardActions` extends the same credential to three actions an unlocked
    *  Goetia would otherwise do for anyone — see the 2026-09-13 spec. */
   appLock: { enabled: boolean; touchId: boolean; guardActions: boolean };
+  /** Where a file a service page downloads lands. `ask` shows the Save dialog
+   *  every time; otherwise the file is saved silently into `dir`, or into the
+   *  OS Downloads folder (app.getPath('downloads')) while `dir` is null — so
+   *  nothing platform-specific is persisted until the user picks a folder.
+   *  See main/lib/download-rules.ts and the 2026-09-18 spec. */
+  downloads: { ask: boolean; dir: string | null };
   /** scheduled global mute: window + active days; see lib/quiet-hours-rules */
   quietHours: QuietHoursSchedule;
   /** start (epoch ms) of the one window the user dismissed by unmuting */
@@ -248,6 +254,7 @@ export const DEFAULT_SETTINGS: Settings = {
   peekSaver: false,
   shareFacebookLogin: true,
   appLock: { enabled: false, touchId: true, guardActions: true },
+  downloads: { ask: false, dir: null },
   quietHours: {
     enabled: false,
     start: '22:00',

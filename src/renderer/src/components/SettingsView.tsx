@@ -199,6 +199,10 @@ export default function SettingsView() {
   if (!state?.settingsOpen) return null;
   const s = state.settings;
   const update = (patch: Partial<Settings>) => window.goetia.send('settings:update', patch);
+  const chooseDownloadDir = async () => {
+    const dir = await window.goetia.invoke('downloads:chooseDir');
+    if (dir) update({ downloads: { ...s.downloads, dir } });
+  };
   const u = state.update;
   const pending = updatePending(u);
   const checking = u.status === 'checking';
@@ -326,6 +330,52 @@ export default function SettingsView() {
                       </option>
                     ))}
                   </select>
+                </Row>
+                <Row
+                  label="Downloads"
+                  hint={
+                    s.downloads.ask
+                      ? 'Asks where to save every file.'
+                      : 'Files a chat sends you are saved without asking.'
+                  }
+                >
+                  <select
+                    data-testid="downloads-mode"
+                    value={s.downloads.ask ? 'ask' : 'folder'}
+                    onChange={(e) =>
+                      update({ downloads: { ...s.downloads, ask: e.target.value === 'ask' } })
+                    }
+                    className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1"
+                  >
+                    <option value="folder">Save to folder</option>
+                    <option value="ask">Always ask</option>
+                  </select>
+                </Row>
+                <Row label="Folder" hint={s.downloads.dir ?? 'Your Downloads folder'}>
+                  <span className="flex items-center gap-3">
+                    {/* null is the OS folder proper — it follows a relocated
+                        Downloads, which an explicit path to it would not */}
+                    {s.downloads.dir !== null && (
+                      <button
+                        type="button"
+                        data-testid="downloads-reset"
+                        disabled={s.downloads.ask}
+                        onClick={() => update({ downloads: { ...s.downloads, dir: null } })}
+                        className="text-[11px] text-accent hover:underline disabled:opacity-40"
+                      >
+                        Use Downloads folder
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      data-testid="downloads-choose"
+                      disabled={s.downloads.ask}
+                      onClick={() => void chooseDownloadDir()}
+                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
+                    >
+                      Choose…
+                    </button>
+                  </span>
                 </Row>
               </Pane>
             )}

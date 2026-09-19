@@ -1,17 +1,29 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, nativeImage, nativeTheme, powerMonitor, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  Notification,
+  nativeImage,
+  nativeTheme,
+  powerMonitor,
+  session,
+  shell,
+} from 'electron';
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
-import { serviceById } from '../shared/services';
+import { SERVICES, serviceById } from '../shared/services';
 import { wakeCaption } from '../shared/wake-caption';
 import { applyLocked } from './activate';
 import { applyBadges } from './badges';
 import { runShellCommand } from './commands';
+import { DownloadManager } from './downloads';
 import { HibernationController } from './hibernation';
 import { IdentityShare } from './identity-share';
 import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
 import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
+import { resolveIcons } from './lib/notification-icons';
 import { audioMuted } from './lib/notification-rules';
 import { anyOverlayOpen } from './lib/overlay-rules';
 import { muteToggleResult, quietWindowFor } from './lib/quiet-hours-rules';
@@ -20,7 +32,7 @@ import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
 import { LockController, LockStore } from './lock';
 import { buildAppMenu } from './menu';
-import { NotificationRouter } from './notifications';
+import { ICON_DIR, NotificationRouter } from './notifications';
 import { PasskeyAuthenticator } from './passkeys/authenticator';
 import { safeStorageCodec } from './passkeys/codec';
 import { electronPrompt, identitySharePrompt } from './passkeys/prompt';
@@ -120,6 +132,35 @@ app
     const waking = new WakingTracker(state);
     const activity = new ActivityLog();
     let resilience: ResilienceManager | null = null;
+    const downloads = new DownloadManager({
+      settings: () => settings.get().downloads,
+      defaultDir: () => app.getPath('downloads'),
+      locked: () => lock.locked,
+      serviceName: (id) => serviceById(id).name,
+      icons: resolveIcons(
+        ICON_DIR,
+        SERVICES.map((s) => s.id),
+        process.platform,
+        existsSync,
+      ),
+      exists: existsSync,
+      notify: ({ title, body, icon, onClick }) => {
+        // silent always: a download is not a message, and the user asked for it
+        const n = new Notification({ title, body, silent: true, ...(icon ? { icon } : {}) });
+        n.on('click', onClick);
+        n.on('failed', (_e, err) => console.error(`[downloads] banner: ${err}`));
+        n.show();
+      },
+      reveal: (path) => shell.showItemInFolder(path),
+      dockFinished: (path) => app.dock?.downloadFinished(path),
+      setProgress: (fraction) => {
+        if (!win.isDestroyed()) win.setProgressBar(fraction);
+      },
+      showWindow: () => {
+        if (!win.isDestroyed()) win.show();
+      },
+      now: Date.now,
+    });
     const views = new ServiceViewManager(
       win,
       {
@@ -165,6 +206,7 @@ app
       (id) => state.runtime(id).waking,
       (id) => settings.get().zoom[id],
       identityShare,
+      downloads,
       () => state.switcherOpen || state.settingsOpen || state.homeOpen,
       overlay,
     );
@@ -381,6 +423,7 @@ app
       hibernation.dispose();
       resilience?.dispose();
       identityShare.dispose();
+      downloads.dispose();
       // last: commits any deferred write (zoom) before the process goes
       settings.dispose();
     });

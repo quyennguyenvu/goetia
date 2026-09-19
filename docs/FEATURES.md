@@ -40,6 +40,7 @@ A complete inventory of what Goetia does, where each feature lives, and how it i
 - **Notification sound** — Goetia sounds only the banners the page couldn't make itself (synthetic ones), so a service that dings in-page is never doubled; the Settings → Notifications toggle silences even those. Impl: `soundOptions` in `lib/notification-rules.ts`, `synthetic` on `notification:fired`. Verified: `notification-rules.test.ts`.
 - **Rate limit** — per-service floor so a page can't spam banners. Impl: `lib/notification-throttle.ts`. Verified: `notification-throttle.test.ts`.
 - **Click a banner** → window shows and switches to that service. Impl: `notifications.ts`. Verified: Manual.
+- **Downloads** — a file a service page downloads is saved silently into the folder from Settings → General → Downloads (the OS Downloads folder until Choose… picks one; `Use Downloads folder` returns to it; `Always ask` restores the Save dialog), de-duplicated as `name (1).ext`. Completion is a silent native banner (`<file>` / `Saved from <Service>`, service icon) whose click reveals the file — Goetia never opens one — plus the macOS dock bounce; an interrupted download says so; progress rides the dock/taskbar icon. More than 5 page-initiated downloads in 30s fall back to the dialog (the burst cap). The context menu's `Save Image As…` always asks. While locked the banner is redacted to the service name and its click only shows the window. Impl: `src/main/downloads.ts`, `lib/download-rules.ts`, `views.ts` (`configureSession`, `destroy`, `save-image`), `ipc-handlers.ts` (`downloads:chooseDir`). Verified: `download-rules.test.ts`, `downloads.test.ts`, `settings.test.ts`, `ipc-sender-policy.test.ts`, e2e `downloads.spec.ts`; the banner, bounce and taskbar progress are Manual.
 
 ## Service lifecycle & resilience
 
@@ -62,7 +63,7 @@ A complete inventory of what Goetia does, where each feature lives, and how it i
 
 ## Settings & persistence
 
-- **Persisted settings** — order, muted, disabled, neverHibernate, zoom, theme, railPosition, closeToTray, launchAtLogin, globalMuted. Impl: `src/main/settings.ts`. Verified: `settings.test.ts`.
+- **Persisted settings** — order, muted, disabled, neverHibernate, zoom, theme, railPosition, closeToTray, launchAtLogin, globalMuted, downloads. Impl: `src/main/settings.ts`. Verified: `settings.test.ts`.
 - **New-service reconciliation** — a service added after a `settings.json` was written appears (disabled by default) without losing prefs. Impl: `settings.ts` (`normalize`). Verified: `settings.test.ts`.
 - **Corrupt-file tolerance** — a malformed `settings.json` is coerced to defaults per field instead of bricking startup. Impl: `settings.ts`. Verified: `settings.test.ts`.
 - **Update check** — GitHub Releases polled 10s after launch and every 24h, plus `Check for Updates…`. Announced by a self-dismissing toast (8s) and a dot on the settings gear; the download page opens via `shell.openExternal` behind `isSafeExternalUrl`, using a URL built from a validated version, not from the API payload. Automatic checks are silent on failure and skipped when unpackaged. Impl: `src/main/updates.ts`, `src/main/lib/update-check.ts`. Verified: `update-check.test.ts`, `updates.test.ts`, `toast-rules.test.ts`, `tests/e2e/updates.spec.ts`.
@@ -97,7 +98,7 @@ Each service has a recipe (`src/preload/recipes/<id>.ts`) with a `count()`, and 
 
 ## Manual checks (no automated coverage)
 
-Run these by hand after touching the related area: close-to-tray on/off, tray menu, launch-at-login, theme switching, reorder-by-drag, actual notification banners (and click-to-activate), the Windows taskbar overlay, window resize with several services live, and each service's live login + unread badge.
+Run these by hand after touching the related area: close-to-tray on/off, tray menu, launch-at-login, theme switching, reorder-by-drag, actual notification banners (and click-to-activate), the Windows taskbar overlay, window resize with several services live, each service's live login + unread badge, a download's banner and its reveal-in-Finder click, the dock bounce, the Windows taskbar progress, and the Downloads folder picker. (Electron sets no `com.apple.quarantine` on what it downloads — checked 2026-09-19 — so there is nothing to verify there; the reveal-only banner click is the line.)
 
 ## Regression fixed this session (2026-08-07)
 

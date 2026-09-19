@@ -567,6 +567,46 @@ describe('SettingsStore', () => {
     expect(s.appLock).toEqual({ enabled: false, touchId: true, guardActions: true });
     expect(s.globalMuted).toBe(true);
   });
+
+  it('defaults downloads to the OS folder without asking', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).get().downloads).toEqual({ ask: false, dir: null });
+  });
+
+  it('keeps a chosen download folder and the ask mode', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ downloads: { ask: true, dir: '/Users/me/Chat files' } }),
+    );
+    expect(new SettingsStore(dir).get().downloads).toEqual({
+      ask: true,
+      dir: '/Users/me/Chat files',
+    });
+  });
+
+  it('coerces a hand-mangled downloads block field by field', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ downloads: { ask: 'yes', dir: 42 } }),
+    );
+    // a non-boolean must not coerce truthy into asking; a non-string dir is
+    // the OS folder, never a path built from garbage
+    expect(new SettingsStore(dir).get().downloads).toEqual({ ask: false, dir: null });
+  });
+
+  it('treats an empty dir string as the OS folder', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ downloads: { dir: '' } }));
+    expect(new SettingsStore(dir).get().downloads).toEqual({ ask: false, dir: null });
+  });
+
+  it('fills a settings.json written before downloads existed', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ globalMuted: true }));
+    expect(new SettingsStore(dir).get().downloads).toEqual({ ask: false, dir: null });
+  });
 });
 
 describe('shareFacebookLogin', () => {

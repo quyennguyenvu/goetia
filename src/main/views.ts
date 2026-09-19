@@ -19,6 +19,7 @@ import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { LoadKind, RailPosition, ServiceId } from '../shared/types';
+import type { DownloadManager } from './downloads';
 import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
 import { resolveClickPoint } from './lib/click-point';
@@ -138,6 +139,8 @@ export class ServiceViewManager {
     private waking: (id: ServiceId) => boolean,
     private zoomLevel: (id: ServiceId) => number,
     private identityShare: IdentityShare,
+    /** saves and announces what a page downloads; one listener per partition */
+    private downloads: DownloadManager,
     /** any shell surface (Home, Settings, switcher) covering the views — a
      *  hidden keep-alive flash must never raise a service over it */
     private overlayOpen: () => boolean,
@@ -178,6 +181,9 @@ export class ServiceViewManager {
     ses.setSpellCheckerLanguages(
       wanted.filter((l) => ses.availableSpellCheckerLanguages.includes(l)),
     );
+    // attach() is idempotent: a hibernated service re-creates its view and
+    // reaches here again on the same persistent session
+    this.downloads.attach(id, ses);
     ses.setPermissionRequestHandler((_wc, permission, cb, details) => {
       const ok = permissionAllowed({
         permission,
@@ -608,7 +614,14 @@ export class ServiceViewManager {
       case 'copy-image':
         return { label: 'Copy Image', click: () => wc.copyImageAt(params.x, params.y) };
       case 'save-image':
-        return { label: 'Save Image As…', click: () => wc.downloadURL(item.url) };
+        return {
+          label: 'Save Image As…',
+          click: () => {
+            // the label promises a dialog whatever the Downloads setting says
+            this.downloads.expectAsk(item.url);
+            wc.downloadURL(item.url);
+          },
+        };
       case 'pin-message':
         return {
           label: item.enabled ? 'Pin Message' : `Pin Message — ${PIN_CAP} max`,
@@ -799,6 +812,7 @@ export class ServiceViewManager {
     this.closeCallWindows(id);
     this.closeIdentityWindows(id);
     this.closeContainedWindow(id);
+    this.downloads.detach(id);
     view.webContents.close();
     this.views.delete(id);
     if (this.activeId === id) this.activeId = null;
