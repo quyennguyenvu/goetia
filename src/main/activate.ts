@@ -107,7 +107,7 @@ export async function performBannerAction(
   if (!result) return;
   if (result.lane === 'miss') {
     const lanes = Object.keys(req).join(',');
-    console.warn(`[open] ${id} miss: lanes=${lanes}`);
+    ctx.diag.note('open', `${id} miss: lanes=${lanes}`, id);
   } else if (result.lane === 'replay' && result.url && opts.entryId !== undefined) {
     ctx.activity.learnUrl(opts.entryId, result.url);
   }

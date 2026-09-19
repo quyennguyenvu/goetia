@@ -22,6 +22,7 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
     { hibernated: boolean; unread: { direct: number; indirect: number } }
   >();
   const ctx = {
+    diag: { note: () => {} },
     settings: {
       get: () => settings,
       update: (patch: Partial<Settings>) => Object.assign(settings, patch),

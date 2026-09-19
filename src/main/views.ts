@@ -18,13 +18,14 @@ import {
 import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
-import type { LoadKind, RailPosition, ServiceId } from '../shared/types';
+import type { DiagTag, LoadKind, RailPosition, ServiceId } from '../shared/types';
 import type { DownloadManager } from './downloads';
 import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
 import { resolveClickPoint } from './lib/click-point';
 import { clientHintHeaders } from './lib/client-hints';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
+import { redactUrl } from './lib/diagnostics';
 import { isSafeExternalUrl } from './lib/external-url';
 import { identityUrlPatterns, isIdentityHost, isIdentityPopup } from './lib/identity-policy';
 import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
@@ -100,6 +101,8 @@ export interface ViewHooks {
   /** a Goetia chord pressed inside the page (lib/shortcuts.ts) — the page
    *  never sees it, and neither does the menu accelerator */
   onShellCommand(command: ShellCommand): void;
+  /** an evidence line for Settings → Diagnostics; URLs arrive redacted */
+  note(tag: DiagTag, line: string, serviceId?: ServiceId): void;
 }
 
 /** Detached always: docked devtools would shrink the host's web contents
@@ -316,7 +319,7 @@ export class ServiceViewManager {
       // as foreground-tab and is just a link
       if (disposition === 'new-window') {
         const record = this.navAudit.note(`${id}:popup`, url);
-        if (record) console.warn(`[nav] popup denied: ${record} (${url})`);
+        if (record) this.hooks.note('nav', `popup denied: ${record} (${redactUrl(url)})`, id);
       }
       // external links open in the OS browser, never inside Goetia; only
       // web schemes — a hostile page must not reach file:/smb:/custom. Rate
@@ -407,7 +410,7 @@ export class ServiceViewManager {
     ): void => {
       if (!shouldContainNavigation(id, url, isMainFrame)) return;
       const record = this.navAudit.note(id, url);
-      if (record) console.warn(`[nav] contained: ${record} (${url})`);
+      if (record) this.hooks.note('nav', `contained: ${record} (${redactUrl(url)})`, id);
       if (!NAV_ENFORCED) return;
       e.preventDefault();
       // only a web URL earns a contained window; file:/smb:/custom schemes are
@@ -884,7 +887,7 @@ export class ServiceViewManager {
       if (!isMainFrame || isIdentityHost(url) || isNavigationAllowed(id, url)) return;
       e.preventDefault();
       const record = this.navAudit.note(`${id}:popup`, url);
-      if (record) console.warn(`[nav] popup contained: ${record} (${url})`);
+      if (record) this.hooks.note('nav', `popup contained: ${record} (${redactUrl(url)})`, id);
       if (!popup.isDestroyed()) popup.close();
     };
     popup.webContents.on('will-navigate', (e, url, _inPlace, isMainFrame) =>

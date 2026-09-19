@@ -60,7 +60,7 @@ export class HibernationController {
   }
 
   noteUnreadReport(id: ServiceId): void {
-    if (this.peeking?.id === id) this.endPeek(true);
+    if (this.peeking?.id === id) this.endPeek(true, 'report');
   }
 
   /** The view died under the peek — banished, purged, or crash-path destroyed
@@ -178,18 +178,22 @@ export class HibernationController {
   private beginPeek(id: ServiceId): void {
     const u = this.ctx.state.runtime(id).unread;
     this.ctx.views.ensure(id);
+    this.ctx.diag.note('peek', `${id} peek started`, id);
     const timer = setTimeout(() => {
-      if (this.peeking?.id === id) this.endPeek(true);
+      if (this.peeking?.id === id) this.endPeek(true, 'timeout');
     }, TIMEOUT_MS);
     this.peeking = { id, timer, before: { direct: u.direct, indirect: u.indirect } };
   }
 
-  private endPeek(destroy: boolean): void {
+  /** `reason` names a peek that ran its course; an activation or an external
+   *  destroy mid-peek passes none and is not a diagnostics line. */
+  private endPeek(destroy: boolean, reason?: 'report' | 'timeout'): void {
     if (!this.peeking) return;
     const { id, timer, before } = this.peeking;
     clearTimeout(timer);
     this.peeking = null;
     this.lastPeekEndedAt.set(id, Date.now());
+    if (reason) this.ctx.diag.note('peek', `${id} peek ended: ${reason}`, id);
     // A peek that loaded a whole page and found the same count was a wasted
     // load. Only counted for a peek that ran its course — `destroy: false`
     // means the user activated mid-peek, and noteActivated clears the streak.

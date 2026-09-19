@@ -211,6 +211,8 @@ Closing the window does **not** quit Goetia — it keeps running in the menu bar
 
 ### If something looks off
 
+**First, grab the evidence**: open **Settings → Diagnostics** and press **Copy report**. It puts a short text on your clipboard — Goetia's version, which services you use, and the last things Goetia noticed going wrong (a badge counter that stopped, a login page it had to contain, a page that crashed). Paste that into your message to me; it never includes a chat message, a name or a file.
+
 <details>
 <summary>Known rough edges of a free, unsigned personal app</summary>
 

@@ -245,6 +245,27 @@ describe('ipcSenderAllowed', () => {
     }
   });
 
+  it('refuses the diagnostics channels from a service frame', () => {
+    for (const channel of ['diagnostics:recent', 'diagnostics:report'] as const) {
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: false,
+          senderServiceId: 'zalo',
+          payloadServiceId: undefined,
+        }),
+      ).toBe(false);
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: true,
+          senderServiceId: null,
+          payloadServiceId: undefined,
+        }),
+      ).toBe(true);
+    }
+  });
+
   it('refuses downloads:chooseDir from a service frame', () => {
     expect(
       ipcSenderAllowed({

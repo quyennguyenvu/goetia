@@ -23,6 +23,7 @@ import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc
 import { ActivityLog } from './lib/activity-log';
 import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
+import { Diagnostics } from './lib/diagnostics';
 import { resolveIcons } from './lib/notification-icons';
 import { audioMuted } from './lib/notification-rules';
 import { anyOverlayOpen } from './lib/overlay-rules';
@@ -96,6 +97,9 @@ app
     }
 
     const settings = new SettingsStore(app.getPath('userData'));
+    // the evidence ring behind Settings → Diagnostics; mirrored to the
+    // console so a dev run reads as it always did
+    const diag = new Diagnostics({ now: Date.now, mirror: (line) => console.warn(line) });
     const pins = new PinStore(app.getPath('userData'));
     const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
     const lock = new LockController(new LockStore(app.getPath('userData'), safeStorageCodec()), {
@@ -117,6 +121,7 @@ app
       (id) => session.fromPartition(`persist:${id}`).cookies,
       () => settings.get().shareFacebookLogin,
       (id) => sharePrompt(serviceById(id).name),
+      (line, target) => diag.note('identity', line, target),
     );
     // a crash that killed the app with a sign-in popup open leaves the shared
     // session parked in a service jar; the marker file is how we notice
@@ -148,7 +153,7 @@ app
         // silent always: a download is not a message, and the user asked for it
         const n = new Notification({ title, body, silent: true, ...(icon ? { icon } : {}) });
         n.on('click', onClick);
-        n.on('failed', (_e, err) => console.error(`[downloads] banner: ${err}`));
+        n.on('failed', (_e, err) => diag.note('downloads', `banner: ${err}`));
         n.show();
       },
       reveal: (path) => shell.showItemInFolder(path),
@@ -193,6 +198,7 @@ app
         pinsFull: () => pins.isFull(),
         // ctx is assembled below; a key event cannot arrive before it exists
         onShellCommand: (command) => runShellCommand(ctx, command),
+        note: (tag, line, id) => diag.note(tag, line, id),
       },
       () => settings.get().railPosition,
       (id) => {
@@ -354,10 +360,15 @@ app
       pins,
       // a 5s cool-down after a declined ceremony refuses the next one silently,
       // so a scripted loop cannot chain endless modal prompts
-      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), { cooldownMs: 5_000 }),
+      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), {
+        cooldownMs: 5_000,
+        // the authenticator prefixes its own tag; the ring adds it back
+        log: (line) => diag.note('passkey', line.replace(/^\[passkey\] /, '')),
+      }),
       passkeyStore,
       lock,
       identityShare,
+      diag,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
@@ -465,6 +476,8 @@ app
       // once on the logged-out page and then never changes, so this survives
       setTimeout(() => {
         state.setRuntime('zalo', { unread: { direct: 3, indirect: 0 } });
+        // and one evidence line, so the Diagnostics pane has a row to show
+        diag.note('recipe', 'zalo stale', 'zalo');
       }, 1500);
     }
 

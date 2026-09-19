@@ -81,7 +81,9 @@ export class NotificationRouter {
       ...soundOptions({ enabled: s.notificationSound, synthetic }),
       ...(icon ? { icon } : {}),
     });
-    notification.on('failed', (_e, err) => console.error(`[notifications] ${serviceId}: ${err}`));
+    notification.on('failed', (_e, err) =>
+      this.ctx.diag.note('notifications', `${serviceId}: ${err}`, serviceId),
+    );
     notification.on('click', () => {
       this.ctx.win.show();
       // a banner click must not be a way past the lock screen: park what the

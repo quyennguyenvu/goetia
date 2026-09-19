@@ -4,6 +4,7 @@ import { ResilienceManager } from '../../src/main/resilience';
 function harness() {
   const reloads: string[] = [];
   const runtime = { crashed: false };
+  const notes: string[] = [];
   const ctx = {
     state: {
       setRuntime: (_id: string, patch: { crashed?: boolean }) => {
@@ -13,8 +14,9 @@ function harness() {
       activeId: 'messenger',
     },
     views: { reload: (id: string) => reloads.push(id), hideActive: () => {} },
+    diag: { note: (tag: string, line: string) => notes.push(`[${tag}] ${line}`) },
   } as unknown as ConstructorParameters<typeof ResilienceManager>[0];
-  return { ctx, reloads };
+  return { ctx, reloads, notes };
 }
 
 describe('ResilienceManager crash cap', () => {
@@ -75,5 +77,36 @@ describe('ResilienceManager crash cap', () => {
       vi.advanceTimersByTime(60_000);
     }).not.toThrow();
     vi.useRealTimers();
+  });
+});
+
+describe('ResilienceManager diagnostics', () => {
+  it('notes each crash with its attempt, the cap once reached, and recovery', () => {
+    vi.useFakeTimers();
+    const { ctx, notes } = harness();
+    const r = new ResilienceManager(ctx);
+    r.onCrashed('messenger');
+    expect(notes).toEqual(['[view] messenger crashed (attempt 1/5, reload in 1s)']);
+    vi.advanceTimersByTime(60_000);
+    r.noteRecovered('messenger');
+    expect(notes.at(-1)).toBe('[view] messenger recovered');
+    // a clean load with nothing crashed notes nothing
+    r.noteRecovered('messenger');
+    expect(notes).toHaveLength(2);
+    for (let i = 0; i < 6; i++) {
+      r.onCrashed('messenger');
+      vi.advanceTimersByTime(60_000);
+    }
+    expect(notes.filter((l) => l.includes('cap reached'))).toEqual([
+      '[view] messenger crashed (cap reached; manual Retry)',
+      '[view] messenger crashed (cap reached; manual Retry)',
+    ]);
+    vi.useRealTimers();
+  });
+
+  it('notes a failed load', () => {
+    const { ctx, notes } = harness();
+    new ResilienceManager(ctx).onLoadFailed('messenger');
+    expect(notes).toEqual(['[view] messenger load failed']);
   });
 });

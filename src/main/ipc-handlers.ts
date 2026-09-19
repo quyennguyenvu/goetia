@@ -24,6 +24,7 @@ import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
 import type { ActivityLog } from './lib/activity-log';
 import { stampSummoned, summonedIds } from './lib/banish-rules';
+import { type Diagnostics, recipeTransition, settingsSummary } from './lib/diagnostics';
 import { isSafeExternalUrl } from './lib/external-url';
 import { actionGuarded } from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
@@ -64,6 +65,8 @@ export interface AppContext {
   /** lends Messenger's Facebook session to another service's sign-in popup;
    *  see identity-share.ts */
   identityShare: IdentityShare;
+  /** the evidence ring behind Settings → Diagnostics; in-memory only */
+  diag: Diagnostics;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -133,7 +136,7 @@ function register(ctx: AppContext) {
         }
         fn(payload as RendererToMain[C]);
       } catch (err) {
-        console.error(`[ipc] ${channel} handler failed:`, err);
+        ctx.diag.note('ipc', `${channel} handler failed: ${String(err)}`);
       }
     });
   };
@@ -160,7 +163,7 @@ function registerInvoke(ctx: AppContext) {
           ? fn(payload as InvokePayload<C>, e)
           : blocked;
       } catch (err) {
-        console.error(`[ipc] ${channel} handler failed:`, err);
+        ctx.diag.note('ipc', `${channel} handler failed: ${String(err)}`);
         return blocked;
       }
     });
@@ -336,12 +339,20 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     }
     ctx.broadcast();
   });
+  // stale on/off is a diagnostics line only on the transition: a count
+  // arrives every ~2s per service and must never be a line per tick
+  const noteRecipe = (serviceId: ServiceId, nowStale: boolean) => {
+    const t = recipeTransition(ctx.state.runtime(serviceId).stale, nowStale);
+    if (t) ctx.diag.note('recipe', `${serviceId} ${t}`, serviceId);
+  };
   on('unread:update', ({ serviceId, direct, indirect }) => {
+    noteRecipe(serviceId, false);
     ctx.state.setRuntime(serviceId, { unread: { direct, indirect }, stale: false });
     // setRuntime no-ops on an unchanged count, so the peek signal lives here
     ctx.noteUnreadReport(serviceId);
   });
   on('unread:stale', ({ serviceId }) => {
+    noteRecipe(serviceId, true);
     ctx.state.setRuntime(serviceId, { stale: true });
     ctx.noteUnreadReport(serviceId);
   });
@@ -382,6 +393,18 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   onInvoke('passkeys:restore', [], ({ id }) => {
     ctx.passkeyStore.restore(id);
     return ctx.passkeyStore.views();
+  });
+  onInvoke('diagnostics:recent', [], () => ctx.diag.recent());
+  onInvoke('diagnostics:report', '', () => {
+    const s = ctx.settings.get();
+    return ctx.diag.report({
+      version: app.getVersion(),
+      electron: process.versions.electron,
+      platform: process.platform,
+      arch: process.arch,
+      enabled: s.order.filter((id) => !s.disabled[id]),
+      settings: settingsSummary(s),
+    });
   });
   onInvoke('downloads:chooseDir', null, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(ctx.win, {

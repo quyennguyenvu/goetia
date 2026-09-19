@@ -8,6 +8,7 @@ import type {
 import type {
   ActivityEntryView,
   Counts,
+  DiagEntry,
   PasskeyView,
   ServiceId,
   Settings,
@@ -179,6 +180,11 @@ export interface RendererInvoke {
    *  through settings:update. Shell-only — a page must never move the
    *  folder its own downloads land in. */
   'downloads:chooseDir': { result: string | null };
+  /** Settings → Diagnostics: the evidence ring, fetched once per open and
+   *  never broadcast; `report` is the pasteable text behind Copy report.
+   *  Shell-only, so both are refused while locked. */
+  'diagnostics:recent': { result: DiagEntry[] };
+  'diagnostics:report': { result: string };
 }
 
 export type InvokePayload<C extends keyof RendererInvoke> = RendererInvoke[C] extends {
@@ -199,6 +205,8 @@ export const INVOKE_CHANNELS = [
   'lock:configure',
   'lock:confirm',
   'downloads:chooseDir',
+  'diagnostics:recent',
+  'diagnostics:report',
 ] as const satisfies readonly (keyof RendererInvoke)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -233,6 +241,8 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'lock:configure',
   'lock:confirm',
   'downloads:chooseDir',
+  'diagnostics:recent',
+  'diagnostics:report',
 ]);
 
 /** The only shell channels served while the app is locked: the two that

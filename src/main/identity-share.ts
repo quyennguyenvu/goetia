@@ -62,6 +62,9 @@ export class IdentityShare {
     /** local user verification (Touch ID, else a native confirm) asked once
      *  per seed — see identitySharePrompt */
     private confirmShare: (target: ServiceId) => Promise<boolean>,
+    /** evidence sink for the one warning worth a Diagnostics line */
+    private note: (line: string, target: ServiceId) => void = (line) =>
+      console.warn(`[identity] ${line}`),
   ) {
     this.conf = new Conf<SeedsFile>({
       cwd,
@@ -176,8 +179,9 @@ export class IdentityShare {
     // could still be caught.
     const left = await mine();
     if (left.length > 0) {
-      console.warn(
-        `[identity] ${target}: ${left.length} shared Facebook cookie(s) survived removal; keeping the marker so the next sweep retries`,
+      this.note(
+        `${target}: ${left.length} shared Facebook cookie(s) survived removal; keeping the marker so the next sweep retries`,
+        target,
       );
       return;
     }

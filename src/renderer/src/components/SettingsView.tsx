@@ -4,6 +4,7 @@ import { ACCELERATORS, devtoolsAccelerator } from '../../../shared/shortcuts';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
+import DiagnosticsPane from './DiagnosticsPane';
 import LockPane from './LockPane';
 import PasskeysPane from './PasskeysPane';
 import { shouldAutoRecheck, updatePending } from './update-rules';
@@ -16,7 +17,8 @@ type SectionId =
   | 'lock'
   | 'notifications'
   | 'shortcuts'
-  | 'updates';
+  | 'updates'
+  | 'diagnostics';
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'general', label: 'General' },
@@ -27,6 +29,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'updates', label: 'Updates' },
+  { id: 'diagnostics', label: 'Diagnostics' },
 ];
 
 // display Monday-first; storage stays Date.getDay()-indexed (0 = Sunday)
@@ -567,6 +570,11 @@ export default function SettingsView() {
             {active === 'lock' && (
               <Pane title="Lock">
                 <LockPane />
+              </Pane>
+            )}
+            {active === 'diagnostics' && (
+              <Pane title="Diagnostics">
+                <DiagnosticsPane />
               </Pane>
             )}
             {active === 'notifications' && (

@@ -68,6 +68,28 @@ export interface UpdateState {
   announce: string | null;
 }
 
+/** Settings → Diagnostics: one evidence line or runtime transition main
+ *  recorded. Composed main-side from ids and states only — never a title,
+ *  body, filename or pin — and stored in a bounded in-memory ring. */
+export type DiagTag =
+  | 'nav'
+  | 'open'
+  | 'identity'
+  | 'passkey'
+  | 'ipc'
+  | 'notifications'
+  | 'downloads'
+  | 'recipe'
+  | 'view'
+  | 'peek';
+
+export interface DiagEntry {
+  at: number;
+  tag: DiagTag;
+  serviceId?: ServiceId;
+  line: string;
+}
+
 export interface ServiceMeta {
   id: ServiceId;
   name: string;

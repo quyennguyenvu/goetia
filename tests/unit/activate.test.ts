@@ -140,14 +140,16 @@ describe('performBannerAction', () => {
       openInPage: vi.fn().mockResolvedValue(result),
     };
     const activity = { learnUrl: vi.fn() };
+    const diag = { note: vi.fn() };
     const ctx = {
       state,
       views,
       activity,
+      diag,
       settings: { update: vi.fn(), get: () => DEFAULT_SETTINGS },
       noteActivated: vi.fn(),
     } as unknown as AppContext;
-    return { ctx, views, activity };
+    return { ctx, views, activity, diag };
   }
 
   it('does nothing for show-only', async () => {
@@ -210,12 +212,11 @@ describe('performBannerAction', () => {
     expect(activity.learnUrl).not.toHaveBeenCalled();
   });
 
-  it('a miss is logged as evidence, never thrown', async () => {
-    const { ctx } = makeBannerCtx({ lane: 'miss', url: 'https://web.whatsapp.com/' });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('a miss is noted as evidence, never thrown', async () => {
+    const { ctx, diag } = makeBannerCtx({ lane: 'miss', url: 'https://web.whatsapp.com/' });
     await performBannerAction(ctx, 'whatsapp', { kind: 'open-in-page', conversation: 'Mẹ' });
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[open] whatsapp miss'));
-    warn.mockRestore();
+    // lanes only — the conversation name never enters the ring
+    expect(diag.note).toHaveBeenCalledWith('open', 'whatsapp miss: lanes=conversation', 'whatsapp');
   });
 
   it('a view that never answered (destroyed mid-open) is not an error', async () => {
