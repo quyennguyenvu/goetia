@@ -1,3 +1,4 @@
+import { release } from 'node:os';
 import {
   app,
   type BrowserWindow,
@@ -24,7 +25,14 @@ import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
 import type { ActivityLog } from './lib/activity-log';
 import { stampSummoned, summonedIds } from './lib/banish-rules';
-import { type Diagnostics, recipeTransition, settingsSummary } from './lib/diagnostics';
+import {
+  type Diagnostics,
+  recipeTransition,
+  sanitizeDetail,
+  serviceSnapshotLine,
+  settingsSummary,
+  withPage,
+} from './lib/diagnostics';
 import { isSafeExternalUrl } from './lib/external-url';
 import { actionGuarded } from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
@@ -65,8 +73,10 @@ export interface AppContext {
   /** lends Messenger's Facebook session to another service's sign-in popup;
    *  see identity-share.ts */
   identityShare: IdentityShare;
-  /** the evidence ring behind Settings → Diagnostics; in-memory only */
+  /** the evidence ring behind Settings → Diagnostics; see lib/diagnostics.ts */
   diag: Diagnostics;
+  /** epoch ms of this launch — the report's uptime line */
+  startedAt: number;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -341,18 +351,28 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   // stale on/off is a diagnostics line only on the transition: a count
   // arrives every ~2s per service and must never be a line per tick
-  const noteRecipe = (serviceId: ServiceId, nowStale: boolean) => {
+  const noteRecipe = (serviceId: ServiceId, nowStale: boolean, reason?: unknown) => {
     const t = recipeTransition(ctx.state.runtime(serviceId).stale, nowStale);
-    if (t) ctx.diag.note('recipe', `${serviceId} ${t}`, serviceId);
+    if (!t) return;
+    const why = t === 'stale' ? sanitizeDetail(reason) : '';
+    const line = why ? `${serviceId} stale: ${why}` : `${serviceId} ${t}`;
+    ctx.diag.note('recipe', withPage(line, ctx.views.pageUrl(serviceId)), serviceId);
   };
+  on('service:readyTimeout', ({ serviceId }) => {
+    ctx.diag.note(
+      'recipe',
+      withPage(`${serviceId} ready() never matched in 10s`, ctx.views.pageUrl(serviceId)),
+      serviceId,
+    );
+  });
   on('unread:update', ({ serviceId, direct, indirect }) => {
     noteRecipe(serviceId, false);
     ctx.state.setRuntime(serviceId, { unread: { direct, indirect }, stale: false });
     // setRuntime no-ops on an unchanged count, so the peek signal lives here
     ctx.noteUnreadReport(serviceId);
   });
-  on('unread:stale', ({ serviceId }) => {
-    noteRecipe(serviceId, true);
+  on('unread:stale', ({ serviceId, reason }) => {
+    noteRecipe(serviceId, true, reason);
     ctx.state.setRuntime(serviceId, { stale: true });
     ctx.noteUnreadReport(serviceId);
   });
@@ -397,13 +417,28 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   onInvoke('diagnostics:recent', [], () => ctx.diag.recent());
   onInvoke('diagnostics:report', '', () => {
     const s = ctx.settings.get();
+    const enabled = s.order.filter((id) => !s.disabled[id]);
     return ctx.diag.report({
       version: app.getVersion(),
       electron: process.versions.electron,
       platform: process.platform,
       arch: process.arch,
-      enabled: s.order.filter((id) => !s.disabled[id]),
+      os: release(),
+      startedAt: ctx.startedAt,
+      now: Date.now(),
+      enabled,
       settings: settingsSummary(s),
+      services: enabled.map((id) => {
+        const rt = ctx.state.runtime(id);
+        return serviceSnapshotLine({
+          id,
+          page: ctx.views.pageUrl(id),
+          unread: rt.unread,
+          stale: rt.stale,
+          crashed: rt.crashed,
+          muted: s.muted[id],
+        });
+      }),
     });
   });
   onInvoke('downloads:chooseDir', null, async () => {

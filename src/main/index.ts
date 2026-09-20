@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   app,
@@ -99,7 +99,17 @@ app
     const settings = new SettingsStore(app.getPath('userData'));
     // the evidence ring behind Settings → Diagnostics; mirrored to the
     // console so a dev run reads as it always did
-    const diag = new Diagnostics({ now: Date.now, mirror: (line) => console.warn(line) });
+    const diagFile = join(app.getPath('userData'), 'diagnostics.json');
+    const diag = new Diagnostics({
+      now: Date.now,
+      mirror: (line) => console.warn(line),
+      // the previous session's ring, so a report after a restart still holds
+      // the evidence from before it; restoreEntries treats the file as data
+      load: () => (existsSync(diagFile) ? JSON.parse(readFileSync(diagFile, 'utf8')) : undefined),
+      save: (entries) => writeFileSync(diagFile, JSON.stringify(entries)),
+    });
+    const startedAt = Date.now();
+    diag.note('app', `started ${app.getVersion()}`);
     const pins = new PinStore(app.getPath('userData'));
     const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
     const lock = new LockController(new LockStore(app.getPath('userData'), safeStorageCodec()), {
@@ -182,13 +192,13 @@ app
           activity.forgetReplay(id);
           if (kind) waking.begin(id, kind);
         },
-        onCrashed: (id) => {
+        onCrashed: (id, detail) => {
           waking.end(id, 'crashed');
-          resilience?.onCrashed(id);
+          resilience?.onCrashed(id, detail);
         },
-        onLoadFailed: (id) => {
+        onLoadFailed: (id, detail) => {
           waking.end(id, 'load-failed');
-          resilience?.onLoadFailed(id);
+          resilience?.onLoadFailed(id, detail);
         },
         onPinMessage: (id, text, href, title, conversation) => {
           if (pins.pin({ serviceId: id, text, href, title, conversation, at: Date.now() })) {
@@ -369,6 +379,7 @@ app
       lock,
       identityShare,
       diag,
+      startedAt,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
@@ -435,6 +446,7 @@ app
       resilience?.dispose();
       identityShare.dispose();
       downloads.dispose();
+      diag.flush();
       // last: commits any deferred write (zoom) before the process goes
       settings.dispose();
     });

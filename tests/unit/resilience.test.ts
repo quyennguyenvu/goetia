@@ -85,8 +85,10 @@ describe('ResilienceManager diagnostics', () => {
     vi.useFakeTimers();
     const { ctx, notes } = harness();
     const r = new ResilienceManager(ctx);
-    r.onCrashed('messenger');
-    expect(notes).toEqual(['[view] messenger crashed (attempt 1/5, reload in 1s)']);
+    r.onCrashed('messenger', 'reason=oom exit=5');
+    expect(notes).toEqual([
+      '[view] messenger crashed: reason=oom exit=5 (attempt 1/5, reload in 1s)',
+    ]);
     vi.advanceTimersByTime(60_000);
     r.noteRecovered('messenger');
     expect(notes.at(-1)).toBe('[view] messenger recovered');
@@ -106,7 +108,7 @@ describe('ResilienceManager diagnostics', () => {
 
   it('notes a failed load', () => {
     const { ctx, notes } = harness();
-    new ResilienceManager(ctx).onLoadFailed('messenger');
-    expect(notes).toEqual(['[view] messenger load failed']);
+    new ResilienceManager(ctx).onLoadFailed('messenger', '-105 ERR_NAME_NOT_RESOLVED');
+    expect(notes).toEqual(['[view] messenger load failed: -105 ERR_NAME_NOT_RESOLVED']);
   });
 });

@@ -35,7 +35,7 @@ export class ResilienceManager {
     }
   }
 
-  onCrashed(id: ServiceId): void {
+  onCrashed(id: ServiceId, detail?: string): void {
     this.clearDwell(id); // a crash within the dwell must keep the count
     const attempt = this.attempts.get(id) ?? 0;
     this.ctx.state.setRuntime(id, { crashed: true });
@@ -45,9 +45,10 @@ export class ResilienceManager {
     }
     this.attempts.set(id, attempt + 1);
     const delay = backoffDelay(attempt);
+    const cause = detail ? `: ${detail}` : '';
     this.ctx.diag.note(
       'view',
-      `${id} crashed (attempt ${attempt + 1}/${MAX_AUTO_RELOADS}, reload in ${Math.round(delay / 1000)}s)`,
+      `${id} crashed${cause} (attempt ${attempt + 1}/${MAX_AUTO_RELOADS}, reload in ${Math.round(delay / 1000)}s)`,
       id,
     );
     const timer = setTimeout(() => {
@@ -57,9 +58,9 @@ export class ResilienceManager {
     this.reloadTimers.add(timer);
   }
 
-  onLoadFailed(id: ServiceId): void {
+  onLoadFailed(id: ServiceId, detail?: string): void {
     this.clearDwell(id);
-    this.ctx.diag.note('view', `${id} load failed`, id);
+    this.ctx.diag.note('view', `${id} load failed${detail ? `: ${detail}` : ''}`, id);
     this.ctx.state.setRuntime(id, { crashed: true, loading: false });
     // Chromium paints its own error page inside the view; hide it so the
     // shell's Retry placeholder is visible instead.

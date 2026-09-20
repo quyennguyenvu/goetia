@@ -245,6 +245,25 @@ describe('ipcSenderAllowed', () => {
     }
   });
 
+  it('validates service:readyTimeout against the sending frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:readyTimeout',
+        fromShell: false,
+        senderServiceId: 'teams',
+        payloadServiceId: 'teams',
+      }),
+    ).toBe(true);
+    expect(
+      ipcSenderAllowed({
+        channel: 'service:readyTimeout',
+        fromShell: false,
+        senderServiceId: 'teams',
+        payloadServiceId: 'zalo',
+      }),
+    ).toBe(false);
+  });
+
   it('refuses the diagnostics channels from a service frame', () => {
     for (const channel of ['diagnostics:recent', 'diagnostics:report'] as const) {
       expect(

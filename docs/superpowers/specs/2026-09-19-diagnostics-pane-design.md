@@ -1,6 +1,8 @@
 # Diagnostics pane — design
 
-Date: 2026-09-19. Status: approved in brainstorm (user decision, same day); not implemented. Scope: a bounded in-memory record of the evidence lines main already prints and of the runtime transitions it already sees, shown in a Settings pane with one Copy button. Nothing is persisted and nothing leaves the machine except by that clipboard.
+Date: 2026-09-19. Status: implemented 2026-09-20, with the same-day amendment below (user decision). Scope: a bounded record of the evidence lines main already prints and of the runtime transitions it already sees, shown in a Settings pane with one Copy button. Nothing leaves the machine except by that clipboard.
+
+**Amendment (2026-09-20, user decision — "make sure you have full context to debug").** Two changes to what follows. The ring is **flushed to `diagnostics.json` on `before-quit` and restored at boot**, so a report after a restart still holds the session before it — the earlier in-memory-only decision is reversed, and its Decisions bullet below is superseded. And several lines now carry the _why_ and the _where_: the recipe's own error message rides `unread:stale` (sanitised and clipped in main), the ready poll giving up is a line (`service:readyTimeout`), crash and load failures carry Electron's reason/exit code and error code, `[open] miss`, stale/recovered and peek timeouts carry the page's redacted location, and the report gains a `Now:` block with one snapshot line per enabled service plus uptime and the OS release. An `[app] started <version>` line marks each launch. Both tables below reflect the amended lines.
 
 ## Problem
 
@@ -23,7 +25,7 @@ The pane is read-only over what main already knows, and a service page can write
 - **Evidence lines plus runtime transitions** (user decision, option 1 of 3). Lines alone would miss the stale badge, the report that arrives most. The debug-flag firehoses (`[calls-debug]`, the per-peek `[peek]` cadence line) stay behind their env flags; a peek's start and end are recorded as one transition each.
 - **A `Diagnostics` ring in main, fed explicitly** (approach A of 3). Rejected: hooking `console.warn` globally, which catches Electron's own noise and still cannot produce the transitions nobody logs today; and a log file in the profile directory, which puts URLs and service ids on disk for good when the README case needs no history across launches. If crash-time evidence turns out to matter, a ring flushed on `before-quit` is a small later addition.
 - **One button, Copy, and nothing else.** No filters, no Clear, no send. The person pasting it is a friend reporting a problem, not a developer triaging; the report is built to be pasted whole.
-- **In memory only.** Same principle as the activity log: a restart clears it.
+- ~~**In memory only.**~~ Superseded by the amendment: flushed on quit, restored on boot. A main-process crash still loses the current session and nothing older, since only `before-quit` writes. What is on disk is service ids, redacted URLs and sanitised error messages, never chat content; `restoreEntries` treats the file as data (shape, known tags, known service ids, clipped, capped).
 - **Mirror to `console.warn`.** `note()` prints the same `[tag] line` the code printed before, so a dev run reads unchanged and the seven existing emitters lose nothing by moving.
 
 ## Data
@@ -59,9 +61,10 @@ New transitions, one line each, only on change:
 
 | Tag | Where | Lines |
 | --- | --- | --- |
-| `recipe` | `ipc-handlers.ts` `unread:stale` / `unread:update` | `<id> stale` when the flag turns on; `<id> recovered` on the first count after stale. Never per tick — gated on the runtime flag actually changing. |
-| `view` | `resilience.ts` | `<id> crashed (attempt n/5, reload in Xs)`, `<id> crashed (cap reached; manual Retry)`, `<id> load failed`, `<id> recovered` (in `noteRecovered` when `crashed` was set). |
-| `peek` | `hibernation.ts` | `<id> peek started`, `<id> peek ended: report` / `timeout`. |
+| `recipe` | `ipc-handlers.ts` `unread:stale` / `unread:update` / `service:readyTimeout` | `<id> stale: <sanitised reason> · on <host/path>` when the flag turns on; `<id> recovered · on <host/path>` on the first count after stale; `<id> ready() never matched in 10s · on <host/path>` when the ready poll gives up. Never per tick — gated on the runtime flag actually changing. |
+| `view` | `resilience.ts` | `<id> crashed: reason=<r> exit=<n> (attempt n/5, reload in Xs)`, `<id> crashed (cap reached; manual Retry)`, `<id> load failed: <code> <name> · on <host/path>`, `<id> recovered` (in `noteRecovered` when `crashed` was set). |
+| `peek` | `hibernation.ts` | `<id> peek started`, `<id> peek ended: report`, `<id> peek ended: timeout · on <host/path>`. |
+| `app` | `index.ts` | `started <version>` at every launch — the boundary between sessions in a restored ring. |
 
 ## Surface
 

@@ -126,7 +126,7 @@ if (!inSubcontext) {
       recipe,
       document,
       (c) => ipcRenderer.send('unread:update', { serviceId, ...c }),
-      () => ipcRenderer.send('unread:stale', { serviceId }),
+      (reason) => ipcRenderer.send('unread:stale', { serviceId, reason }),
       (pt) => ipcRenderer.send('service:trusted-click', { serviceId, ...pt }),
       ({ title, body, href }) =>
         ipcRenderer.send('notification:fired', { serviceId, title, body, synthetic: true, href }),
@@ -135,6 +135,13 @@ if (!inSubcontext) {
       // logged-out shell (see Recipe.loginUrl).
       (url?: string) => window.location.assign(url ?? serviceById(serviceId).url),
     );
-    startReadyPoll(recipe, document, () => ipcRenderer.send('service:ready', { serviceId }));
+    startReadyPoll(
+      recipe,
+      document,
+      () => ipcRenderer.send('service:ready', { serviceId }),
+      setInterval,
+      clearInterval,
+      () => ipcRenderer.send('service:readyTimeout', { serviceId }),
+    );
   });
 }

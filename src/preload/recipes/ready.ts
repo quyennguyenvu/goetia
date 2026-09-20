@@ -29,6 +29,8 @@ export function startReadyPoll(
   report: () => void,
   setIntervalFn: typeof setInterval = setInterval,
   clearIntervalFn: typeof clearInterval = clearInterval,
+  /** the poll gave up without a match — evidence, not an error */
+  onGiveUp?: () => void,
 ): void {
   const check = recipe.ready;
   if (!check) return;
@@ -52,6 +54,7 @@ export function startReadyPoll(
     if (attempts >= READY_POLL_MAX_ATTEMPTS) {
       stopped = true;
       clearIntervalFn(timer);
+      onGiveUp?.();
     }
   }, READY_POLL_INTERVAL_MS);
 }

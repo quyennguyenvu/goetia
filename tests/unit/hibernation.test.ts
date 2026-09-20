@@ -45,6 +45,7 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
       },
     },
     views: {
+      pageUrl: () => null,
       has: (id: ServiceId) => live.has(id),
       ensure: (id: ServiceId) => {
         ensured.push(id);

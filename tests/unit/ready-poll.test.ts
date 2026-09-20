@@ -53,6 +53,35 @@ describe('startReadyPoll', () => {
     expect(t.cleared).toHaveLength(0);
   });
 
+  it('reports once when it gives up, and never after a success', () => {
+    const t = fakeTimers();
+    const gaveUp = vi.fn();
+    startReadyPoll(
+      { ...base, ready: () => false },
+      doc,
+      vi.fn(),
+      t.setIntervalFn,
+      t.clearIntervalFn,
+      gaveUp,
+    );
+    for (let i = 0; i < 100; i++) t.ticks[0]();
+    expect(gaveUp).toHaveBeenCalledTimes(1);
+    expect(t.cleared).toHaveLength(1);
+
+    const ok = fakeTimers();
+    const gaveUpOk = vi.fn();
+    startReadyPoll(
+      { ...base, ready: () => true },
+      doc,
+      vi.fn(),
+      ok.setIntervalFn,
+      ok.clearIntervalFn,
+      gaveUpOk,
+    );
+    for (let i = 0; i < 100; i++) ok.ticks[0]();
+    expect(gaveUpOk).not.toHaveBeenCalled();
+  });
+
   it('does nothing for recipes without ready()', () => {
     const t = fakeTimers();
     startReadyPoll(base, doc, vi.fn(), t.setIntervalFn, t.clearIntervalFn);

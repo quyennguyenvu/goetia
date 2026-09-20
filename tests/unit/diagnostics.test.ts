@@ -5,7 +5,11 @@ import {
   formatReport,
   recipeTransition,
   redactUrl,
+  restoreEntries,
+  sanitizeDetail,
+  serviceSnapshotLine,
   settingsSummary,
+  withPage,
 } from '../../src/main/lib/diagnostics';
 import { DEFAULT_SETTINGS } from '../../src/shared/types';
 
@@ -24,8 +28,12 @@ const header = {
   electron: '43.3.0',
   platform: 'darwin',
   arch: 'arm64',
+  os: '25.6.0',
+  startedAt: Date.UTC(2026, 8, 19, 9, 0, 0),
+  now: Date.UTC(2026, 8, 19, 10, 1, 0),
   enabled: ['zalo', 'messenger'] as const,
   settings: 'lightSleep=on',
+  services: ['zalo: live · chat.zalo.me/ · unread 3/0', 'messenger: asleep'],
 };
 
 describe('Diagnostics ring', () => {
@@ -72,13 +80,109 @@ describe('Diagnostics ring', () => {
     diag.note('recipe', 'zalo stale', 'zalo');
     const text = diag.report(header);
     expect(text.split('\n')).toEqual([
-      'Goetia 0.17.2 · Electron 43.3.0 · darwin arm64',
+      'Goetia 0.17.2 · Electron 43.3.0 · darwin arm64 · OS 25.6.0',
+      'Started 2026-09-19T09:00:00.000Z · up 1h 1m',
       'Services: zalo, messenger',
       'Settings: lightSleep=on',
+      'Now:',
+      '  zalo: live · chat.zalo.me/ · unread 3/0',
+      '  messenger: asleep',
       '',
       '2026-09-19T10:00:00.000Z [nav] contained: zalo a.example (/x)',
       '2026-09-19T10:01:00.000Z [recipe] zalo stale',
     ]);
+  });
+
+  it('clips an over-long line so a page-fed detail cannot bloat the ring', () => {
+    const { diag } = harness();
+    diag.note('recipe', `zalo stale: ${'x'.repeat(1000)}`, 'zalo');
+    expect(diag.recent()[0].line.length).toBeLessThanOrEqual(300);
+  });
+});
+
+describe('persistence', () => {
+  it('flushes the ring through save and restores it through load', () => {
+    let disk: unknown;
+    const a = new Diagnostics({
+      now: () => 5,
+      mirror: () => {},
+      load: () => disk,
+      save: (entries) => {
+        disk = entries;
+      },
+    });
+    a.note('view', 'messenger crashed', 'messenger');
+    a.flush();
+    const b = new Diagnostics({ now: () => 6, mirror: () => {}, load: () => disk, save: () => {} });
+    expect(b.recent()).toEqual([
+      { at: 5, tag: 'view', serviceId: 'messenger', line: 'messenger crashed' },
+    ]);
+  });
+});
+
+describe('restoreEntries', () => {
+  it('keeps only well-formed entries with known tags and services, newest DIAG_CAP', () => {
+    const good = { at: 1, tag: 'nav', serviceId: 'zalo', line: 'ok' };
+    const raw = [
+      good,
+      { at: 'x', tag: 'nav', line: 'bad at' },
+      { at: 2, tag: 'bogus', line: 'bad tag' },
+      { at: 3, tag: 'view', serviceId: 'nope', line: 'bad service' },
+      { at: 4, tag: 'view', line: 42 },
+      'junk',
+    ];
+    expect(restoreEntries(raw)).toEqual([good]);
+    expect(restoreEntries('not an array')).toEqual([]);
+    expect(restoreEntries(undefined)).toEqual([]);
+    const many = Array.from({ length: DIAG_CAP + 10 }, (_, i) => ({
+      at: i,
+      tag: 'view',
+      line: `l${i}`,
+    }));
+    const kept = restoreEntries(many);
+    expect(kept).toHaveLength(DIAG_CAP);
+    expect(kept[0].at).toBe(10);
+  });
+});
+
+describe('sanitizeDetail', () => {
+  it('accepts only a string, flattens whitespace and clips', () => {
+    expect(sanitizeDetail('count\n  timeout\t now')).toBe('count timeout now');
+    expect(sanitizeDetail('x'.repeat(500)).length).toBe(160);
+    expect(sanitizeDetail(42)).toBe('');
+    expect(sanitizeDetail('a\u0000b\u001bc')).toBe('abc');
+  });
+});
+
+describe('withPage', () => {
+  it('appends the page location when known', () => {
+    expect(withPage('zalo stale', 'https://chat.zalo.me/')).toBe('zalo stale · on chat.zalo.me/');
+    expect(withPage('zalo stale', null)).toBe('zalo stale');
+  });
+});
+
+describe('serviceSnapshotLine', () => {
+  it('describes a live service and an asleep one', () => {
+    expect(
+      serviceSnapshotLine({
+        id: 'zalo',
+        page: 'https://chat.zalo.me/',
+        unread: { direct: 3, indirect: 1 },
+        stale: true,
+        crashed: false,
+        muted: true,
+      }),
+    ).toBe('zalo: live · chat.zalo.me/ · unread 3/1 · STALE · muted');
+    expect(
+      serviceSnapshotLine({
+        id: 'slack',
+        page: null,
+        unread: { direct: 0, indirect: 0 },
+        stale: false,
+        crashed: true,
+        muted: false,
+      }),
+    ).toBe('slack: asleep · unread 0/0 · CRASHED');
   });
 });
 

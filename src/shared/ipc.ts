@@ -39,7 +39,12 @@ export interface RendererToMain {
   'settings:update': Partial<Settings>;
   'badge:overlay': { dataUrl: string | null; count: number };
   'unread:update': { serviceId: ServiceId } & Counts;
-  'unread:stale': { serviceId: ServiceId };
+  /** `reason`: the recipe's own error message — sanitized and clipped in
+   *  main before it reaches the Diagnostics ring, never trusted as-is */
+  'unread:stale': { serviceId: ServiceId; reason?: string };
+  /** the ready() poll gave up (10s) without a match: a logged-out page or a
+   *  dead selector — the line that would have caught the Teams ready() bug */
+  'service:readyTimeout': { serviceId: ServiceId };
   /** `synthetic`: the recipe built this because the site notifies nowhere
    *  in-page, so no page sound accompanied it — see soundOptions.
    *  `clickId`: shim registry id for replaying the page's own click handler.
@@ -135,6 +140,7 @@ export const R2M_CHANNELS = [
   'service:trusted-click',
   'service:openExternal',
   'service:ready',
+  'service:readyTimeout',
   'updates:check',
   'updates:openDownload',
 ] as const satisfies readonly (keyof RendererToMain)[];

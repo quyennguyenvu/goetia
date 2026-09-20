@@ -37,6 +37,7 @@ describe('runner stale dedup', () => {
     await ticks[0]();
     await ticks[0]();
     expect(reportStale).toHaveBeenCalledTimes(1); // three failures, one report
+    expect(reportStale).toHaveBeenCalledWith('logged out'); // the why rides along
     ok = true;
     await ticks[0](); // recovers
     ok = false;
@@ -66,5 +67,6 @@ describe('runner stale dedup', () => {
     );
     await ticks[0]();
     expect(reportStale).toHaveBeenCalledTimes(1);
+    expect(reportStale).toHaveBeenCalledWith('count timeout');
   });
 });

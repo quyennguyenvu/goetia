@@ -143,7 +143,7 @@ describe('performBannerAction', () => {
     const diag = { note: vi.fn() };
     const ctx = {
       state,
-      views,
+      views: { ...views, pageUrl: () => null },
       activity,
       diag,
       settings: { update: vi.fn(), get: () => DEFAULT_SETTINGS },

@@ -2,6 +2,7 @@ import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
 import { type ActivityEntry, openHref } from './lib/activity-log';
+import { withPage } from './lib/diagnostics';
 import { type BannerClickAction, resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
 
@@ -107,7 +108,7 @@ export async function performBannerAction(
   if (!result) return;
   if (result.lane === 'miss') {
     const lanes = Object.keys(req).join(',');
-    ctx.diag.note('open', `${id} miss: lanes=${lanes}`, id);
+    ctx.diag.note('open', withPage(`${id} miss: lanes=${lanes}`, ctx.views.pageUrl(id)), id);
   } else if (result.lane === 'replay' && result.url && opts.entryId !== undefined) {
     ctx.activity.learnUrl(opts.entryId, result.url);
   }

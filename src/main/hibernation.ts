@@ -1,6 +1,7 @@
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
 import { shouldBanish } from './lib/banish-rules';
+import { withPage } from './lib/diagnostics';
 import { BANNER_GRACE_MS, shouldHibernate } from './lib/hibernation-rules';
 import {
   PEEK_INTERVAL_MS,
@@ -193,7 +194,14 @@ export class HibernationController {
     clearTimeout(timer);
     this.peeking = null;
     this.lastPeekEndedAt.set(id, Date.now());
-    if (reason) this.ctx.diag.note('peek', `${id} peek ended: ${reason}`, id);
+    if (reason) {
+      const line = `${id} peek ended: ${reason}`;
+      this.ctx.diag.note(
+        'peek',
+        reason === 'timeout' ? withPage(line, this.ctx.views.pageUrl(id)) : line,
+        id,
+      );
+    }
     // A peek that loaded a whole page and found the same count was a wasted
     // load. Only counted for a peek that ran its course — `destroy: false`
     // means the user activated mid-peek, and noteActivated clears the streak.

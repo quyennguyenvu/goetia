@@ -24,7 +24,7 @@ export function startRecipe(
   recipe: Recipe,
   doc: Document,
   report: (c: Counts) => void,
-  reportStale: () => void,
+  reportStale: (reason: string) => void,
   reportKeepAlive?: (pt: { x: number; y: number }) => void,
   reportNotification?: (n: { title: string; body: string; href?: string }) => void,
   navigate?: (url?: string) => void,
@@ -190,10 +190,10 @@ export function startRecipe(
         const n = recipe.synthNotification(doc);
         if (n) reportNotification(n);
       }
-    } catch {
+    } catch (err) {
       if (!stale) {
         stale = true;
-        reportStale();
+        reportStale(err instanceof Error ? err.message : String(err));
       }
     } finally {
       clearTimeout(timer);

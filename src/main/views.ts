@@ -25,7 +25,7 @@ import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
 import { resolveClickPoint } from './lib/click-point';
 import { clientHintHeaders } from './lib/client-hints';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
-import { redactUrl } from './lib/diagnostics';
+import { redactUrl, withPage } from './lib/diagnostics';
 import { isSafeExternalUrl } from './lib/external-url';
 import { identityUrlPatterns, isIdentityHost, isIdentityPopup } from './lib/identity-policy';
 import { sameBounds, type ViewBounds, viewBounds } from './lib/layout';
@@ -83,8 +83,10 @@ export interface ViewHooks {
    *  requested (MainLoads) and is null for a navigation the page made on its
    *  own, which runs over a live document and must not look like a cold start. */
   onNavigate(id: ServiceId, kind: LoadKind | null): void;
-  onCrashed(id: ServiceId): void;
-  onLoadFailed(id: ServiceId): void;
+  /** `detail` is Electron's own account — `reason=… exit=…`, or the load's
+   *  error code and name — for the Diagnostics line */
+  onCrashed(id: ServiceId, detail: string): void;
+  onLoadFailed(id: ServiceId, detail: string): void;
   /** "Pin Message" from the page's context menu or the Pin Selection
    *  shortcut — captured here in main, so the service preload needs no
    *  channel for it. `title` is document.title, the conversation's best
@@ -167,6 +169,13 @@ export class ServiceViewManager {
 
   has(id: ServiceId): boolean {
     return this.views.has(id);
+  }
+
+  /** The live view's current URL, or null while the service has no view.
+   *  For Diagnostics lines: callers redact it (withPage). */
+  pageUrl(id: ServiceId): string | null {
+    const wc = this.views.get(id)?.webContents;
+    return wc && !wc.isDestroyed() ? wc.getURL() : null;
   }
 
   /** The service whose view owns this webContents id, or null. */
@@ -436,10 +445,12 @@ export class ServiceViewManager {
     });
     wc.on('render-process-gone', (_e, d) => {
       debugCalls(`service ${id} GONE reason=${d.reason} exit=${d.exitCode}`);
-      this.hooks.onCrashed(id);
+      this.hooks.onCrashed(id, `reason=${d.reason} exit=${d.exitCode}`);
     });
-    wc.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
-      if (isMainFrame && code !== -3) this.hooks.onLoadFailed(id);
+    wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
+      if (isMainFrame && code !== -3) {
+        this.hooks.onLoadFailed(id, withPage(`${code} ${desc}`, url));
+      }
     });
     this.load(id, wc, 'wake', svc.url);
     this.views.set(id, view);

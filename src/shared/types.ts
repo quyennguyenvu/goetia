@@ -72,6 +72,7 @@ export interface UpdateState {
  *  recorded. Composed main-side from ids and states only — never a title,
  *  body, filename or pin — and stored in a bounded in-memory ring. */
 export type DiagTag =
+  | 'app'
   | 'nav'
   | 'open'
   | 'identity'

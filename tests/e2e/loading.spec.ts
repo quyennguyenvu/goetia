@@ -43,6 +43,18 @@ test('waking cover: overlay page exists, tiles breathe, timeout reveals', async 
   // a cold create is a wake, and the cover says so
   await expect(overlay.locator('#caption')).toHaveText('Waking Messenger…');
 
+  // the view's URL is '' until its first navigation commits, which under a
+  // loaded full-suite run can trail the tile breathing by a beat
+  await expect
+    .poll(
+      () =>
+        app.evaluate(({ webContents }) =>
+          webContents.getAllWebContents().some((w) => w.getURL().startsWith('https://')),
+        ),
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+
   // ⌘K hides the view and the cover; the shell placeholder behind the
   // switcher carries the same caption while the wake is on…
   await app.evaluate(({ webContents }) => {
