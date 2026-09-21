@@ -50,6 +50,7 @@ describe('channelAllowedWhileLocked', () => {
       'service:activate',
       'service:reload',
       'service:tileMenu',
+      'global:muteMenu',
       'service:purgeLogin',
       'service:reorder',
       'settings:update',

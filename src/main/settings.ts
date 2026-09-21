@@ -98,16 +98,18 @@ function fillDownloads(raw: unknown): Settings['downloads'] {
   };
 }
 
-/** Epoch-ms twin of fillZoom(): missing, corrupt, or non-positive stamps
- *  coerce to 0 (= never used, never banishable). */
-function fillLastUsedAt(raw: unknown): Record<ServiceId, number> {
+/** A missing, corrupt, or non-positive epoch stamp is 0 (never used, no
+ *  timed mute). */
+const epoch = (v: unknown): number =>
+  typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0;
+
+/** Epoch-ms twin of fillZoom() for lastUsedAt and mutedUntil. */
+function fillEpochs(raw: unknown): Record<ServiceId, number> {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<ServiceId, number>>;
-  return Object.fromEntries(
-    SERVICES.map((s) => {
-      const v = r[s.id];
-      return [s.id, typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0];
-    }),
-  ) as Record<ServiceId, number>;
+  return Object.fromEntries(SERVICES.map((s) => [s.id, epoch(r[s.id])])) as Record<
+    ServiceId,
+    number
+  >;
 }
 
 function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } {
@@ -144,7 +146,9 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
       neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),
       zoom: fillZoom(raw.zoom),
       autoBanish: fillAutoBanish(raw.autoBanish),
-      lastUsedAt: fillLastUsedAt(raw.lastUsedAt),
+      lastUsedAt: fillEpochs(raw.lastUsedAt),
+      mutedUntil: fillEpochs(raw.mutedUntil),
+      globalMutedUntil: epoch(raw.globalMutedUntil),
       quietHours: fillQuietHours(raw.quietHours),
       quietOverrideWindowStart:
         typeof raw.quietOverrideWindowStart === 'number' &&

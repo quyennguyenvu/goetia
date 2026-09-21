@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { app, Menu, Tray } from 'electron';
+import { globalMuteMenuTemplate } from './global-mute-menu';
 import type { AppContext } from './ipc-handlers';
 
 // out/main -> project root (dev/e2e) or asar root (packaged)
@@ -28,14 +29,12 @@ export function createTray(ctx: AppContext): {
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: ctx.win.isVisible() ? 'Hide Goetia' : 'Show Goetia', click: toggle },
-        {
-          label: 'Mute all notifications',
-          type: 'checkbox',
-          checked: s.globalMuted || ctx.quietNow(),
-          // no accelerator here: the app menu owns the binding, and declaring
-          // it twice risks the toggle firing twice for one keypress
-          click: (item) => ctx.setGlobalMuted(item.checked),
-        },
+        // no accelerator here: the app menu owns the binding, and declaring
+        // it twice risks the toggle firing twice for one keypress
+        globalMuteMenuTemplate(ctx, {
+          toggle: () => ctx.setGlobalMuted(!(ctx.settings.get().globalMuted || ctx.quietNow())),
+          guarded: false,
+        }),
         {
           label: 'Lock Goetia',
           enabled: s.appLock.enabled && ctx.lock.configured() && !ctx.lock.locked,

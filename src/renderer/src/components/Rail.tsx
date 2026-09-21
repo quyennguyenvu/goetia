@@ -1,5 +1,6 @@
 import { Reorder } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { muteLabel } from '../../../shared/mute';
 import type { PinView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
 import Portal from './Portal';
@@ -98,6 +99,8 @@ export default function Rail() {
   const byId = new Map(state.services.map((svc) => [svc.id, svc]));
   const updateReady = updatePending(state.update);
   const silenced = state.globalMuted || state.quietActive;
+  // read at render: the expiry's own broadcast re-renders the bell
+  const timedUntil = state.globalMuted ? muteLabel(state.globalMutedUntil, new Date()) : '';
 
   const confirmPending = () => {
     if (!pending) return;
@@ -196,6 +199,7 @@ export default function Rail() {
                   service={svc}
                   runtime={state.runtime[svc.id]}
                   muted={state.muted[svc.id]}
+                  mutedUntil={state.mutedUntil[svc.id]}
                   active={!state.homeOpen && state.activeId === svc.id}
                   onActivate={() => {
                     if (reorder.consumeDrag()) return;
@@ -219,14 +223,19 @@ export default function Rail() {
         >
           <button
             type="button"
+            data-testid="bell"
             title={`${
               silenced ? 'Unmute all notifications' : 'Mute all notifications'
             } (⌘/Ctrl+⇧+M) — badges stay${
               state.quietActive && !state.globalMuted
                 ? ` — quiet hours until ${state.settings.quietHours.end}`
                 : ''
-            }`}
+            }${timedUntil ? ` — muted ${timedUntil}` : ''}`}
             onClick={() => window.goetia.send('global:setMuted', { muted: !silenced })}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              window.goetia.send('global:muteMenu', {});
+            }}
             className={`flex h-7 w-7 items-center justify-center rounded-ctl transition-colors duration-120 ${
               silenced
                 ? 'bg-badge/15 text-badge hover:bg-badge/25'

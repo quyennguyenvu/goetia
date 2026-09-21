@@ -19,7 +19,12 @@ import { runShellCommand } from './commands';
 import { DownloadManager } from './downloads';
 import { HibernationController } from './hibernation';
 import { IdentityShare } from './identity-share';
-import { type AppContext, applyDisabledChange, registerIpcHandlers } from './ipc-handlers';
+import {
+  type AppContext,
+  applyDisabledChange,
+  registerIpcHandlers,
+  setServiceMuted,
+} from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
 import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
@@ -33,6 +38,7 @@ import { chromeUserAgent } from './lib/ua';
 import { LoadingOverlay } from './loading-overlay';
 import { LockController, LockStore } from './lock';
 import { buildAppMenu } from './menu';
+import { MuteTimerController } from './mute-timer';
 import { ICON_DIR, NotificationRouter } from './notifications';
 import { PasskeyAuthenticator } from './passkeys/authenticator';
 import { safeStorageCodec } from './passkeys/codec';
@@ -255,6 +261,23 @@ app
       onBoundary: () => quietSideEffects(),
     });
 
+    // ctx is assembled below; the timer first fires from start(), after it
+    const muteTimer = new MuteTimerController({
+      muted: () => settings.get().muted,
+      mutedUntil: () => settings.get().mutedUntil,
+      onExpire: (ids) => {
+        for (const id of ids) setServiceMuted(ctx, id, false);
+      },
+      globalMuted: () => settings.get().globalMuted,
+      globalMutedUntil: () => settings.get().globalMutedUntil,
+      // not setGlobalMuted(false): that is the hand unmute, which dismisses an
+      // open quiet-hours window — an hour of silence asked for nothing of the sort
+      onGlobalExpire: () => {
+        settings.update({ globalMuted: false, globalMutedUntil: 0 });
+        quietSideEffects();
+      },
+    });
+
     const summon = new SummonHotkey(() => {
       if (win.isDestroyed()) return;
       if (win.isFocused()) {
@@ -380,6 +403,7 @@ app
       identityShare,
       diag,
       startedAt,
+      muteTimer,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
@@ -397,15 +421,17 @@ app
         applyDisabledChange(ctx, before);
         broadcast();
       },
-      setGlobalMuted: (muted) => {
-        settings.update(
-          muteToggleResult({
+      setGlobalMuted: (muted, until = 0) => {
+        settings.update({
+          ...muteToggleResult({
             wantSilence: muted,
             engagedWindowStart:
               quietWindowFor(new Date(), settings.get().quietHours)?.start.getTime() ?? null,
           }),
-        );
+          globalMutedUntil: muted ? until : 0,
+        });
         quietSideEffects();
+        muteTimer.rearm();
       },
       quietNow: () => quiet.quietNow(),
       onBattery: () => powerMonitor.onBatteryPower,
@@ -429,6 +455,7 @@ app
     registerIpcHandlers(ctx, new NotificationRouter(ctx));
     hibernation.start();
     quiet.start();
+    muteTimer.start();
     applySummon();
     tray = createTray(ctx);
     // the tray missed any badge applied before it existed; re-apply on the next
@@ -441,6 +468,7 @@ app
     app.on('before-quit', () => {
       updates.dispose();
       quiet.dispose();
+      muteTimer.dispose();
       summon.dispose();
       hibernation.dispose();
       resilience?.dispose();

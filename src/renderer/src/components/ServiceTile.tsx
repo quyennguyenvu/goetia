@@ -1,5 +1,6 @@
 import type React from 'react';
 import { badgeLabel } from '../../../shared/badges';
+import { muteLabel } from '../../../shared/mute';
 import type { ServiceMeta, ServiceRuntime } from '../../../shared/types';
 
 const logos = import.meta.glob<string>('../assets/logos/*.svg', {
@@ -12,15 +13,25 @@ interface Props {
   service: ServiceMeta;
   runtime: ServiceRuntime;
   muted: boolean;
+  /** epoch ms a timed mute ends, 0 for none — the bell badge's tooltip */
+  mutedUntil: number;
   active: boolean;
   onActivate(): void;
   onContextMenu(e: React.MouseEvent): void;
+}
+
+/** `Muted until 14:30` for a timed mute, `Muted` otherwise. Read at render:
+ *  the expiry's own broadcast re-renders the tile, so no interval is needed. */
+function muteTooltip(until: number): string {
+  const when = muteLabel(until, new Date());
+  return when ? `Muted ${when}` : 'Muted';
 }
 
 export default function ServiceTile({
   service,
   runtime,
   muted,
+  mutedUntil,
   active,
   onActivate,
   onContextMenu,
@@ -73,7 +84,7 @@ export default function ServiceTile({
       {muted && (
         <span
           className="absolute -left-1 -bottom-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-border bg-bg-2"
-          title="muted"
+          title={muteTooltip(mutedUntil)}
         >
           <svg
             width="8"

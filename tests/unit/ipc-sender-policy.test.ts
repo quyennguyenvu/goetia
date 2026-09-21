@@ -32,6 +32,25 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(true);
   });
+  it('keeps the bell’s mute menu shell-only', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'global:muteMenu',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      ipcSenderAllowed({
+        channel: 'global:muteMenu',
+        fromShell: false,
+        senderServiceId: 'zalo',
+        payloadServiceId: undefined,
+      }),
+    ).toBe(false);
+  });
+
   it('rejects the tile menu from a service frame', () => {
     expect(
       ipcSenderAllowed({

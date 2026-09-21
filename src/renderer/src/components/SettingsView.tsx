@@ -423,7 +423,7 @@ export default function SettingsView() {
                       <span className="flex items-center gap-4 text-text-2">
                         <label
                           className="flex items-center gap-1.5"
-                          title="No banners, and the site's own sounds are silenced"
+                          title="No banners, and the site's own sounds are silenced. Right-click a tile in the rail to mute for a while."
                         >
                           <input
                             type="checkbox"

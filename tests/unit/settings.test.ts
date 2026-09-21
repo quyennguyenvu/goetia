@@ -568,6 +568,42 @@ describe('SettingsStore', () => {
     expect(s.globalMuted).toBe(true);
   });
 
+  it('defaults every timed-mute expiry to none', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const s = new SettingsStore(dir).get();
+    expect(Object.keys(s.mutedUntil)).toHaveLength(SERVICES.length);
+    expect(Object.values(s.mutedUntil).every((v) => v === 0)).toBe(true);
+  });
+
+  it('keeps a future expiry and zeroes corrupt or missing ones', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ mutedUntil: { zalo: 1_800_000_000_000, slack: 'soon', teams: -5 } }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.mutedUntil.zalo).toBe(1_800_000_000_000);
+    expect(s.mutedUntil.slack).toBe(0);
+    expect(s.mutedUntil.teams).toBe(0);
+    expect(s.mutedUntil.whatsapp).toBe(0);
+  });
+
+  it('defaults the global mute expiry to none', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).get().globalMutedUntil).toBe(0);
+  });
+
+  it('keeps a future global expiry and zeroes a corrupt one', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ globalMutedUntil: 1_800_000_000_000 }),
+    );
+    expect(new SettingsStore(dir).get().globalMutedUntil).toBe(1_800_000_000_000);
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ globalMutedUntil: 'soon' }));
+    expect(new SettingsStore(dir).get().globalMutedUntil).toBe(0);
+  });
+
   it('defaults downloads to the OS folder without asking', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     expect(new SettingsStore(dir).get().downloads).toEqual({ ask: false, dir: null });

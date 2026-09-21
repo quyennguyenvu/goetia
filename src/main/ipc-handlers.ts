@@ -10,6 +10,7 @@ import {
 } from 'electron';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
 import type { GuardedAction } from '../shared/lock';
+import { muteExpiry } from '../shared/mute';
 import { serviceById } from '../shared/services';
 import type { ServiceId, Settings } from '../shared/types';
 import {
@@ -21,6 +22,7 @@ import {
   setOverlayOpen,
 } from './activate';
 import { applyOverlay } from './badges';
+import { globalMuteMenuTemplate } from './global-mute-menu';
 import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
 import type { ActivityLog } from './lib/activity-log';
@@ -42,6 +44,7 @@ import { type TileMenuAction, tileMenuItems } from './lib/tile-menu';
 import { releaseUrl } from './lib/update-check';
 import type { LockController } from './lock';
 import { buildAppMenu } from './menu';
+import type { MuteTimerController } from './mute-timer';
 import type { NotificationRouter } from './notifications';
 import type { PasskeyAuthenticator } from './passkeys/authenticator';
 import type { PasskeyStore } from './passkeys/store';
@@ -77,6 +80,8 @@ export interface AppContext {
   diag: Diagnostics;
   /** epoch ms of this launch — the report's uptime line */
   startedAt: number;
+  /** flips a timed mute back when it expires; re-armed by setServiceMuted */
+  muteTimer: MuteTimerController;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -92,9 +97,10 @@ export interface AppContext {
    *  in index.ts so hibernation.ts stays free of electron */
   banishServices(ids: ServiceId[]): void;
   /** the one way to move global mute — bell, tray, menu and accelerator all
-   *  land here so the pages, both menus' checkmarks and the shell agree;
-   *  late-bound in index.ts */
-  setGlobalMuted(muted: boolean): void;
+   *  land here so the pages, both menus' labels and the shell agree; `until`
+   *  is a timed mute's expiry (0 = none) and any unmute zeroes it; late-bound
+   *  in index.ts */
+  setGlobalMuted(muted: boolean, until?: number): void;
   /** quiet-hours engagement right now, override applied; late-bound in index.ts */
   quietNow(): boolean;
   /** running on battery — Light Sleep's opt-in saver peeks less there;
@@ -261,11 +267,29 @@ function authorized(ctx: AppContext, action: GuardedAction): boolean {
   return !guarded || ctx.lock.consumeConsent(action);
 }
 
-function setServiceMuted(ctx: AppContext, serviceId: ServiceId, muted: boolean): void {
+/** The one mute tail: the tile menu, the Settings checkbox and the expiry
+ *  timer all land here. `until` is the timed mute's expiry (0 = none); an
+ *  unmute always zeroes it, so a stale expiry can never re-silence a service
+ *  the user unmuted by hand. */
+export function setServiceMuted(
+  ctx: AppContext,
+  serviceId: ServiceId,
+  muted: boolean,
+  until = 0,
+): void {
   const s = ctx.settings.get();
-  ctx.settings.update({ muted: { ...s.muted, [serviceId]: muted } });
+  ctx.settings.update({
+    muted: { ...s.muted, [serviceId]: muted },
+    mutedUntil: { ...s.mutedUntil, [serviceId]: muted ? until : 0 },
+  });
   ctx.views.applyAudioMute(serviceId);
+  ctx.muteTimer.rearm();
   ctx.broadcast();
+}
+
+/** a page-shaped `until` is a finite instant in the future, or it is nothing */
+function validUntil(until: unknown): number {
+  return typeof until === 'number' && Number.isFinite(until) && until > Date.now() ? until : 0;
 }
 
 export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter): void {
@@ -274,22 +298,38 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
   on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));
-  on('service:setMuted', ({ serviceId, muted }) => setServiceMuted(ctx, serviceId, muted));
+  on('service:setMuted', ({ serviceId, muted, until }) =>
+    setServiceMuted(ctx, serviceId, muted, validUntil(until)),
+  );
   on('service:tileMenu', ({ serviceId }) => {
-    const muted = ctx.settings.get().muted[serviceId];
+    const s = ctx.settings.get();
+    const muted = s.muted[serviceId];
     // every action is quick and recoverable (banish keeps the login) — no confirm
     const run: Record<TileMenuAction, () => void> = {
       reload: () => ctx.views.refresh(serviceId),
-      mute: () => setServiceMuted(ctx, serviceId, !muted),
+      mute: () => setServiceMuted(ctx, serviceId, false),
       banish: () => ctx.banishServices([serviceId]),
     };
-    const items = tileMenuItems({ muted, live: ctx.views.has(serviceId) });
+    const items = tileMenuItems({
+      muted,
+      live: ctx.views.has(serviceId),
+      mutedUntil: s.mutedUntil[serviceId],
+      now: new Date(),
+    });
     Menu.buildFromTemplate(
-      items.map((item) =>
-        item.type === 'separator'
-          ? item
-          : { label: item.label, enabled: item.enabled, click: run[item.action] },
-      ),
+      items.map((item) => {
+        if (item.type === 'separator') return item;
+        if (item.type === 'submenu') {
+          return {
+            label: item.label,
+            submenu: item.items.map((c) => ({
+              label: c.label,
+              click: () => setServiceMuted(ctx, serviceId, true, muteExpiry(c.kind, new Date())),
+            })),
+          };
+        }
+        return { label: item.label, enabled: item.enabled, click: run[item.action] };
+      }),
     ).popup({ window: ctx.win });
   });
   on('service:purgeLogin', ({ serviceId }) => {
@@ -301,7 +341,16 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     buildAppMenu(ctx); // keep Cmd/Ctrl+1..9 aligned with the new order
     ctx.broadcast();
   });
-  on('global:setMuted', ({ muted }) => ctx.setGlobalMuted(muted));
+  on('global:setMuted', ({ muted, until }) => ctx.setGlobalMuted(muted, validUntil(until)));
+  on('global:muteMenu', () => {
+    // the channel is refused while locked, so the popup needs no guard of its own
+    const toggle = () => ctx.setGlobalMuted(!(ctx.settings.get().globalMuted || ctx.quietNow()));
+    const entry = globalMuteMenuTemplate(ctx, { toggle, guarded: false });
+    // the bell already says "mute all"; pop the durations themselves
+    Menu.buildFromTemplate(
+      Array.isArray(entry.submenu) ? entry.submenu : [{ label: entry.label, click: entry.click }],
+    ).popup({ window: ctx.win });
+  });
   on('switcher:setOpen', ({ open }) => setOverlayOpen(ctx, 'switcherOpen', open));
   on('settings:setOpen', ({ open }) => setOverlayOpen(ctx, 'settingsOpen', open));
   on('home:setOpen', ({ open }) => {

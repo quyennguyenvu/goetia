@@ -1,6 +1,7 @@
 import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
 import { openSettings, runShellCommand } from './commands';
+import { globalMuteMenuTemplate } from './global-mute-menu';
 import type { AppContext } from './ipc-handlers';
 import { serviceAccelerator } from './lib/service-accelerator';
 import { ACCELERATORS, devtoolsAccelerator } from './lib/shortcuts';
@@ -17,13 +18,11 @@ export function buildAppMenu(ctx: AppContext): void {
     accelerator: ACCELERATORS.settings,
     click: run({ kind: 'settings' }),
   };
-  const muteItem: Electron.MenuItemConstructorOptions = {
-    label: 'Mute All Notifications',
+  const muteItem = globalMuteMenuTemplate(ctx, {
+    toggle: run({ kind: 'mute' }),
+    guarded: true,
     accelerator: ACCELERATORS.mute,
-    type: 'checkbox',
-    checked: s.globalMuted || ctx.quietNow(),
-    click: run({ kind: 'mute' }),
-  };
+  });
   const lockItem: Electron.MenuItemConstructorOptions = {
     label: 'Lock Goetia',
     accelerator: ACCELERATORS.lock,

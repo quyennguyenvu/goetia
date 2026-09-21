@@ -130,8 +130,18 @@ export type RailPosition = 'top' | 'left' | 'right';
 export interface Settings {
   order: ServiceId[];
   muted: Record<ServiceId, boolean>;
+  /** epoch ms when a timed mute ends, 0 for none. `muted` stays the one
+   *  truth every reader consults; this only tells MuteTimerController when to
+   *  flip it back, and labels the menu and the tile. Every unmute zeroes it.
+   *  See shared/mute.ts and the 2026-09-20 spec. */
+  mutedUntil: Record<ServiceId, number>;
   disabled: Record<ServiceId, boolean>; // no tile, no view, no network
   globalMuted: boolean;
+  /** epoch ms when a timed global mute ends, 0 for none — the per-service
+   *  rule at the global grain: `globalMuted` stays the truth, this only tells
+   *  the controller when to flip it back. A timer expiry never touches
+   *  quietOverrideWindowStart. See the 2026-09-21 spec. */
+  globalMutedUntil: number;
   /** Play a sound with Goetia's banner. Services that notify through the shim
    *  (Discord, WhatsApp, …) already ding in-page, so this is the second sound
    *  the user hears — turning it off leaves the page's own. */
@@ -233,6 +243,7 @@ export const DEFAULT_SETTINGS: Settings = {
     teams: true,
   },
   globalMuted: false,
+  globalMutedUntil: 0,
   notificationSound: true,
   // Light Sleep keeps sleeping badges honest, so nothing needs Keep Awake
   neverHibernate: {
@@ -248,6 +259,18 @@ export const DEFAULT_SETTINGS: Settings = {
     teams: false,
   },
   zoom: {
+    whatsapp: 0,
+    messenger: 0,
+    instagram: 0,
+    telegram: 0,
+    discord: 0,
+    zalo: 0,
+    tiktok: 0,
+    shopee: 0,
+    slack: 0,
+    teams: 0,
+  },
+  mutedUntil: {
     whatsapp: 0,
     messenger: 0,
     instagram: 0,
@@ -314,7 +337,11 @@ export interface ShellState {
   activeId: ServiceId;
   runtime: Record<ServiceId, ServiceRuntime>;
   muted: Record<ServiceId, boolean>;
+  /** timed-mute expiries, for the tile tooltip; see Settings.mutedUntil */
+  mutedUntil: Record<ServiceId, number>;
   globalMuted: boolean;
+  /** timed global-mute expiry, for the bell tooltip; see Settings.globalMutedUntil */
+  globalMutedUntil: number;
   /** quiet-hours engaged right now (manual override already applied) */
   quietActive: boolean;
   /** false while an enabled summon combo failed to register (owned elsewhere) */

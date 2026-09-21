@@ -25,14 +25,20 @@ import type {
 /** renderer/preload -> main, via ipcRenderer.send */
 export interface RendererToMain {
   'service:activate': { serviceId: ServiceId };
-  'service:setMuted': { serviceId: ServiceId; muted: boolean };
+  /** `until`: epoch ms a timed mute ends (tile menu only); absent or 0 is
+   *  "until I unmute". Validated in main as a finite future number. */
+  'service:setMuted': { serviceId: ServiceId; muted: boolean; until?: number };
   'service:reorder': { orderedIds: ServiceId[] };
   'service:reload': { serviceId: ServiceId };
   /** right-click on a rail tile: main pops the native per-service menu */
   'service:tileMenu': { serviceId: ServiceId };
   /** Settings → Services row: wipe the service's login on this device */
   'service:purgeLogin': { serviceId: ServiceId };
-  'global:setMuted': { muted: boolean };
+  /** `until`: epoch ms a timed global mute ends (bell, tray and app menu);
+   *  absent or 0 is "until I unmute". Validated in main like the service one. */
+  'global:setMuted': { muted: boolean; until?: number };
+  /** right-click on the bell: main pops the durations, or Unmute */
+  'global:muteMenu': Record<string, never>;
   'switcher:setOpen': { open: boolean };
   'settings:setOpen': { open: boolean };
   'home:setOpen': { open: boolean };
@@ -123,6 +129,7 @@ export const R2M_CHANNELS = [
   'service:tileMenu',
   'service:purgeLogin',
   'global:setMuted',
+  'global:muteMenu',
   'switcher:setOpen',
   'settings:setOpen',
   'home:setOpen',
@@ -225,6 +232,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'service:tileMenu',
   'service:purgeLogin',
   'global:setMuted',
+  'global:muteMenu',
   'switcher:setOpen',
   'settings:setOpen',
   'home:setOpen',
