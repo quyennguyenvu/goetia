@@ -132,6 +132,16 @@ export function buildAppMenu(ctx: AppContext): void {
           accelerator: ACCELERATORS.switcher,
           click: run({ kind: 'switcher' }),
         },
+        {
+          label: 'Next Unread',
+          accelerator: ACCELERATORS.nextUnread,
+          click: run({ kind: 'unread', step: 1 }),
+        },
+        {
+          label: 'Previous Unread',
+          accelerator: ACCELERATORS.prevUnread,
+          click: run({ kind: 'unread', step: -1 }),
+        },
         ...(process.platform !== 'darwin'
           ? [{ type: 'separator' as const }, muteItem, lockItem, checkUpdatesItem, settingsItem]
           : []),

@@ -1,7 +1,8 @@
-import { activateService, setHomeOpen, setOverlayOpen } from './activate';
+import { activateService, openActivityEntry, setHomeOpen, setOverlayOpen } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { anyOverlayOpen } from './lib/overlay-rules';
 import type { ShellCommand } from './lib/shortcuts';
+import { nextTarget, unreadTargets } from './lib/unread-jump';
 import { stepZoom } from './lib/zoom-rules';
 import { toggleDetachedDevTools } from './views';
 
@@ -44,6 +45,24 @@ export function runShellCommand(ctx: AppContext, command: ShellCommand): void {
       if (!id) return;
       ctx.win.show();
       activateService(ctx, id);
+      return;
+    }
+    case 'unread': {
+      // conversations the log knows (the ⌘K rows), then badge-only services;
+      // an entry opens through the very tail a banner or ⌘K row uses
+      const s = ctx.settings.get();
+      const targets = unreadTargets(
+        ctx.activity.recent(),
+        s.order.filter((x) => !s.disabled[x]),
+        (x) => ctx.state.runtime(x).unread,
+      );
+      const target = nextTarget(targets, ctx.state.unreadCursor, command.step);
+      if (!target) return; // nothing unread elsewhere: the rail already says so
+      const entry = target.entryId === undefined ? undefined : ctx.activity.get(target.entryId);
+      ctx.state.unreadCursor = target.key;
+      ctx.win.show();
+      if (entry) openActivityEntry(ctx, entry);
+      else activateService(ctx, target.serviceId);
       return;
     }
     case 'pin-selection':

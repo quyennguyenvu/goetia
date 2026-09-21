@@ -75,6 +75,28 @@ describe('shellCommandFor', () => {
     expect(shellCommandFor(press({ key: 'a' }), 'darwin')).toBeNull();
   });
 
+  it('maps ⌘⇧] and ⌘⇧[ to the unread jump, through the shifted character too', () => {
+    // with Shift held a US layout reports } and {; the physical key is what matches
+    const next = { key: '}', code: 'BracketRight', shift: true };
+    const prev = { key: '{', code: 'BracketLeft', shift: true };
+    expect(shellCommandFor(press({ ...next, meta: true }), 'darwin')).toEqual({
+      kind: 'unread',
+      step: 1,
+    });
+    expect(shellCommandFor(press({ ...prev, meta: true }), 'darwin')).toEqual({
+      kind: 'unread',
+      step: -1,
+    });
+    expect(shellCommandFor(press({ ...next, control: true }), 'win32')).toEqual({
+      kind: 'unread',
+      step: 1,
+    });
+    expect(shellCommandFor(press({ ...next, meta: true, shift: false }), 'darwin')).toBeNull();
+    expect(
+      shellCommandFor(press({ key: ']', code: '', meta: true, shift: true }), 'darwin'),
+    ).toEqual({ kind: 'unread', step: 1 });
+  });
+
   it('falls back to the physical key when the layout rewrites the character', () => {
     const dead = { key: 'Dead', code: 'KeyG', meta: true, shift: true };
     expect(shellCommandFor(press(dead), 'darwin')).toEqual({ kind: 'home' });
@@ -90,6 +112,8 @@ describe('accelerator table', () => {
     expect(ACCELERATORS.home).toBe('CmdOrCtrl+Shift+G');
     expect(ACCELERATORS.pinSelection).toBe('CmdOrCtrl+Shift+S');
     expect(ACCELERATORS.reload).toEqual(['CmdOrCtrl+R', 'F5']);
+    expect(ACCELERATORS.nextUnread).toBe('CmdOrCtrl+Shift+]');
+    expect(ACCELERATORS.prevUnread).toBe('CmdOrCtrl+Shift+[');
     expect(devtoolsAccelerator('darwin')).toBe('Alt+CmdOrCtrl+I');
     expect(devtoolsAccelerator('win32')).toBe('Ctrl+Shift+I');
   });

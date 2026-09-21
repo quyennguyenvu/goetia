@@ -8,6 +8,9 @@ export const ACCELERATORS = {
   home: 'CmdOrCtrl+Shift+G',
   pinSelection: 'CmdOrCtrl+Shift+S',
   switcher: 'CmdOrCtrl+K',
+  /** the browser's next/previous-tab chords, walking only tiles with unread */
+  nextUnread: 'CmdOrCtrl+Shift+]',
+  prevUnread: 'CmdOrCtrl+Shift+[',
   mute: 'CmdOrCtrl+Shift+M',
   /** left half like Home and Pin: reached one-handed on the way out the door */
   lock: 'CmdOrCtrl+Shift+L',

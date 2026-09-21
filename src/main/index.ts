@@ -518,6 +518,15 @@ app
         state.setRuntime('zalo', { unread: { direct: 3, indirect: 0 } });
         // and one evidence line, so the Diagnostics pane has a row to show
         diag.note('recipe', 'zalo stale', 'zalo');
+        // and one recents row, so ⌘⇧] has a conversation to land on
+        activity.append({
+          serviceId: 'zalo',
+          title: 'Minh Anh',
+          conversation: 'Minh Anh',
+          synthetic: false,
+          silenced: false,
+          at: Date.now(),
+        });
       }, 1500);
     }
 

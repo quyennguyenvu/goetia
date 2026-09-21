@@ -12,32 +12,35 @@ import {
 const isShell = (p: Page) => p.url().startsWith('file://') && !p.url().includes('loading.html');
 const isService = (p: Page) => p.url().startsWith('https://');
 
-function makeProfile(): string {
+function makeProfile(o: { active?: string; enabled?: string[] } = {}): string {
   const profile = mkdtempSync(join(tmpdir(), 'goetia-e2e-keys-'));
+  const enabled = new Set(o.enabled ?? ['zalo']);
   writeFileSync(
     join(profile, 'settings.json'),
     JSON.stringify({
-      lastActiveId: 'zalo',
-      disabled: {
-        whatsapp: true,
-        messenger: true,
-        telegram: true,
-        discord: true,
-        zalo: false,
-        tiktok: true,
-        shopee: true,
-        instagram: true,
-        slack: true,
-        teams: true,
-      },
+      lastActiveId: o.active ?? 'zalo',
+      disabled: Object.fromEntries(
+        [
+          'whatsapp',
+          'messenger',
+          'telegram',
+          'discord',
+          'zalo',
+          'tiktok',
+          'shopee',
+          'instagram',
+          'slack',
+          'teams',
+        ].map((id) => [id, !enabled.has(id)]),
+      ),
     }),
   );
   return profile;
 }
 
-async function launch() {
+async function launch(profile = makeProfile()) {
   const app = await electron.launch({
-    args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${makeProfile()}`],
+    args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${profile}`],
   });
   const win =
     app.windows().find(isShell) ?? (await app.waitForEvent('window', { predicate: isShell }));
@@ -52,25 +55,28 @@ async function launch() {
  *  page logs the keydown, the listener sees nothing) — so the event is
  *  emitted on the view's webContents, and the test covers everything from
  *  the listener down: matcher → hook → command → state → shell. */
-async function chord(app: ElectronApplication, key: string): Promise<void> {
-  await app.evaluate(({ webContents }, k) => {
-    const wc = webContents.getAllWebContents().find((w) => w.getURL().startsWith('https://'));
-    if (!wc) throw new Error('no service view');
-    wc.emit(
-      'before-input-event',
-      { preventDefault() {} },
-      {
-        type: 'keyDown',
-        key: k,
-        code: `Key${k}`,
-        meta: process.platform === 'darwin',
-        control: process.platform !== 'darwin',
-        shift: true,
-        alt: false,
-        isAutoRepeat: false,
-      },
-    );
-  }, key);
+async function chord(app: ElectronApplication, key: string, code = `Key${key}`): Promise<void> {
+  await app.evaluate(
+    ({ webContents }, [k, c]) => {
+      const wc = webContents.getAllWebContents().find((w) => w.getURL().startsWith('https://'));
+      if (!wc) throw new Error('no service view');
+      wc.emit(
+        'before-input-event',
+        { preventDefault() {} },
+        {
+          type: 'keyDown',
+          key: k,
+          code: c,
+          meta: process.platform === 'darwin',
+          control: process.platform !== 'darwin',
+          shift: true,
+          alt: false,
+          isAutoRepeat: false,
+        },
+      );
+    },
+    [key, code] as const,
+  );
 }
 
 // Discord bound the old ⌘⇧H itself, and a page sees a key before the menu
@@ -81,6 +87,27 @@ test('shortcuts: ⌘/Ctrl ⇧ G inside a service page opens Home', async () => {
   await expect(win.locator('[data-testid="welcome"]')).toHaveCount(0);
   await chord(app, 'G');
   await expect(win.locator('[data-testid="welcome"]')).toBeVisible();
+  await app.close();
+});
+
+// the e2e boot hook gives zalo three direct unread and one recents row (its
+// conversation); telegram is where we start, and zalo has no view yet, so the
+// row resolves to plain activation — the tile still lands on zalo
+test('shortcuts: ⌘/Ctrl ⇧ ] jumps to the next unread conversation, once', async () => {
+  const { app, win } = await launch(
+    makeProfile({ active: 'telegram', enabled: ['telegram', 'zalo'] }),
+  );
+  const rail = win.locator('[data-testid="rail"]');
+  await expect(rail.locator('button[aria-label="Telegram"]')).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(rail.locator('button[aria-label="Zalo"]')).toContainText('3');
+  await chord(app, '}', 'BracketRight');
+  await expect(rail.locator('button[aria-label="Zalo"]')).toHaveAttribute('aria-current', 'page');
+  // the zalo row is the only target and the cursor already sits on it: nowhere to go
+  await chord(app, '}', 'BracketRight');
+  await expect(rail.locator('button[aria-label="Zalo"]')).toHaveAttribute('aria-current', 'page');
   await app.close();
 });
 

@@ -19,6 +19,7 @@ export type ShellCommand =
   | { kind: 'reload' }
   | { kind: 'devtools' }
   | { kind: 'zoom'; step: 1 | -1 | 0 }
+  | { kind: 'unread'; step: 1 | -1 }
   | { kind: 'service'; index: number };
 
 /** The slice of Electron's `Input` the matcher reads — structural, so this
@@ -46,7 +47,14 @@ interface Chord {
   code: string;
 }
 
-const CODES: Record<string, string> = { '=': 'Equal', '-': 'Minus', ',': 'Comma' };
+// brackets: with Shift held a US layout reports } and {, so only the code matches
+const CODES: Record<string, string> = {
+  '=': 'Equal',
+  '-': 'Minus',
+  ',': 'Comma',
+  ']': 'BracketRight',
+  '[': 'BracketLeft',
+};
 
 function parse(accelerator: string, platform: string): Chord {
   const parts = accelerator.split('+');
@@ -92,6 +100,8 @@ const FIXED: ReadonlyArray<readonly [readonly string[], ShellCommand]> = [
   [[ACCELERATORS.home], { kind: 'home' }],
   [[ACCELERATORS.pinSelection], { kind: 'pin-selection' }],
   [[ACCELERATORS.switcher], { kind: 'switcher' }],
+  [[ACCELERATORS.nextUnread], { kind: 'unread', step: 1 }],
+  [[ACCELERATORS.prevUnread], { kind: 'unread', step: -1 }],
   [[ACCELERATORS.mute], { kind: 'mute' }],
   [[ACCELERATORS.lock], { kind: 'lock' }],
   [[ACCELERATORS.settings], { kind: 'settings' }],

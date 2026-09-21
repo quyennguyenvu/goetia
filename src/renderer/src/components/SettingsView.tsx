@@ -686,6 +686,10 @@ export default function SettingsView() {
                       key(ACCELERATORS.switcher),
                       'quick switcher — services and recent conversations',
                     ],
+                    [
+                      `${key(ACCELERATORS.nextUnread)} / ${key(ACCELERATORS.prevUnread)}`,
+                      'next / previous unread conversation',
+                    ],
                     [key(ACCELERATORS.home), 'Home — all services and the pinboard'],
                     [key(ACCELERATORS.findService), 'find a service (on Home)'],
                     ['Esc', 'close this window, or leave Home'],

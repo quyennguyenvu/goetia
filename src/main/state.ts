@@ -38,6 +38,9 @@ export class MainState {
   capTrimmed: ServiceId[] = [];
   /** set by the summon-hotkey wiring; true when disabled or registered */
   summonHotkeyOk = true;
+  /** the unread target ⌘⇧] last landed on (lib/unread-jump.ts key); in-memory
+   *  and never broadcast — the walk restarts when it is gone from the list */
+  unreadCursor: string | null = null;
   private runtimes = new Map<ServiceId, ServiceRuntime>();
   private listeners: (() => void)[] = [];
   private updateState: UpdateState = defaultUpdate();
