@@ -588,6 +588,22 @@ describe('SettingsStore', () => {
     expect(s.mutedUntil.whatsapp).toBe(0);
   });
 
+  it('sanitize coerces a patch the way boot would, and returns only its keys', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    const store = new SettingsStore(dir);
+    const clean = store.sanitize({
+      zoom: { zalo: 'big', slack: 2 } as unknown as Settings['zoom'],
+      order: ['zalo', 'skype', 'slack'] as unknown as Settings['order'],
+      theme: 'dark',
+    });
+    expect(Object.keys(clean).sort()).toEqual(['order', 'theme', 'zoom']);
+    expect(clean.zoom?.zalo).toBe(0);
+    expect(clean.zoom?.slack).toBe(2);
+    expect(clean.order).not.toContain('skype');
+    expect(clean.order).toHaveLength(SERVICES.length); // missing ids slotted back in
+    expect(clean.theme).toBe('dark');
+  });
+
   it('defaults the global mute expiry to none', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     expect(new SettingsStore(dir).get().globalMutedUntil).toBe(0);

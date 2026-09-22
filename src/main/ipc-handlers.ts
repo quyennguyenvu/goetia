@@ -1,4 +1,6 @@
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { release } from 'node:os';
+import { join } from 'node:path';
 import {
   app,
   type BrowserWindow,
@@ -12,7 +14,7 @@ import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ip
 import type { GuardedAction } from '../shared/lock';
 import { muteExpiry } from '../shared/mute';
 import { serviceById } from '../shared/services';
-import type { ServiceId, Settings } from '../shared/types';
+import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../shared/types';
 import {
   activateService,
   openActivityEntry,
@@ -40,6 +42,7 @@ import { actionGuarded } from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import { BACKUP_MAX_BYTES, backupFileName, buildBackup, parseBackup } from './lib/settings-backup';
 import { type TileMenuAction, tileMenuItems } from './lib/tile-menu';
 import { releaseUrl } from './lib/update-check';
 import type { LockController } from './lock';
@@ -287,6 +290,85 @@ export function setServiceMuted(
   ctx.broadcast();
 }
 
+/** The settings tail every shell write runs — Settings' controls, Home's
+ *  one-frame commit and an imported backup alike. False when the guard
+ *  refused a summon (the whole frame is refused, not just its disabled half:
+ *  Home commits adds, removals and the new order together on purpose, so
+ *  there is no partial patch to apply; a banish-only or reorder-only commit
+ *  summons nothing and never reaches that branch). */
+export function applySettingsPatch(ctx: AppContext, patch: Partial<Settings>): boolean {
+  const before = ctx.settings.get();
+  if (patch.disabled) {
+    const summoned = summonedIds(before.order, before.disabled, patch.disabled);
+    if (summoned.length > 0 && !authorized(ctx, { kind: 'summon' })) return false;
+  }
+  // summoning restarts the unused clock, in the same write as the summon:
+  // Home commits adds, banishes and reorders as one frame, and a second
+  // settings write here would cost a second broadcast and menu rebuild
+  const stamped = patch.disabled
+    ? stampSummoned({
+        order: before.order,
+        before: before.disabled,
+        after: patch.disabled,
+        lastUsedAt: before.lastUsedAt,
+        now: Date.now(),
+      })
+    : null;
+  const after = ctx.settings.update(stamped ? { ...patch, lastUsedAt: stamped } : patch);
+  if ('launchAtLogin' in patch) {
+    app.setLoginItemSettings({ openAtLogin: patch.launchAtLogin === true });
+  }
+  if ('railPosition' in patch) ctx.views.layout();
+  if ('quietHours' in patch) ctx.quietScheduleChanged();
+  if ('summonHotkey' in patch) ctx.summonHotkeyChanged();
+  if (patch.disabled) applyDisabledChange(ctx, before);
+  if (patch.neverHibernate) {
+    for (const id of after.order) {
+      if (after.neverHibernate[id] && !after.disabled[id]) {
+        ctx.views.ensure(id);
+        if (ctx.state.runtime(id).hibernated) ctx.state.setRuntime(id, { hibernated: false });
+      }
+    }
+  }
+  ctx.broadcast();
+  return true;
+}
+
+/** how long a summoning import waits for CredentialConfirm before it is dropped */
+const IMPORT_PENDING_MS = 60_000;
+let pendingImport: { patch: Partial<Settings>; path: string; at: number } | null = null;
+
+const BACKUP_FILTERS = [{ name: 'Goetia settings', extensions: ['json'] }];
+
+/** Under --goetia-e2e an env path stands in for both dialogs: a native
+ *  dialog cannot be driven. Never consulted otherwise. */
+function e2eBackupPath(): string | null {
+  return process.argv.includes('--goetia-e2e')
+    ? (process.env.GOETIA_E2E_BACKUP_PATH ?? null)
+    : null;
+}
+
+async function backupSavePath(ctx: AppContext): Promise<string | null> {
+  const forced = e2eBackupPath();
+  if (forced) return forced;
+  const { canceled, filePath } = await dialog.showSaveDialog(ctx.win, {
+    defaultPath: join(app.getPath('documents'), backupFileName(new Date())),
+    filters: BACKUP_FILTERS,
+  });
+  return canceled || !filePath ? null : filePath;
+}
+
+async function backupOpenPath(ctx: AppContext): Promise<string | null> {
+  const forced = e2eBackupPath();
+  if (forced) return forced;
+  const { canceled, filePaths } = await dialog.showOpenDialog(ctx.win, {
+    properties: ['openFile'],
+    defaultPath: app.getPath('documents'),
+    filters: BACKUP_FILTERS,
+  });
+  return canceled || filePaths.length === 0 ? null : filePaths[0];
+}
+
 /** a page-shaped `until` is a finite instant in the future, or it is nothing */
 function validUntil(until: unknown): number {
   return typeof until === 'number' && Number.isFinite(until) && until > Date.now() ? until : 0;
@@ -359,44 +441,66 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     if (open) ctx.win.webContents.focus();
   });
   on('settings:update', (patch) => {
-    const before = ctx.settings.get();
-    // The whole frame is refused, not just its disabled half: Home commits
-    // adds, removals and the new order together on purpose, so there is no
-    // partial patch to apply. A banish-only or reorder-only commit summons
-    // nothing and never reaches this branch.
-    if (patch.disabled) {
-      const summoned = summonedIds(before.order, before.disabled, patch.disabled);
-      if (summoned.length > 0 && !authorized(ctx, { kind: 'summon' })) return;
+    applySettingsPatch(ctx, patch);
+  });
+  onInvoke('settings:export', { ok: false, reason: 'cancelled' }, async () => {
+    const path = await backupSavePath(ctx);
+    if (!path) return { ok: false, reason: 'cancelled' };
+    const file = buildBackup(ctx.settings.get(), app.getVersion(), new Date());
+    try {
+      await writeFile(path, `${JSON.stringify(file, null, 2)}\n`, 'utf8');
+    } catch {
+      return { ok: false, reason: 'write-failed' };
     }
-    // summoning restarts the unused clock, in the same write as the summon:
-    // Home commits adds, banishes and reorders as one frame, and a second
-    // settings write here would cost a second broadcast and menu rebuild
-    const stamped = patch.disabled
-      ? stampSummoned({
-          order: before.order,
-          before: before.disabled,
-          after: patch.disabled,
-          lastUsedAt: before.lastUsedAt,
-          now: Date.now(),
-        })
-      : null;
-    const after = ctx.settings.update(stamped ? { ...patch, lastUsedAt: stamped } : patch);
-    if ('launchAtLogin' in patch) {
-      app.setLoginItemSettings({ openAtLogin: patch.launchAtLogin === true });
-    }
-    if ('railPosition' in patch) ctx.views.layout();
-    if ('quietHours' in patch) ctx.quietScheduleChanged();
-    if ('summonHotkey' in patch) ctx.summonHotkeyChanged();
-    if (patch.disabled) applyDisabledChange(ctx, before);
-    if (patch.neverHibernate) {
-      for (const id of after.order) {
-        if (after.neverHibernate[id] && !after.disabled[id]) {
-          ctx.views.ensure(id);
-          if (ctx.state.runtime(id).hibernated) ctx.state.setRuntime(id, { hibernated: false });
-        }
+    return { ok: true, path };
+  });
+  onInvoke('settings:import', { ok: false, reason: 'cancelled' }, async ({ retry }) => {
+    let parsed: { patch: Partial<Settings>; path: string } | null = null;
+    if (retry) {
+      // CredentialConfirm just verified: apply what the guard parked, once
+      if (pendingImport && Date.now() - pendingImport.at <= IMPORT_PENDING_MS) {
+        parsed = pendingImport;
       }
+      pendingImport = null;
+      if (!parsed) return { ok: false, reason: 'cancelled' };
+    } else {
+      pendingImport = null;
+      const path = await backupOpenPath(ctx);
+      if (!path) return { ok: false, reason: 'cancelled' };
+      let text: string;
+      try {
+        if ((await stat(path)).size > BACKUP_MAX_BYTES) return { ok: false, reason: 'too-large' };
+        text = await readFile(path, 'utf8');
+      } catch {
+        return { ok: false, reason: 'read-failed' };
+      }
+      const r = parseBackup(text);
+      if (!r.ok) return { ok: false, reason: r.reason };
+      parsed = { patch: ctx.settings.sanitize(r.patch), path };
     }
-    ctx.broadcast();
+    // an imported mute is a plain one: the file carries no expiries, and a
+    // stale one left behind would end a mute the file just set
+    const patch: Partial<Settings> = {
+      ...parsed.patch,
+      ...('muted' in parsed.patch ? { mutedUntil: DEFAULT_SETTINGS.mutedUntil } : {}),
+      ...('globalMuted' in parsed.patch ? { globalMutedUntil: 0 } : {}),
+    };
+    if (!applySettingsPatch(ctx, patch)) {
+      pendingImport = { patch: parsed.patch, path: parsed.path, at: Date.now() };
+      return { ok: false, reason: 'guarded' };
+    }
+    // the tails settings:update never needed, because the UI moves these
+    // through other doors (⌘1…9's menu, the zoom chords, the mute tails)
+    if (patch.order) buildAppMenu(ctx);
+    if (patch.zoom) {
+      for (const id of ctx.settings.get().order) if (ctx.views.has(id)) ctx.views.applyZoom(id);
+    }
+    if ('muted' in patch || 'globalMuted' in patch) {
+      ctx.views.applyAudioMuteAll();
+      ctx.muteTimer.rearm();
+      ctx.quietScheduleChanged(); // page audio, both menus, broadcast
+    }
+    return { ok: true, path: parsed.path };
   });
   // stale on/off is a diagnostics line only on the transition: a count
   // arrives every ~2s per service and must never be a line per tick

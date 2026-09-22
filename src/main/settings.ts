@@ -220,6 +220,16 @@ export class SettingsStore {
     return this.cached;
   }
 
+  /** A patch from outside the shell (a backup file) run through the same
+   *  normalize boot applies, returning only the patch's own keys — so what
+   *  reaches disk is already the shape the store would coerce it to. */
+  sanitize(patch: Partial<Settings>): Partial<Settings> {
+    const full = normalize({ ...DEFAULT_SETTINGS, ...patch } as Settings).settings;
+    const clean: Record<string, unknown> = {};
+    for (const k of Object.keys(patch) as (keyof Settings)[]) clean[k] = full[k];
+    return clean as Partial<Settings>;
+  }
+
   /** One atomic write per patch, whatever its size. The old per-key conf.set()
    *  loop paid a full ~5 ms write for each key — 12.3 ms on every service
    *  switch, since rememberSurface writes two. */

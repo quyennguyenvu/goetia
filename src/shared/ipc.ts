@@ -198,6 +198,31 @@ export interface RendererInvoke {
    *  Shell-only, so both are refused while locked. */
   'diagnostics:recent': { result: DiagEntry[] };
   'diagnostics:report': { result: string };
+  /** Settings → General → Backup. Export writes the allowlisted preferences
+   *  (lib/settings-backup.ts) to a file the Save dialog names; import reads
+   *  the file the Open dialog names and applies it through the ordinary
+   *  settings tail. `guarded`: the file would summon a service and the guard
+   *  is on — main parks the patch; `retry: true` after CredentialConfirm
+   *  applies it without a second dialog. Shell-only, refused while locked. */
+  'settings:export': {
+    result: { ok: true; path: string } | { ok: false; reason: 'cancelled' | 'write-failed' };
+  };
+  'settings:import': {
+    payload: { retry: boolean };
+    result:
+      | { ok: true; path: string }
+      | {
+          ok: false;
+          reason:
+            | 'cancelled'
+            | 'read-failed'
+            | 'guarded'
+            | 'not-json'
+            | 'not-goetia'
+            | 'too-large'
+            | 'empty';
+        };
+  };
 }
 
 export type InvokePayload<C extends keyof RendererInvoke> = RendererInvoke[C] extends {
@@ -220,6 +245,8 @@ export const INVOKE_CHANNELS = [
   'downloads:chooseDir',
   'diagnostics:recent',
   'diagnostics:report',
+  'settings:export',
+  'settings:import',
 ] as const satisfies readonly (keyof RendererInvoke)[];
 
 /** Channels only the trusted shell renderer may send. Everything else is a
@@ -257,6 +284,8 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'downloads:chooseDir',
   'diagnostics:recent',
   'diagnostics:report',
+  'settings:export',
+  'settings:import',
 ]);
 
 /** The only shell channels served while the app is locked: the two that

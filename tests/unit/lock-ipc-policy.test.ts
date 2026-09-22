@@ -51,6 +51,8 @@ describe('channelAllowedWhileLocked', () => {
       'service:reload',
       'service:tileMenu',
       'global:muteMenu',
+      'settings:export',
+      'settings:import',
       'service:purgeLogin',
       'service:reorder',
       'settings:update',

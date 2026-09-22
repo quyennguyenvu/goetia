@@ -32,6 +32,27 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(true);
   });
+  it('keeps settings backup and restore shell-only', () => {
+    for (const channel of ['settings:export', 'settings:import'] as const) {
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: true,
+          senderServiceId: null,
+          payloadServiceId: undefined,
+        }),
+      ).toBe(true);
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: false,
+          senderServiceId: 'zalo',
+          payloadServiceId: undefined,
+        }),
+      ).toBe(false);
+    }
+  });
+
   it('keeps the bell’s mute menu shell-only', () => {
     expect(
       ipcSenderAllowed({

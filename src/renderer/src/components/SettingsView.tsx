@@ -4,6 +4,7 @@ import { ACCELERATORS, devtoolsAccelerator } from '../../../shared/shortcuts';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
+import CredentialConfirm from './CredentialConfirm';
 import DiagnosticsPane from './DiagnosticsPane';
 import LockPane from './LockPane';
 import PasskeysPane from './PasskeysPane';
@@ -37,6 +38,16 @@ const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const isMac = navigator.platform.startsWith('Mac');
+
+/** how long the Backup row keeps its outcome on screen */
+const BACKUP_STATUS_MS = 6_000;
+const IMPORT_FAILURES = {
+  'not-goetia': 'Not a Goetia settings file',
+  'not-json': 'That file is not JSON',
+  'too-large': 'That file is too large',
+  empty: 'Nothing to restore in that file',
+  'read-failed': 'Could not read that file',
+} as const;
 
 function Row({
   label,
@@ -160,6 +171,15 @@ export default function SettingsView() {
   const [flash, setFlash] = useState(false);
   const updateStatus = state?.update.status;
   const lastRecheck = useRef<number | null>(null);
+  const [backupStatus, setBackupStatus] = useState('');
+  const [importGuarded, setImportGuarded] = useState(false);
+  const backupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (backupTimer.current) clearTimeout(backupTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -205,6 +225,28 @@ export default function SettingsView() {
   const chooseDownloadDir = async () => {
     const dir = await window.goetia.invoke('downloads:chooseDir');
     if (dir) update({ downloads: { ...s.downloads, dir } });
+  };
+  const showBackupStatus = (text: string) => {
+    setBackupStatus(text);
+    if (backupTimer.current) clearTimeout(backupTimer.current);
+    backupTimer.current = setTimeout(() => setBackupStatus(''), BACKUP_STATUS_MS);
+  };
+  const exportSettings = async () => {
+    const r = await window.goetia.invoke('settings:export');
+    if (r.ok) showBackupStatus(`Saved to ${r.path}`);
+    else if (r.reason === 'write-failed') showBackupStatus('Could not write that file');
+  };
+  const importSettings = async (retry: boolean) => {
+    const r = await window.goetia.invoke('settings:import', { retry });
+    if (r.ok) {
+      setImportGuarded(false);
+      showBackupStatus(`Restored from ${r.path}`);
+    } else if (r.reason === 'guarded') {
+      setImportGuarded(true); // the file summons a service: prove it's you first
+    } else if (r.reason !== 'cancelled') {
+      setImportGuarded(false);
+      showBackupStatus(IMPORT_FAILURES[r.reason]);
+    }
   };
   const u = state.update;
   const pending = updatePending(u);
@@ -380,6 +422,47 @@ export default function SettingsView() {
                     </button>
                   </span>
                 </Row>
+                <Row label="Backup" hint="Preferences only — never logins, pins or passkeys.">
+                  <span className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      data-testid="backup-export"
+                      onClick={() => void exportSettings()}
+                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1"
+                    >
+                      Export…
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="backup-import"
+                      onClick={() => void importSettings(false)}
+                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1"
+                    >
+                      Import…
+                    </button>
+                  </span>
+                </Row>
+                {backupStatus && (
+                  <p data-testid="backup-status" className="break-all pb-2 text-[11px] text-text-2">
+                    {backupStatus}
+                  </p>
+                )}
+                {importGuarded && (
+                  <div className="pb-2">
+                    <CredentialConfirm
+                      autoFocus
+                      action={{ kind: 'summon' }}
+                      onVerified={() => void importSettings(true)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImportGuarded(false)}
+                      className="mt-1 text-[11px] text-text-2 hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </Pane>
             )}
 
