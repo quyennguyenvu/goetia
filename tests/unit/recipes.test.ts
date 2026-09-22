@@ -156,7 +156,7 @@ describe('bannerTitleNamesConversation', () => {
   // only actionable through the recipe's own row-clicking opener
   it('is set exactly where the URL names no thread, and openConversation exists', () => {
     const flagged = SERVICES.filter((s) => s.bannerTitleNamesConversation).map((s) => s.id);
-    expect(flagged).toEqual(['shopee', 'whatsapp', 'zalo']);
+    expect(flagged).toEqual(['teams', 'shopee', 'whatsapp', 'zalo']);
     for (const id of flagged) expect(recipes[id].openConversation, id).toBeDefined();
   });
 });

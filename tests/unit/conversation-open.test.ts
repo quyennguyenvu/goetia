@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { openConversationInPage } from '../../src/preload/lib/conversation-open';
+import { nameMatches, openConversationInPage } from '../../src/preload/lib/conversation-open';
 
 function setURL(url: string): void {
   (window as unknown as { happyDOM: { setURL(u: string): void } }).happyDOM.setURL(url);
@@ -267,5 +267,32 @@ describe('openConversationInPage', () => {
       ),
     ).toBe('load');
     expect(assign).toHaveBeenCalledWith(c3);
+  });
+});
+
+// a banner title is the site's rendering of the name, not the row's raw text:
+// WhatsApp qualifies every emoji it knows (❤ → ❤️) before it titles a banner,
+// so the row must match on the emoji, not on its presentation selector
+describe('nameMatches', () => {
+  it('matches the same text exactly', () => {
+    expect(nameMatches('Design team', 'Design team')).toBe(true);
+    expect(nameMatches('Design team', 'Design')).toBe(false);
+  });
+
+  it('matches a name clamped with an ellipsis on its prefix', () => {
+    expect(nameMatches('Weekend hikers — Sunday', 'Weekend hik…')).toBe(true);
+    expect(nameMatches('Weekend hikers — Sunday', '…')).toBe(false);
+  });
+
+  it('ignores emoji presentation selectors on either side', () => {
+    expect(nameMatches('Team ❤', 'Team ❤️')).toBe(true);
+    expect(nameMatches('Team ❤️', 'Team ❤')).toBe(true);
+    expect(nameMatches('Sun ☀︎', 'Sun ☀️')).toBe(true);
+    expect(nameMatches('Team ❤️ fans', 'Team ❤ f…')).toBe(true);
+  });
+
+  it('still tells two names apart by their emoji', () => {
+    expect(nameMatches('Team \u{1F534}', 'Team \u{1F535}')).toBe(false);
+    expect(nameMatches('Team ❤️', 'Team')).toBe(false);
   });
 });

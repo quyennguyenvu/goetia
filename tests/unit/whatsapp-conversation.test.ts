@@ -36,6 +36,15 @@ describe('whatsAppConversation', () => {
     document.querySelector('#main')?.remove();
     expect(whatsAppConversation(document)).toBeNull();
   });
+
+  // WhatsApp draws emoji as <img alt>, which textContent drops — a pin taken
+  // in "Family 🫠 chat" read "Family  chat" and matched no row
+  it('keeps the emoji WhatsApp renders as images', () => {
+    const span = document.querySelector('[data-testid="conversation-info-header-chat-title"]');
+    if (!span) throw new Error('fixture lost its header');
+    span.innerHTML = 'Family <img src="" alt="🫠" class="emoji" /> chat';
+    expect(whatsAppConversation(document)).toBe('Family 🫠 chat');
+  });
 });
 
 describe('openWhatsAppConversation', () => {
@@ -57,6 +66,28 @@ describe('openWhatsAppConversation', () => {
     const seen = watchRows();
     await expect(openWhatsAppConversation(document, pinned)).resolves.toBe(true);
     expect(seen[0]).toBe('2:mousedown');
+  });
+
+  it('clicks a row whose name carries an emoji', async () => {
+    const seen = watchRows();
+    await expect(openWhatsAppConversation(document, 'Family 🫠 chat')).resolves.toBe(true);
+    expect(seen).toEqual(['3:mousedown', '3:mouseup', '3:click']);
+  });
+
+  // the banner title runs through WhatsApp's emoji normaliser, which renders
+  // an emoji it does not know as "□" — the row keeps the real glyph
+  it("matches WhatsApp's unknown-emoji placeholder against the row's glyph", async () => {
+    const seen = watchRows();
+    await expect(openWhatsAppConversation(document, 'Family \u25A1 chat')).resolves.toBe(true);
+    expect(seen[0]).toBe('3:mousedown');
+  });
+
+  it('does not let the placeholder stand in for text, or match a different emoji', async () => {
+    const seen = watchRows();
+    await expect(openWhatsAppConversation(document, 'Family \u25A1')).resolves.toBe(false);
+    await expect(openWhatsAppConversation(document, 'Design \u25A1')).resolves.toBe(false);
+    await expect(openWhatsAppConversation(document, 'Family \u2764 chat')).resolves.toBe(false);
+    expect(seen).toEqual([]);
   });
 
   it('reports false for a name that is not a list row, clicking nothing', async () => {

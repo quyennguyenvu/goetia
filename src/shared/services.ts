@@ -38,6 +38,7 @@ export const SERVICES: ServiceMeta[] = [
     url: 'https://teams.microsoft.com/v2/#/chat',
     color: '#6264A7',
     waitForReady: true,
+    bannerTitleNamesConversation: true,
     chatPaths: ['/v2/#/chat', '/v2/#/conversations'],
   },
   // buyer chat lives in the mini-chat widget on the shopping site; the

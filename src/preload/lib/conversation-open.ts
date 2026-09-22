@@ -95,8 +95,18 @@ export function urlKey(u: string, base: string): string | null {
 
 /** A pin's conversation label may have been clamped to PIN_CONVERSATION_MAX
  *  with an ellipsis; the live name never is, so a clamped label matches on
- *  its prefix. */
+ *  its prefix. Emoji compare by glyph, not presentation: a banner title is
+ *  the site's rendering of the name (WhatsApp qualifies "❤" to "❤️" before it
+ *  titles a banner) while the row keeps the raw text. */
 export function nameMatches(candidate: string, pinned: string): boolean {
-  if (candidate === pinned) return true;
-  return pinned.endsWith('…') && pinned.length > 1 && candidate.startsWith(pinned.slice(0, -1));
+  const c = nameKey(candidate);
+  const p = nameKey(pinned);
+  if (c === p) return true;
+  return p.endsWith('…') && p.length > 1 && c.startsWith(p.slice(0, -1));
+}
+
+/** Comparison form of a conversation name: composed, without the variation
+ *  selectors (U+FE0E/U+FE0F) that pick an emoji's text or colour presentation. */
+export function nameKey(name: string): string {
+  return name.normalize('NFC').replace(/[\uFE0E\uFE0F]/g, '');
 }

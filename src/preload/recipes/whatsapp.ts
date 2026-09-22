@@ -1,5 +1,6 @@
 import type { Counts } from '../../shared/types';
-import { nameMatches } from '../lib/conversation-open';
+import { nameKey, nameMatches } from '../lib/conversation-open';
+import { textWithEmoji } from './emoji-text';
 import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
@@ -74,13 +75,39 @@ function readChats(database: IDBDatabase): Promise<WhatsAppChat[]> {
  *  (live DOM, 2026-08-27 dump). It carries no title attribute — the
  *  span[title] beside it is the member list, which is what the first cut
  *  pinned. web.whatsapp.com has no per-thread URL and titles itself only
- *  "WhatsApp", so this is the one handle a pin can keep. */
+ *  "WhatsApp", so this is the one handle a pin can keep. Emoji in the name
+ *  are `<img alt>` here but raw text in the row's title, so they are read
+ *  back from the alt or the pin never matches its row. */
 export function whatsAppConversation(doc: Document): string | null {
   const span =
     doc.querySelector('#main header [data-testid="conversation-info-header-chat-title"]') ??
     doc.querySelector('#main header [role="button"] span[dir="auto"]');
-  const name = span?.textContent?.trim() ?? '';
+  const name = span ? textWithEmoji(span) : '';
   return name === '' ? null : name;
+}
+
+/** What WhatsApp's banner titler prints for an emoji it has no glyph for
+ *  (WAWebEmoji.normalizeAllEmojis, read from the live bundle 2026-09-22). */
+const UNKNOWN_EMOJI = '\u25A1';
+/** One emoji as the row's raw title spells it: a pictograph with its skin
+ *  tone or ZWJ-joined companions, a flag pair, or a keycap. */
+const EMOJI =
+  String.raw`(?:\p{Extended_Pictographic}(?:[\u{1F3FB}-\u{1F3FF}]|\u200D\p{Extended_Pictographic})*` +
+  String.raw`|\p{Regional_Indicator}{2}|[0-9#*]\u20E3)`;
+
+/** Whether a chat-list row titled `title` is the chat the banner called
+ *  `name`. The banner title is WhatsApp's rendering: every emoji it knows in
+ *  its qualified form (nameMatches absorbs that) and every emoji it does not
+ *  as "□", which here stands in for exactly one emoji in the row — never for
+ *  text, so "Family □" still cannot open "Family chat". */
+export function whatsAppNameMatches(title: string, name: string): boolean {
+  if (nameMatches(title, name)) return true;
+  if (!name.includes(UNKNOWN_EMOJI)) return false;
+  const pattern = nameKey(name)
+    .split(UNKNOWN_EMOJI)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join(EMOJI);
+  return new RegExp(`^${pattern}$`, 'u').test(nameKey(title));
 }
 
 /** Rows in view carry the name in the span[title] of cell-frame-title; the
@@ -93,7 +120,7 @@ function clickRow(doc: Document, name: string): boolean {
     const span =
       row.querySelector('[data-testid="cell-frame-title"] span[title]') ??
       row.querySelector('span[dir="auto"][title]');
-    if (!span || !nameMatches(span.getAttribute('title')?.trim() ?? '', name)) continue;
+    if (!span || !whatsAppNameMatches(span.getAttribute('title')?.trim() ?? '', name)) continue;
     for (const type of ['mousedown', 'mouseup', 'click']) {
       span.dispatchEvent(
         new MouseEvent(type, { bubbles: true, cancelable: true, view: doc.defaultView }),
