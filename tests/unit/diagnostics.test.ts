@@ -11,6 +11,7 @@ import {
   settingsSummary,
   withPage,
 } from '../../src/main/lib/diagnostics';
+import { EMPTY_DIAG_FILTER } from '../../src/shared/diag-filter';
 import { DEFAULT_SETTINGS } from '../../src/shared/types';
 
 function harness(start = 1_000_000) {
@@ -91,6 +92,36 @@ describe('Diagnostics ring', () => {
       '2026-09-19T10:00:00.000Z [nav] contained: zalo a.example (/x)',
       '2026-09-19T10:01:00.000Z [recipe] zalo stale',
     ]);
+  });
+
+  it('narrows the report through a filter and names it in the header', () => {
+    const { diag, tick } = harness(Date.UTC(2026, 8, 19, 10, 0, 0));
+    diag.note('nav', 'contained: zalo a.example (/x)', 'zalo');
+    tick(60_000);
+    diag.note('recipe', 'zalo stale', 'zalo');
+    const text = diag.report(header, { tags: ['recipe'], query: '' });
+    expect(text.split('\n').slice(7)).toEqual([
+      'Filtered: tag=recipe · 1 of 2 lines',
+      '',
+      '2026-09-19T10:01:00.000Z [recipe] zalo stale',
+    ]);
+  });
+
+  it('leaves the report untouched under the empty filter or a blank query', () => {
+    const { diag } = harness();
+    diag.note('nav', 'contained: zalo a.example (/x)', 'zalo');
+    const plain = diag.report(header);
+    expect(plain).not.toContain('Filtered:');
+    expect(diag.report(header, EMPTY_DIAG_FILTER)).toBe(plain);
+    expect(diag.report(header, { tags: [], query: '   ' })).toBe(plain);
+  });
+
+  it('says (nothing matched) when a narrowing filter drops every line', () => {
+    const { diag } = harness();
+    diag.note('nav', 'contained: zalo a.example (/x)', 'zalo');
+    const lines = diag.report(header, { tags: [], query: 'nope' }).split('\n');
+    expect(lines[7]).toBe('Filtered: "nope" · 0 of 1 lines');
+    expect(lines.at(-1)).toBe('(nothing matched)');
   });
 
   it('clips an over-long line so a page-fed detail cannot bloat the ring', () => {
@@ -189,6 +220,13 @@ describe('serviceSnapshotLine', () => {
 describe('formatReport', () => {
   it('says so when the ring is empty', () => {
     expect(formatReport(header, []).split('\n').at(-1)).toBe('(nothing recorded)');
+  });
+
+  it('prints the filter line last in the header when given one', () => {
+    const lines = formatReport(header, [], 'tag=app · 0 of 3 lines').split('\n');
+    expect(lines[7]).toBe('Filtered: tag=app · 0 of 3 lines');
+    expect(lines[8]).toBe('');
+    expect(lines.at(-1)).toBe('(nothing matched)');
   });
 });
 

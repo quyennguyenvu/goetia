@@ -1,31 +1,33 @@
 import { app, Menu } from 'electron';
 import { serviceById } from '../shared/services';
+import { resolveAccelerators } from '../shared/shortcuts';
 import { openSettings, runShellCommand } from './commands';
 import { globalMuteMenuTemplate } from './global-mute-menu';
 import type { AppContext } from './ipc-handlers';
 import { serviceAccelerator } from './lib/service-accelerator';
-import { ACCELERATORS, devtoolsAccelerator } from './lib/shortcuts';
+import { devtoolsAccelerator } from './lib/shortcuts';
 
 // Every chord here is also intercepted inside the service views
 // (lib/shortcuts.ts), so items only name the command; commands.ts runs it.
 export function buildAppMenu(ctx: AppContext): void {
   const s = ctx.settings.get();
   const order = s.order.filter((id) => !s.disabled[id]);
+  const acc = resolveAccelerators(s.shortcuts);
   const run = (command: Parameters<typeof runShellCommand>[1]) => () =>
     runShellCommand(ctx, command);
   const settingsItem: Electron.MenuItemConstructorOptions = {
     label: 'Settings…',
-    accelerator: ACCELERATORS.settings,
+    accelerator: acc.settings,
     click: run({ kind: 'settings' }),
   };
   const muteItem = globalMuteMenuTemplate(ctx, {
     toggle: run({ kind: 'mute' }),
     guarded: true,
-    accelerator: ACCELERATORS.mute,
+    accelerator: acc.mute,
   });
   const lockItem: Electron.MenuItemConstructorOptions = {
     label: 'Lock Goetia',
-    accelerator: ACCELERATORS.lock,
+    accelerator: acc.lock,
     enabled: s.appLock.enabled && ctx.lock.configured(),
     click: run({ kind: 'lock' }),
   };
@@ -79,7 +81,7 @@ export function buildAppMenu(ctx: AppContext): void {
         {
           // the second way in, for pages that own right-click (Discord)
           label: 'Pin Selection',
-          accelerator: ACCELERATORS.pinSelection,
+          accelerator: acc.pinSelection,
           click: run({ kind: 'pin-selection' }),
         },
       ],
@@ -89,17 +91,17 @@ export function buildAppMenu(ctx: AppContext): void {
       submenu: [
         {
           label: 'Zoom In',
-          accelerator: ACCELERATORS.zoomIn,
+          accelerator: acc.zoomIn,
           click: run({ kind: 'zoom', step: 1 }),
         },
         {
           label: 'Zoom Out',
-          accelerator: ACCELERATORS.zoomOut,
+          accelerator: acc.zoomOut,
           click: run({ kind: 'zoom', step: -1 }),
         },
         {
           label: 'Actual Size',
-          accelerator: ACCELERATORS.zoomReset,
+          accelerator: acc.zoomReset,
           click: run({ kind: 'zoom', step: 0 }),
         },
         { type: 'separator' },
@@ -114,7 +116,7 @@ export function buildAppMenu(ctx: AppContext): void {
     {
       label: 'Go',
       submenu: [
-        { label: 'Home', accelerator: ACCELERATORS.home, click: run({ kind: 'home' }) },
+        { label: 'Home', accelerator: acc.home, click: run({ kind: 'home' }) },
         { type: 'separator' as const },
         ...order.map((id, index) => ({
           label: serviceById(id).name,
@@ -124,23 +126,28 @@ export function buildAppMenu(ctx: AppContext): void {
         { type: 'separator' as const },
         {
           label: 'Reload Service',
-          accelerator: ACCELERATORS.reload[0],
+          accelerator: acc.reload[0],
           click: run({ kind: 'reload' }),
         },
         {
           label: 'Quick Switcher',
-          accelerator: ACCELERATORS.switcher,
+          accelerator: acc.switcher,
           click: run({ kind: 'switcher' }),
         },
         {
           label: 'Next Unread',
-          accelerator: ACCELERATORS.nextUnread,
+          accelerator: acc.nextUnread,
           click: run({ kind: 'unread', step: 1 }),
         },
         {
           label: 'Previous Unread',
-          accelerator: ACCELERATORS.prevUnread,
+          accelerator: acc.prevUnread,
           click: run({ kind: 'unread', step: -1 }),
+        },
+        {
+          label: 'Downloads',
+          accelerator: acc.downloads,
+          click: run({ kind: 'downloads' }),
         },
         ...(process.platform !== 'darwin'
           ? [{ type: 'separator' as const }, muteItem, lockItem, checkUpdatesItem, settingsItem]

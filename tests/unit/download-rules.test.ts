@@ -7,7 +7,11 @@ import {
   DOWNLOAD_BURST_CAP,
   DOWNLOAD_BURST_WINDOW_MS,
   DOWNLOAD_DEDUP_MAX,
+  DOWNLOAD_HISTORY_CAP,
+  type DownloadRecord,
   decideSave,
+  historyEvict,
+  historyViews,
   progressFraction,
   safeFilename,
   uniquePath,
@@ -193,5 +197,64 @@ describe('progressFraction', () => {
   });
   it('never exceeds 1 on an over-reported item', () => {
     expect(progressFraction([{ received: 120, total: 100 }])).toBe(1);
+  });
+});
+
+const rec = (over: Partial<DownloadRecord> & { id: number }): DownloadRecord => ({
+  serviceId: 'zalo',
+  filename: `f${over.id}.pdf`,
+  path: `/dl/f${over.id}.pdf`,
+  state: 'saved',
+  received: 10,
+  total: 10,
+  at: over.id,
+  ...over,
+});
+
+describe('historyViews', () => {
+  it('puts in-flight rows first, then newest first, and never a path', () => {
+    const rows = historyViews(
+      [rec({ id: 1 }), rec({ id: 2, state: 'downloading' }), rec({ id: 3 })],
+      () => true,
+    );
+    expect(rows.map((r) => r.id)).toEqual([2, 3, 1]);
+    expect(rows.every((r) => !('path' in r))).toBe(true);
+    expect(rows[1]).toEqual({
+      id: 3,
+      serviceId: 'zalo',
+      filename: 'f3.pdf',
+      state: 'saved',
+      received: 10,
+      total: 10,
+      at: 3,
+    });
+  });
+
+  it('breaks an equal start time by id, newest id first', () => {
+    const rows = historyViews([rec({ id: 1, at: 5 }), rec({ id: 2, at: 5 })], () => true);
+    expect(rows.map((r) => r.id)).toEqual([2, 1]);
+  });
+
+  it('reads a saved file that is gone as missing, and leaves failed alone', () => {
+    const rows = historyViews(
+      [rec({ id: 1 }), rec({ id: 2, state: 'failed' })],
+      (p) => p !== '/dl/f1.pdf',
+    );
+    expect(rows.map((r) => r.state)).toEqual(['failed', 'missing']);
+  });
+});
+
+describe('historyEvict', () => {
+  it('is null under the cap', () => {
+    expect(historyEvict([rec({ id: 1 })])).toBeNull();
+  });
+
+  it('drops the oldest ended row first, and the oldest in-flight only when all are', () => {
+    const full = Array.from({ length: DOWNLOAD_HISTORY_CAP }, (_, i) =>
+      rec({ id: i + 1, state: i === 0 ? 'downloading' : 'saved' }),
+    );
+    expect(historyEvict(full)).toBe(2); // id 1 is the oldest but still in flight
+    const live = full.map((r) => ({ ...r, state: 'downloading' as const }));
+    expect(historyEvict(live)).toBe(1);
   });
 });

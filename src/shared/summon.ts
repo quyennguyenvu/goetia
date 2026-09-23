@@ -16,13 +16,15 @@ const WIN_NAMES: Record<string, string> = {
   CmdOrCtrl: 'Ctrl',
 };
 const WIN_ORDER = ['CmdOrCtrl', 'Ctrl', 'Alt', 'Shift'];
+/** arrow keys read as arrows on both platforms */
+const KEY_GLYPHS: Record<string, string> = { Right: '→', Left: '←', Up: '↑', Down: '↓' };
 
 /** '⌥⌘G' on macOS, 'Ctrl+Alt+G' elsewhere — each platform's conventional
  *  modifier order, key last. */
 export function comboLabel(accelerator: string, isMac: boolean): string {
   const parts = accelerator.split('+');
   const mods = parts.filter((p) => p in MAC_GLYPHS);
-  const keys = parts.filter((p) => !(p in MAC_GLYPHS));
+  const keys = parts.filter((p) => !(p in MAC_GLYPHS)).map((k) => KEY_GLYPHS[k] ?? k);
   const order = isMac ? MAC_ORDER : WIN_ORDER;
   mods.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   return isMac

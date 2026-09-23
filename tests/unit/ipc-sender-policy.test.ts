@@ -304,6 +304,46 @@ describe('ipcSenderAllowed', () => {
     ).toBe(false);
   });
 
+  it('refuses shortcuts:record from a service frame', () => {
+    expect(
+      ipcSenderAllowed({
+        channel: 'shortcuts:record',
+        fromShell: false,
+        senderServiceId: 'zalo',
+        payloadServiceId: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      ipcSenderAllowed({
+        channel: 'shortcuts:record',
+        fromShell: true,
+        senderServiceId: null,
+        payloadServiceId: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it('refuses the downloads channels from a service frame', () => {
+    for (const channel of ['downloads:recent', 'downloads:reveal', 'downloads:cancel'] as const) {
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: false,
+          senderServiceId: 'zalo',
+          payloadServiceId: undefined,
+        }),
+      ).toBe(false);
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: true,
+          senderServiceId: null,
+          payloadServiceId: undefined,
+        }),
+      ).toBe(true);
+    }
+  });
+
   it('refuses the diagnostics channels from a service frame', () => {
     for (const channel of ['diagnostics:recent', 'diagnostics:report'] as const) {
       expect(

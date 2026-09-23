@@ -77,7 +77,7 @@ Progress rides `win.setProgressBar(fraction)` with the aggregate of every in-fli
 
 ## Out of scope
 
-- A download list or history surface (see Decisions).
+- ~~A download list or history surface (see Decisions).~~ Superseded 2026-09-23: Settings → Downloads lists the session's downloads (`2026-09-23-downloads-pane-design.md`).
 - Opening a file from Goetia.
 - Per-service download folders.
 - Pausing or resuming downloads; an interrupted item is reported and dropped.

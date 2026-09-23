@@ -18,6 +18,7 @@ import {
 import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
+import type { Accelerators } from '../shared/shortcuts';
 import type { DiagTag, LoadKind, RailPosition, ServiceId } from '../shared/types';
 import type { DownloadManager } from './downloads';
 import type { IdentityShare } from './identity-share';
@@ -105,6 +106,8 @@ export interface ViewHooks {
   onShellCommand(command: ShellCommand): void;
   /** an evidence line for Settings → Diagnostics; URLs arrive redacted */
   note(tag: DiagTag, line: string, serviceId?: ServiceId): void;
+  /** the chord table as the user has it (shared/shortcuts resolveAccelerators) */
+  accelerators(): Accelerators;
 }
 
 /** Detached always: docked devtools would shrink the host's web contents
@@ -396,7 +399,7 @@ export class ServiceViewManager {
       // taken here — preventDefault also drops the menu accelerator, so the
       // hook runs the command. Repeats: zoom and reload (the reload guard
       // rate-limits a held F5) may repeat; a held ⌘⇧G opens Home once.
-      const command = shellCommandFor(input, process.platform);
+      const command = shellCommandFor(input, process.platform, this.hooks.accelerators());
       if (!command) return;
       e.preventDefault();
       if (input.isAutoRepeat && command.kind !== 'zoom' && command.kind !== 'reload') return;

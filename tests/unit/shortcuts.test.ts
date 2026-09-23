@@ -5,6 +5,7 @@ import {
   type KeyInput,
   shellCommandFor,
 } from '../../src/main/lib/shortcuts';
+import { resolveAccelerators } from '../../src/shared/shortcuts';
 
 const press = (over: Partial<KeyInput>): KeyInput => ({
   type: 'keyDown',
@@ -32,6 +33,7 @@ describe('shellCommandFor', () => {
     const on = (key: string, mods: Partial<KeyInput>) =>
       shellCommandFor(press({ key, code: '', meta: true, ...mods }), 'darwin');
     expect(on('S', { shift: true })).toEqual({ kind: 'pin-selection' });
+    expect(on('D', { shift: true })).toEqual({ kind: 'downloads' });
     expect(on('M', { shift: true })).toEqual({ kind: 'mute' });
     expect(on('k', {})).toEqual({ kind: 'switcher' });
     expect(on(',', {})).toEqual({ kind: 'settings' });
@@ -111,6 +113,7 @@ describe('accelerator table', () => {
   it('is the single source the menu labels and the Settings pane read from', () => {
     expect(ACCELERATORS.home).toBe('CmdOrCtrl+Shift+G');
     expect(ACCELERATORS.pinSelection).toBe('CmdOrCtrl+Shift+S');
+    expect(ACCELERATORS.downloads).toBe('CmdOrCtrl+Shift+D');
     expect(ACCELERATORS.reload).toEqual(['CmdOrCtrl+R', 'F5']);
     expect(ACCELERATORS.nextUnread).toBe('CmdOrCtrl+Shift+]');
     expect(ACCELERATORS.prevUnread).toBe('CmdOrCtrl+Shift+[');
@@ -130,5 +133,46 @@ describe('lock chord', () => {
   // Slack and Discord both bind plain Cmd-L; only the shifted chord is ours
   it('leaves a bare Cmd+L to the page', () => {
     expect(shellCommandFor(press({ key: 'L', code: 'KeyL', meta: true }), 'darwin')).toBeNull();
+  });
+});
+
+describe('rebound chords', () => {
+  const rebound = resolveAccelerators({
+    home: 'CmdOrCtrl+Shift+E',
+    nextUnread: 'CmdOrCtrl+Right',
+    prevUnread: 'CmdOrCtrl+Left',
+  });
+
+  it('matches the override and no longer the default', () => {
+    const e = { key: 'E', code: 'KeyE', meta: true, shift: true };
+    const g = { key: 'G', code: 'KeyG', meta: true, shift: true };
+    expect(shellCommandFor(press(e), 'darwin', rebound)).toEqual({ kind: 'home' });
+    expect(shellCommandFor(press(g), 'darwin', rebound)).toBeNull();
+    expect(shellCommandFor(press(g), 'darwin')).toEqual({ kind: 'home' });
+  });
+
+  it('matches arrows, period and Tab by physical key', () => {
+    expect(
+      shellCommandFor(
+        press({ key: 'ArrowRight', code: 'ArrowRight', meta: true }),
+        'darwin',
+        rebound,
+      ),
+    ).toEqual({ kind: 'unread', step: 1 });
+    expect(
+      shellCommandFor(
+        press({ key: 'ArrowLeft', code: 'ArrowLeft', meta: true }),
+        'darwin',
+        rebound,
+      ),
+    ).toEqual({ kind: 'unread', step: -1 });
+    const dots = resolveAccelerators({ switcher: 'CmdOrCtrl+Shift+.' });
+    expect(
+      shellCommandFor(press({ key: '>', code: 'Period', meta: true, shift: true }), 'darwin', dots),
+    ).toEqual({ kind: 'switcher' });
+    const tab = resolveAccelerators({ lock: 'CmdOrCtrl+Alt+Tab' });
+    expect(
+      shellCommandFor(press({ key: 'Tab', code: 'Tab', meta: true, alt: true }), 'darwin', tab),
+    ).toEqual({ kind: 'lock' });
   });
 });

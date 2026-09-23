@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -103,8 +103,15 @@ async function launch(profile: string) {
 }
 
 test('pins: the tally counts them, Home shows altar + queue', async () => {
-  const { app, win } = await launch(seedProfile());
+  const profile = seedProfile();
+  const { app, win } = await launch(profile);
   await expect(win.locator('[data-testid="pin-tally"]')).toHaveText('2');
+
+  // the seeded plaintext file was sealed at boot, before any click
+  const sealed = readFileSync(join(profile, 'pins.json'), 'utf8');
+  expect(sealed).toContain('"sealed"');
+  expect(sealed).not.toContain('"pins"');
+  expect(sealed).not.toContain('Gửi lại báo giá');
 
   await win.locator('[data-testid="home-btn"]').click();
   const band = win.locator('[data-testid="welcome-section-pinned"]');
@@ -176,6 +183,23 @@ test('pins: a removal survives a relaunch', async () => {
   await expect(second.win.locator('[data-testid="pin-altar"]')).toContainText('Gửi lại báo giá');
   await expect(second.win.locator('[data-testid="pin-row"]')).toHaveCount(0);
   await second.app.close();
+});
+
+// a sealed file this keychain cannot open: kept in place for a boot that can,
+// pinning paused, and Home says why (never an overwrite, never a set-aside)
+test('pins: an unreadable sealed file is kept, and Home says so', async () => {
+  const profile = seedProfile();
+  const bogus = JSON.stringify({ sealed: 'bm90IGEgcmVhbCBibG9i' });
+  writeFileSync(join(profile, 'pins.json'), bogus);
+  const { app, win } = await launch(profile);
+  await expect(win.locator('[data-testid="home-btn"]')).toBeVisible();
+  await expect(win.locator('[data-testid="pin-tally"]')).toHaveCount(0);
+  await win.locator('[data-testid="home-btn"]').click();
+  await expect(win.locator('[data-testid="pins-unreadable"]')).toContainText(
+    "can't be read right now",
+  );
+  expect(readFileSync(join(profile, 'pins.json'), 'utf8')).toBe(bogus);
+  await app.close();
 });
 
 // the 2026-08-27 recording: a paragraph-length pin made Home wider than the

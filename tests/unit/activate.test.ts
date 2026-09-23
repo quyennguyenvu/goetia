@@ -21,8 +21,10 @@ function makeCtx(state: MainState) {
     views,
     settings: { update, get: () => DEFAULT_SETTINGS },
     noteActivated: vi.fn(),
+    recorder: { cancel: vi.fn() },
   } as unknown as AppContext;
-  return { ctx, views, update };
+  const recorder = (ctx as unknown as { recorder: { cancel: ReturnType<typeof vi.fn> } }).recorder;
+  return { ctx, views, update, recorder };
 }
 
 describe('activateService', () => {
@@ -228,6 +230,28 @@ describe('performBannerAction', () => {
 });
 
 describe('setOverlayOpen', () => {
+  it('cancels a pending recording when settings closes, and only then', () => {
+    const state = new MainState();
+    const { ctx, recorder } = makeCtx(state);
+    setOverlayOpen(ctx, 'settingsOpen', true);
+    setOverlayOpen(ctx, 'switcherOpen', false);
+    expect(recorder.cancel).not.toHaveBeenCalled();
+    setOverlayOpen(ctx, 'settingsOpen', false);
+    expect(recorder.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets the pane a command asked for when settings closes', () => {
+    const state = new MainState();
+    state.settingsFocus = { section: 'downloads', seq: 1 };
+    const { ctx } = makeCtx(state);
+    setOverlayOpen(ctx, 'settingsOpen', true);
+    expect(state.settingsFocus).toEqual({ section: 'downloads', seq: 1 });
+    setOverlayOpen(ctx, 'switcherOpen', false);
+    expect(state.settingsFocus).toEqual({ section: 'downloads', seq: 1 });
+    setOverlayOpen(ctx, 'settingsOpen', false);
+    expect(state.settingsFocus).toBeNull();
+  });
+
   it('hides the service view when a surface opens', () => {
     const state = new MainState();
     state.activeId = 'discord';

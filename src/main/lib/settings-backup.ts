@@ -1,4 +1,5 @@
 import type { RailPosition, Settings, ThemePref } from '../../shared/types';
+import { normalizeShortcuts } from './shortcut-rules';
 
 export const BACKUP_FORMAT = 'goetia-settings';
 export const BACKUP_VERSION = 1;
@@ -26,6 +27,7 @@ export const BACKUP_KEYS = [
   'downloads',
   'quietHours',
   'summonHotkey',
+  'shortcuts',
   'closeToTray',
   'launchAtLogin',
   'theme',
@@ -95,6 +97,10 @@ function accept(key: BackupKey, v: unknown): unknown {
       const ask = (v as { ask?: unknown }).ask;
       return typeof ask === 'boolean' ? { ask, dir: null } : undefined;
     }
+    case 'shortcuts':
+      // an object is normalised (an empty one legitimately means "defaults");
+      // anything else is dropped, never turned into a reset
+      return v && typeof v === 'object' && !Array.isArray(v) ? normalizeShortcuts(v) : undefined;
     default:
       return v && typeof v === 'object' ? v : undefined;
   }

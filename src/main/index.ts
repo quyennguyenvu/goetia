@@ -7,14 +7,17 @@ import {
   nativeImage,
   nativeTheme,
   powerMonitor,
+  safeStorage,
   session,
   shell,
 } from 'electron';
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { SERVICES, serviceById } from '../shared/services';
+import { resolveAccelerators } from '../shared/shortcuts';
 import { wakeCaption } from '../shared/wake-caption';
 import { applyLocked } from './activate';
 import { applyBadges } from './badges';
+import { safeStorageCodec } from './codec';
 import { runShellCommand } from './commands';
 import { DownloadManager } from './downloads';
 import { HibernationController } from './hibernation';
@@ -41,13 +44,13 @@ import { buildAppMenu } from './menu';
 import { MuteTimerController } from './mute-timer';
 import { ICON_DIR, NotificationRouter } from './notifications';
 import { PasskeyAuthenticator } from './passkeys/authenticator';
-import { safeStorageCodec } from './passkeys/codec';
 import { electronPrompt, identitySharePrompt } from './passkeys/prompt';
 import { PasskeyStore } from './passkeys/store';
 import { PinStore } from './pins';
 import { QuietHoursController } from './quiet-hours';
 import { ResilienceManager } from './resilience';
 import { SettingsStore } from './settings';
+import { ShortcutRecorder } from './shortcut-recorder';
 import { MainState } from './state';
 import { SummonHotkey } from './summon-hotkey';
 import { createTray } from './tray';
@@ -116,7 +119,18 @@ app
     });
     const startedAt = Date.now();
     diag.note('app', `started ${app.getVersion()}`);
-    const pins = new PinStore(app.getPath('userData'));
+    // pins rest under the same keychain-backed key as the cookies and the
+    // passkeys; with no keychain the store keeps today's plaintext and says so
+    const pinCodec = safeStorage.isEncryptionAvailable() ? safeStorageCodec() : null;
+    const pins = new PinStore(app.getPath('userData'), pinCodec);
+    if (pins.isUnreadable()) {
+      diag.note(
+        'app',
+        'pins.json is sealed but could not be decrypted; pins are read-only until a launch where the keychain opens (remove the file to start over)',
+      );
+    } else if (!pinCodec) {
+      diag.note('app', 'pins stored unencrypted: the OS keychain is unavailable');
+    }
     const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
     const lock = new LockController(new LockStore(app.getPath('userData'), safeStorageCodec()), {
       enabled: () => settings.get().appLock.enabled,
@@ -180,8 +194,12 @@ app
       showWindow: () => {
         if (!win.isDestroyed()) win.show();
       },
+      // ctx is assembled below; a banner cannot be clicked before it exists
+      openDownloads: () => runShellCommand(ctx, { kind: 'downloads' }),
       now: Date.now,
     });
+    const accelerators = () => resolveAccelerators(settings.get().shortcuts);
+    const recorder = new ShortcutRecorder({ resolved: accelerators, platform: process.platform });
     const views = new ServiceViewManager(
       win,
       {
@@ -215,6 +233,7 @@ app
         // ctx is assembled below; a key event cannot arrive before it exists
         onShellCommand: (command) => runShellCommand(ctx, command),
         note: (tag, line, id) => diag.note(tag, line, id),
+        accelerators,
       },
       () => settings.get().railPosition,
       (id) => {
@@ -323,6 +342,7 @@ app
           quiet.quietNow(),
           pins.views(),
           lock.configured(),
+          pins.isUnreadable(),
         ),
       );
       const summary = aggregateBadges(s.order.map((id) => state.runtime(id).unread));
@@ -363,7 +383,13 @@ app
     state.onChange(broadcast);
     nativeTheme.on('updated', broadcast);
     win.webContents.on('did-finish-load', broadcast);
-    win.webContents.on('before-input-event', (_e, input) => {
+    win.webContents.on('before-input-event', (e, input) => {
+      // Settings → Shortcuts is listening: the key is the recording's, and
+      // neither the menu accelerator nor the renderer may see it
+      if (recorder.recording()) {
+        recorder.onInput(e, input);
+        return;
+      }
       // F5 reload while focus is on the shell (menu covers Cmd/Ctrl+R). This
       // path never reaches runShellCommand, so it carries its own lock guard.
       if (state.locked) return;
@@ -391,6 +417,8 @@ app
       updates,
       activity,
       pins,
+      downloads,
+      recorder,
       // a 5s cool-down after a declined ceremony refuses the next one silently,
       // so a scripted loop cannot chain endless modal prompts
       passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), {
@@ -444,6 +472,7 @@ app
         broadcast();
       },
       syncLocked: () => {
+        if (lock.locked) recorder.cancel(); // a recording cannot outlive the pane
         if (!applyLocked(ctx, lock.locked)) return;
         // both menus bake their disabled state in at build time
         buildAppMenu(ctx);

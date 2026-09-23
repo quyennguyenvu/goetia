@@ -79,6 +79,89 @@ async function chord(app: ElectronApplication, key: string, code = `Key${key}`):
   );
 }
 
+const cmd = process.platform === 'darwin' ? { meta: true } : { control: true };
+const mac = process.platform === 'darwin';
+
+/** A key arriving at the SHELL window's before-input-event — where the
+ *  recorder listens while Settings → Shortcuts has a cap pressed. */
+async function shellKey(
+  app: ElectronApplication,
+  key: string,
+  code: string,
+  mods: { meta?: boolean; control?: boolean; shift?: boolean; alt?: boolean } = {},
+): Promise<void> {
+  await app.evaluate(
+    ({ BrowserWindow }, [k, c, m]) => {
+      BrowserWindow.getAllWindows()[0].webContents.emit(
+        'before-input-event',
+        { preventDefault() {} },
+        {
+          type: 'keyDown',
+          key: k,
+          code: c,
+          meta: false,
+          control: false,
+          shift: false,
+          alt: false,
+          isAutoRepeat: false,
+          ...m,
+        },
+      );
+    },
+    [key, code, mods] as const,
+  );
+}
+
+test('shortcuts: a key is rebound by pressing it, the page honours it, Reset all restores', async () => {
+  const { app, win } = await launch();
+  await win.getByTestId('settings-btn').click();
+  await win.getByTestId('settings-nav-shortcuts').click();
+
+  // record: click the cap, press the new chord on the shell window
+  const home = win.getByTestId('shortcut-cap-home');
+  await expect(home).toHaveText(mac ? '⇧⌘G' : 'Ctrl+Shift+G');
+  await home.click();
+  await expect(home).toContainText('Press a shortcut');
+  await shellKey(app, 'E', 'KeyE', { ...cmd, shift: true });
+  await expect(home).toHaveText(mac ? '⇧⌘E' : 'Ctrl+Shift+E');
+  await expect(win.getByTestId('shortcut-reset-home')).toContainText(mac ? '⇧⌘G' : 'Ctrl+Shift+G');
+
+  // a collision names its holder and keeps listening; Escape gives up
+  const pin = win.getByTestId('shortcut-cap-pinSelection');
+  await pin.click();
+  await shellKey(app, 'k', 'KeyK', cmd);
+  await expect(win.getByTestId('shortcut-row-pinSelection')).toContainText(
+    'taken by Quick Switcher',
+  );
+  await shellKey(app, 'Escape', 'Escape');
+  await expect(pin).toHaveText(mac ? '⇧⌘S' : 'Ctrl+Shift+S');
+
+  // the unread pair records from one arrow
+  const pair = win.getByTestId('shortcut-cap-nextUnread');
+  await pair.click();
+  await shellKey(app, 'ArrowRight', 'ArrowRight', cmd);
+  await expect(pair).toHaveText(mac ? '⌘→ / ⌘←' : 'Ctrl+→ / Ctrl+←');
+  await expect(win.getByTestId('shortcuts-reset-all')).toBeVisible();
+  await win.keyboard.press('Escape');
+
+  // inside a service page the new Home chord works and the old one is the page's
+  await chord(app, 'E');
+  await expect(win.locator('[data-testid="welcome"]')).toBeVisible();
+  await win.keyboard.press('Escape'); // Welcome's Escape leaves Home
+  await expect(win.locator('[data-testid="welcome"]')).toHaveCount(0);
+  await chord(app, 'G');
+  await expect(win.locator('[data-testid="welcome"]')).toHaveCount(0);
+
+  // Reset all
+  await win.getByTestId('settings-btn').click();
+  await win.getByTestId('settings-nav-shortcuts').click();
+  await win.getByTestId('shortcuts-reset-all').click();
+  await expect(home).toHaveText(mac ? '⇧⌘G' : 'Ctrl+Shift+G');
+  await expect(pair).toHaveText(mac ? '⇧⌘] / ⇧⌘[' : 'Ctrl+Shift+] / Ctrl+Shift+[');
+  await expect(win.getByTestId('shortcuts-reset-all')).toHaveCount(0);
+  await app.close();
+});
+
 // Discord bound the old ⌘⇧H itself, and a page sees a key before the menu
 // does — the chord has to be taken in before-input-event or it never reaches
 // Goetia. Both chords are left-hand: the right hand is on the mouse.

@@ -11,6 +11,14 @@ export function openSettings(ctx: AppContext): void {
   ctx.win.webContents.focus(); // so Escape closes the modal immediately
 }
 
+/** Settings, opened on the Downloads pane. `seq` bumps so a second press
+ *  with Settings already open on another pane lands there again. */
+export function openDownloads(ctx: AppContext): void {
+  const seq = (ctx.state.settingsFocus?.seq ?? 0) + 1;
+  ctx.state.settingsFocus = { section: 'downloads', seq };
+  openSettings(ctx);
+}
+
 /** Zoom acts on the active service view; with no view anywhere (fresh
  *  install on Home) it is a silent no-op. Persist first, then re-apply. */
 function setActiveZoom(ctx: AppContext, next: (current: number) => number): void {
@@ -81,6 +89,9 @@ export function runShellCommand(ctx: AppContext, command: ShellCommand): void {
       return;
     case 'settings':
       openSettings(ctx);
+      return;
+    case 'downloads':
+      openDownloads(ctx);
       return;
     case 'lock':
       // lock() refuses when the setting is off or no passcode is set: locking

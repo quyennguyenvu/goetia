@@ -7,7 +7,7 @@ import {
   DownloadManager,
   type DownloadManagerDeps,
 } from '../../src/main/downloads';
-import { DOWNLOAD_BURST_CAP } from '../../src/main/lib/download-rules';
+import { DOWNLOAD_BURST_CAP, DOWNLOAD_HISTORY_CAP } from '../../src/main/lib/download-rules';
 
 const DIR = '/tmp/goetia-dl';
 
@@ -79,6 +79,7 @@ function harness(over: Partial<DownloadManagerDeps> & { files?: Set<string> } = 
     dockFinished: vi.fn(),
     setProgress: vi.fn(),
     showWindow: vi.fn(),
+    openDownloads: vi.fn(),
     now: () => 1_000_000,
     ...over,
   };
@@ -90,11 +91,12 @@ function harness(over: Partial<DownloadManagerDeps> & { files?: Set<string> } = 
 
 describe('DownloadManager', () => {
   it('saves into the OS folder silently and announces the file', () => {
-    const { ses, deps, banners } = harness();
+    const { ses, deps, banners, files } = harness();
     const item = new FakeItem('photo.jpg');
     ses.fire(item);
     expect(item.savePath).toBe(join(DIR, 'photo.jpg'));
     expect(item.dialog).toBeNull();
+    files.add(join(DIR, 'photo.jpg')); // the banner's click reveals only a file that exists
     item.finish('completed');
     expect(banners).toHaveLength(1);
     expect(banners[0]).toMatchObject({
@@ -245,5 +247,133 @@ describe('DownloadManager', () => {
     expect(item.cancelled).toBe(true);
     expect(deps.setProgress).toHaveBeenLastCalledWith(-1);
     expect(ses.listenerCount('will-download')).toBe(0);
+  });
+});
+
+describe('history', () => {
+  it('lists a download from start to saved, without a path', () => {
+    const { dm, ses, files } = harness();
+    const item = new FakeItem('photo.jpg');
+    ses.fire(item);
+    expect(dm.recent()).toEqual([
+      {
+        id: 1,
+        serviceId: 'whatsapp',
+        filename: 'photo.jpg',
+        state: 'downloading',
+        received: 0,
+        total: 100,
+        at: 1_000_000,
+      },
+    ]);
+    item.progress(40);
+    expect(dm.recent()[0]).toMatchObject({ received: 40, total: 100 });
+    files.add(join(DIR, 'photo.jpg'));
+    item.finish('completed');
+    expect(dm.recent()[0]).toMatchObject({ state: 'saved', received: 40 });
+    expect('path' in dm.recent()[0]).toBe(false);
+  });
+
+  it('reads missing once the file is gone, failed on interruption, nothing on cancel', () => {
+    const { dm, ses } = harness();
+    const a = new FakeItem('a.pdf');
+    ses.fire(a);
+    a.finish('completed'); // never added to files
+    expect(dm.recent()[0].state).toBe('missing');
+    const b = new FakeItem('b.pdf');
+    ses.fire(b);
+    b.finish('interrupted');
+    expect(dm.recent()[0]).toMatchObject({ filename: 'b.pdf', state: 'failed' });
+    const c = new FakeItem('c.pdf');
+    ses.fire(c);
+    c.finish('cancelled');
+    expect(dm.recent().map((r) => r.filename)).toEqual(['b.pdf', 'a.pdf']);
+  });
+
+  it('names a de-duplicated save by the name on disk', () => {
+    const { dm, ses, files } = harness();
+    const a = new FakeItem('photo.jpg');
+    ses.fire(a);
+    files.add(join(DIR, 'photo.jpg'));
+    a.finish('completed');
+    ses.fire(new FakeItem('photo.jpg'));
+    expect(dm.recent().map((r) => r.filename)).toEqual(['photo (1).jpg', 'photo.jpg']);
+  });
+
+  it('puts in-flight rows first', () => {
+    const { dm, ses } = harness();
+    const a = new FakeItem('a.pdf');
+    ses.fire(a);
+    a.finish('completed');
+    ses.fire(new FakeItem('b.pdf'));
+    ses.fire(new FakeItem('c.pdf'));
+    expect(dm.recent().map((r) => r.filename)).toEqual(['c.pdf', 'b.pdf', 'a.pdf']);
+  });
+
+  it('cancel ends only an in-flight download and removes its row', () => {
+    const { dm, ses } = harness();
+    const a = new FakeItem('a.pdf');
+    ses.fire(a);
+    a.finish('completed');
+    const b = new FakeItem('b.pdf');
+    ses.fire(b);
+    expect(dm.cancel(1)).toBe(false); // saved
+    expect(dm.cancel(99)).toBe(false);
+    expect(dm.cancel(2)).toBe(true);
+    expect(b.cancelled).toBe(true);
+    expect(dm.recent().map((r) => r.filename)).toEqual(['a.pdf']);
+  });
+
+  it('reveals only a saved file that is still there, never while locked', () => {
+    const { dm, ses, deps, box, files } = harness();
+    const a = new FakeItem('a.pdf');
+    ses.fire(a);
+    files.add(join(DIR, 'a.pdf'));
+    a.finish('completed');
+    ses.fire(new FakeItem('b.pdf'));
+    expect(dm.reveal(2)).toBe(false); // downloading
+    expect(dm.reveal(42)).toBe(false);
+    box.locked = true;
+    expect(dm.reveal(1)).toBe(false);
+    box.locked = false;
+    expect(dm.reveal(1)).toBe(true);
+    expect(deps.reveal).toHaveBeenCalledWith(join(DIR, 'a.pdf'));
+    files.delete(join(DIR, 'a.pdf'));
+    expect(dm.reveal(1)).toBe(false);
+  });
+
+  it("opens the pane from a completed banner's click once the file is gone", () => {
+    const { ses, deps, banners } = harness();
+    const a = new FakeItem('a.pdf');
+    ses.fire(a);
+    a.finish('completed'); // never in files
+    banners[0].onClick();
+    expect(deps.reveal).not.toHaveBeenCalled();
+    expect(deps.openDownloads).toHaveBeenCalledTimes(1);
+  });
+
+  it("detach drops the service's in-flight rows and keeps the saved ones", () => {
+    const { dm, ses } = harness();
+    const a = new FakeItem('a.pdf');
+    ses.fire(a);
+    a.finish('completed');
+    ses.fire(new FakeItem('b.pdf'));
+    dm.detach('whatsapp');
+    expect(dm.recent().map((r) => r.filename)).toEqual(['a.pdf']);
+  });
+
+  it('keeps at most DOWNLOAD_HISTORY_CAP rows, dropping ended ones first', () => {
+    const { dm, ses } = harness();
+    ses.fire(new FakeItem('live.bin')); // id 1, stays in flight
+    for (let i = 0; i < DOWNLOAD_HISTORY_CAP; i++) {
+      const it = new FakeItem(`f${i}.txt`);
+      ses.fire(it);
+      it.finish('completed');
+    }
+    const names = dm.recent().map((r) => r.filename);
+    expect(names).toHaveLength(DOWNLOAD_HISTORY_CAP);
+    expect(names[0]).toBe('live.bin');
+    expect(names).not.toContain('f0.txt');
+    expect(names).toContain('f49.txt');
   });
 });

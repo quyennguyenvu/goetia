@@ -11,8 +11,8 @@ import {
   type UnlockResult,
 } from '../shared/lock';
 import type { ServiceId } from '../shared/types';
+import type { KeyCodec } from './codec';
 import { passcodeAcceptable, unlockDelay } from './lib/lock-rules';
-import type { KeyCodec } from './passkeys/store';
 
 const derive = promisify(scrypt) as (
   passcode: string,

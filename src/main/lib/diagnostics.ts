@@ -1,3 +1,11 @@
+import {
+  type DiagFilter,
+  describeDiagFilter,
+  diagFilterNarrows,
+  EMPTY_DIAG_FILTER,
+  isDiagTag,
+  matchesDiagFilter,
+} from '../../shared/diag-filter';
 import { SERVICES } from '../../shared/services';
 import type { Counts, DiagEntry, DiagTag, ServiceId, Settings } from '../../shared/types';
 
@@ -10,19 +18,6 @@ export const DIAG_CAP = 200;
 export const DIAG_LINE_MAX = 300;
 export const DIAG_DETAIL_MAX = 160;
 
-const TAGS: ReadonlySet<string> = new Set<DiagTag>([
-  'app',
-  'nav',
-  'open',
-  'identity',
-  'passkey',
-  'ipc',
-  'notifications',
-  'downloads',
-  'recipe',
-  'view',
-  'peek',
-]);
 const SERVICE_IDS: ReadonlySet<string> = new Set(SERVICES.map((s) => s.id));
 
 export interface ReportHeader {
@@ -134,8 +129,15 @@ function uptime(ms: number): string {
 }
 
 /** Header block, blank line, then the lines oldest first: a reader scrolls
- *  down through time. The pane shows the same ring newest first. */
-export function formatReport(header: ReportHeader, oldestFirst: readonly DiagEntry[]): string {
+ *  down through time. The pane shows the same ring newest first. `filtered`
+ *  is the describeDiagFilter text when a filter narrowed the rows — printed
+ *  as the last header line so the reader knows rows were dropped and by
+ *  what rule. */
+export function formatReport(
+  header: ReportHeader,
+  oldestFirst: readonly DiagEntry[],
+  filtered?: string,
+): string {
   const head = [
     `Goetia ${header.version} · Electron ${header.electron} · ${header.platform} ${header.arch} · OS ${header.os}`,
     `Started ${new Date(header.startedAt).toISOString()} · up ${uptime(header.now - header.startedAt)}`,
@@ -143,11 +145,12 @@ export function formatReport(header: ReportHeader, oldestFirst: readonly DiagEnt
     `Settings: ${header.settings}`,
     'Now:',
     ...header.services.map((l) => `  ${l}`),
+    ...(filtered ? [`Filtered: ${filtered}`] : []),
     '',
   ];
   const body =
     oldestFirst.length === 0
-      ? ['(nothing recorded)']
+      ? [filtered ? '(nothing matched)' : '(nothing recorded)']
       : oldestFirst.map((e) => `${new Date(e.at).toISOString()} [${e.tag}] ${e.line}`);
   return [...head, ...body].join('\n');
 }
@@ -162,7 +165,7 @@ export function restoreEntries(raw: unknown): DiagEntry[] {
     if (!item || typeof item !== 'object') continue;
     const r = item as Record<string, unknown>;
     if (typeof r.at !== 'number' || !Number.isFinite(r.at)) continue;
-    if (typeof r.tag !== 'string' || !TAGS.has(r.tag)) continue;
+    if (!isDiagTag(r.tag)) continue;
     if (typeof r.line !== 'string') continue;
     if (
       r.serviceId !== undefined &&
@@ -171,7 +174,7 @@ export function restoreEntries(raw: unknown): DiagEntry[] {
       continue;
     const entry: DiagEntry = {
       at: r.at,
-      tag: r.tag as DiagTag,
+      tag: r.tag,
       line: r.line.slice(0, DIAG_LINE_MAX),
     };
     if (r.serviceId !== undefined) entry.serviceId = r.serviceId as ServiceId;
@@ -221,8 +224,15 @@ export class Diagnostics {
     return [...this.entries].reverse();
   }
 
-  report(header: ReportHeader): string {
-    return formatReport(header, this.entries);
+  /** The pane's filter is applied here with the same rule the pane used, so
+   *  the two can never disagree on which rows match. The empty filter is
+   *  today's whole report, byte for byte. */
+  report(header: ReportHeader, filter: DiagFilter = EMPTY_DIAG_FILTER): string {
+    const rows = this.entries.filter((e) => matchesDiagFilter(e, filter));
+    const filtered = diagFilterNarrows(filter)
+      ? describeDiagFilter(filter, rows.length, this.entries.length)
+      : undefined;
+    return formatReport(header, rows, filtered);
   }
 
   flush(): void {

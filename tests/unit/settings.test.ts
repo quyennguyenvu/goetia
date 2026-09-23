@@ -666,3 +666,17 @@ describe('shareFacebookLogin', () => {
     expect(DEFAULT_SETTINGS.shareFacebookLogin).toBe(true);
   });
 });
+
+describe('shortcuts', () => {
+  it('defaults to no overrides and drops what cannot be bound', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    expect(new SettingsStore(dir).get().shortcuts).toEqual({});
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({
+        shortcuts: { home: 'Shift+CmdOrCtrl+e', switcher: 'CmdOrCtrl+C', lock: 7 },
+      }),
+    );
+    expect(new SettingsStore(dir).get().shortcuts).toEqual({ home: 'CmdOrCtrl+Shift+E' });
+  });
+});

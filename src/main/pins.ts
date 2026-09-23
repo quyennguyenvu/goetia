@@ -2,6 +2,7 @@ import Conf from 'conf';
 import { PIN_CAP, PIN_NOTE_MAX, PIN_TEXT_MAX } from '../shared/pins';
 import { SERVICES, serviceById } from '../shared/services';
 import type { PinView, ServiceId } from '../shared/types';
+import type { KeyCodec } from './codec';
 import {
   clampText,
   conversationFromTitle,
@@ -12,33 +13,68 @@ import {
   pinViews,
 } from './lib/pin-rules';
 
+/** On disk: one of the two keys, or neither on a fresh profile. `sealed` is
+ *  the codec's output over JSON.stringify({ pins }); `pins` is the legacy
+ *  plaintext shape, still written when no keychain is available. */
 interface PinsFile {
-  pins: Pin[];
+  sealed?: string;
+  pins?: Pin[];
 }
 
 /** The pinboard: an ordered todo list of messages the user chose to keep.
  *  Persisted to <cwd>/pins.json — the one deliberate exception to
  *  "conversation content never touches disk": unchosen content (the activity
  *  log) still never does; a pin is explicit, and it leaves the file with the
- *  pin. One atomic write per mutation: every mutation is a user click, and a
- *  drag reaches here once, so nothing needs deferring. */
+ *  pin. Since 2026-09-23 the file is a safeStorage-sealed envelope, the tier
+ *  the cookies and passkeys rest under; a legacy plaintext file is re-sealed
+ *  at construction. One atomic write per mutation: every mutation is a user
+ *  click, and a drag reaches here once, so nothing needs deferring. */
 export class PinStore {
   private conf: Conf<PinsFile>;
-  private pins: Pin[];
+  private pins: Pin[] = [];
   private nextId: number;
   /** the most recent removal, kept for one Undo */
   private lastRemoved: { pin: Pin; index: number } | null = null;
+  /** a sealed file exists but would not open on this boot — read nothing,
+   *  write nothing, so a keychain hiccup can never overwrite the todo list */
+  private unreadable = false;
 
-  constructor(cwd: string) {
+  constructor(
+    cwd: string,
+    private codec: KeyCodec | null,
+  ) {
     this.conf = new Conf<PinsFile>({
       cwd,
       configName: 'pins',
-      defaults: { pins: [] },
+      // no `pins: []` default: it would make a fresh profile look like a
+      // legacy file and write an empty envelope at every first boot
+      defaults: {},
       // a corrupt file yields the defaults instead of a throw at boot
       clearInvalidConfig: true,
     });
-    this.pins = parsePins(this.conf.store.pins, new Set(SERVICES.map((s) => s.id)));
+    const known = new Set(SERVICES.map((s) => s.id));
+    const raw = this.conf.store;
+    if (typeof raw.sealed === 'string') {
+      try {
+        if (!codec) throw new Error('sealed file, no keychain');
+        const opened: unknown = JSON.parse(codec.decrypt(raw.sealed));
+        this.pins = parsePins((opened as { pins?: unknown } | null)?.pins, known);
+      } catch {
+        this.unreadable = true;
+      }
+    } else if (Array.isArray(raw.pins)) {
+      this.pins = parsePins(raw.pins, known);
+      // migrate: the plaintext leaves the disk now, not on the next click
+      if (codec) this.save();
+    }
     this.nextId = this.pins.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+  }
+
+  /** True when pins.json is sealed but the keychain would not open it this
+   *  boot. The board reads empty and refuses every write until a launch
+   *  where it does; index.ts notes it and Home's band says so. */
+  isUnreadable(): boolean {
+    return this.unreadable;
   }
 
   all(): readonly Pin[] {
@@ -49,8 +85,10 @@ export class PinStore {
     return this.pins.find((p) => p.id === id);
   }
 
+  /** Also true while unreadable: that one gate is what disables the
+   *  context-menu item and makes pin() return null, so nothing new is wired. */
   isFull(): boolean {
-    return this.pins.length >= PIN_CAP;
+    return this.unreadable || this.pins.length >= PIN_CAP;
   }
 
   views(): PinView[] {
@@ -101,6 +139,7 @@ export class PinStore {
   /** Done and unpin both land here: the pin leaves the board and stays
    *  restorable until the next removal. */
   unpin(id: number): boolean {
+    if (this.unreadable) return false;
     const index = this.pins.findIndex((p) => p.id === id);
     if (index === -1) return false;
     this.lastRemoved = { pin: this.pins[index], index };
@@ -111,6 +150,7 @@ export class PinStore {
 
   /** Undo the last removal, back at its old position (clamped to the end). */
   restore(id: number): boolean {
+    if (this.unreadable) return false;
     const last = this.lastRemoved;
     if (!last || last.pin.id !== id || this.isFull()) return false;
     const next = [...this.pins];
@@ -122,6 +162,7 @@ export class PinStore {
   }
 
   setNote(id: number, note: string): boolean {
+    if (this.unreadable) return false;
     const pin = this.get(id);
     if (!pin) return false;
     const clamped = clampText(note, PIN_NOTE_MAX);
@@ -132,6 +173,7 @@ export class PinStore {
   }
 
   reorder(ids: number[]): boolean {
+    if (this.unreadable) return false;
     const current = this.pins.map((p) => p.id);
     if (!isPermutation(ids, current) || ids.every((id, i) => id === current[i])) return false;
     const byId = new Map(this.pins.map((p) => [p.id, p]));
@@ -141,7 +183,10 @@ export class PinStore {
   }
 
   private save(): void {
+    if (this.unreadable) return; // never overwrite what could not be read
     // assigning the store is one atomic write, same as SettingsStore
-    this.conf.store = { pins: this.pins };
+    this.conf.store = this.codec
+      ? { sealed: this.codec.encrypt(JSON.stringify({ pins: this.pins })) }
+      : { pins: this.pins };
   }
 }

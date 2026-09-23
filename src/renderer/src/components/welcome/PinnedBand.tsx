@@ -19,6 +19,8 @@ interface Props {
   pins: PinView[];
   services: ServiceMeta[];
   disabled: Record<ServiceId, boolean>;
+  /** pins.json exists but the keychain would not open it this boot */
+  unreadable: boolean;
 }
 
 /** Home's pinboard: pin 0 is the altar (in progress), the rest the queue.
@@ -28,7 +30,7 @@ interface Props {
  *  max-height caps it at the altar plus about six rows; the queue scrolls
  *  inside, so Summoned and a row of Unbound always stay on screen. Pin
  *  actions commit immediately — a todo list has no multi-part edit to stage. */
-export default function PinnedBand({ pins, services, disabled }: Props) {
+export default function PinnedBand({ pins, services, disabled, unreadable }: Props) {
   const liveIds = pins.map((p) => p.id);
   const liveKey = liveIds.join(',');
   const [draft, setDraft] = useState<number[] | null>(null);
@@ -67,6 +69,21 @@ export default function PinnedBand({ pins, services, disabled }: Props) {
     window.goetia.send('pins:reorder', { ids: shown });
   };
 
+  let notice: React.ReactNode = null;
+  if (unreadable) {
+    notice = (
+      <p className="text-xs text-text-2 opacity-70" data-testid="pins-unreadable">
+        Your pins can't be read right now — Goetia couldn't open its keychain entry. They come back
+        on a launch where it can; to start over, remove pins.json from the profile folder.
+      </p>
+    );
+  } else if (pins.length === 0) {
+    notice = (
+      <p className="text-xs text-text-2 opacity-70">
+        Nothing pinned — right-click a message in any service, or select text and press ⌘/Ctrl ⇧ S.
+      </p>
+    );
+  }
   return (
     <ServiceBand
       testid="welcome-section-pinned"
@@ -74,12 +91,7 @@ export default function PinnedBand({ pins, services, disabled }: Props) {
       count={pins.length}
       className="max-h-[344px] min-h-[124px] flex-[0_1_auto]"
     >
-      {pins.length === 0 ? (
-        <p className="text-xs text-text-2 opacity-70">
-          Nothing pinned — right-click a message in any service, or select text and press ⌘/Ctrl ⇧
-          S.
-        </p>
-      ) : (
+      {notice ?? (
         <Reorder.Group
           as="div"
           axis="y"

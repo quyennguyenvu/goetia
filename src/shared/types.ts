@@ -1,3 +1,5 @@
+import type { ShortcutOverrides } from './shortcuts';
+
 export type ServiceId =
   | 'whatsapp'
   | 'messenger'
@@ -89,6 +91,29 @@ export interface DiagEntry {
   tag: DiagTag;
   serviceId?: ServiceId;
   line: string;
+}
+
+/** which Settings pane a main-side command asked for */
+export interface SettingsFocus {
+  section: 'downloads';
+  seq: number;
+}
+
+export type DownloadState = 'downloading' | 'saved' | 'failed' | 'missing';
+
+/** One row of Settings → Downloads. No path: the pane needs none, and a path
+ *  is where a later feature would be tempted to open something. */
+export interface DownloadView {
+  id: number;
+  serviceId: ServiceId;
+  filename: string;
+  /** `missing`: saved, but the file was gone when the list was fetched */
+  state: DownloadState;
+  received: number;
+  /** 0 when unknown */
+  total: number;
+  /** epoch ms the download started */
+  at: number;
 }
 
 export interface ServiceMeta {
@@ -191,6 +216,9 @@ export interface Settings {
   quietOverrideWindowStart: number | null;
   /** system-wide show/hide shortcut; accelerator must be one of SUMMON_COMBOS */
   summonHotkey: { enabled: boolean; accelerator: string };
+  /** the user's chords, as overrides over shared/shortcuts.ts ACCELERATORS;
+   *  canonical spelling, validated by lib/shortcut-rules normalizeShortcuts */
+  shortcuts: ShortcutOverrides;
   closeToTray: boolean;
   launchAtLogin: boolean;
   theme: ThemePref;
@@ -309,6 +337,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   quietOverrideWindowStart: null,
   summonHotkey: { enabled: false, accelerator: 'Alt+CmdOrCtrl+G' },
+  shortcuts: {},
   closeToTray: true,
   launchAtLogin: false,
   theme: 'system',
@@ -349,6 +378,10 @@ export interface ShellState {
   switcherOpen: boolean;
   settingsOpen: boolean;
   homeOpen: boolean;
+  /** a main-side command asked Settings to open on a pane; `seq` makes a
+   *  repeat press land again while Settings is already open. Cleared when
+   *  Settings closes. */
+  settingsFocus: SettingsFocus | null;
   /** the lock screen is up; every other surface is behind it */
   locked: boolean;
   /** a passcode is set — what the Lock pane's rows depend on */
@@ -359,6 +392,10 @@ export interface ShellState {
   capTrimmed: ServiceId[];
   /** the pinboard in priority order; pins[0] is the one in progress */
   pins: PinView[];
+  /** pins.json is sealed but the keychain would not open it this boot: the
+   *  board is empty and read-only until a launch where it does. False while
+   *  locked, like `pins` is emptied. */
+  pinsUnreadable: boolean;
   theme: 'light' | 'dark'; // effective theme (system already resolved)
   settings: Settings; // raw preferences, for the settings form
   version: string;

@@ -1,4 +1,5 @@
 import { basename, extname, join } from 'node:path';
+import type { DownloadView, ServiceId } from '../../shared/types';
 
 /** Silent saves a page may start inside one window before the rest of them
  *  fall back to the Save dialog, which needs a human. Chrome bounds this with
@@ -104,4 +105,50 @@ export function progressFraction(items: readonly { received: number; total: numb
     total += it.total;
   }
   return Math.min(1, received / total);
+}
+
+/** Rows Settings → Downloads keeps for the session; in memory only. */
+export const DOWNLOAD_HISTORY_CAP = 50;
+
+/** Main's own record of one download. `path` is empty until Chromium knows
+ *  it (an Ask download learns it at done) and never leaves main. */
+export interface DownloadRecord {
+  id: number;
+  serviceId: ServiceId;
+  filename: string;
+  path: string;
+  state: 'downloading' | 'saved' | 'failed';
+  received: number;
+  total: number;
+  at: number;
+}
+
+/** In flight first, then newest first (id breaks a tie); a saved file that
+ *  is gone reads `missing`, checked here so the pane never sees a path. */
+export function historyViews(
+  records: readonly DownloadRecord[],
+  exists: (path: string) => boolean,
+): DownloadView[] {
+  const rank = (r: DownloadRecord) => (r.state === 'downloading' ? 0 : 1);
+  return [...records]
+    .sort((a, b) => rank(a) - rank(b) || b.at - a.at || b.id - a.id)
+    .map((r) => ({
+      id: r.id,
+      serviceId: r.serviceId,
+      filename: r.filename,
+      state: r.state === 'saved' && !exists(r.path) ? 'missing' : r.state,
+      received: r.received,
+      total: r.total,
+      at: r.at,
+    }));
+}
+
+/** The one record to drop when the cap is met: the oldest ended one, so a
+ *  running download keeps its row and its Cancel; the oldest of all only
+ *  when every row is still in flight (its download continues unlisted). */
+export function historyEvict(records: readonly DownloadRecord[]): number | null {
+  if (records.length < DOWNLOAD_HISTORY_CAP) return null;
+  const ended = records.filter((r) => r.state !== 'downloading');
+  const pool = ended.length > 0 ? ended : records;
+  return pool.reduce((a, b) => (b.at < a.at || (b.at === a.at && b.id < a.id) ? b : a)).id;
 }

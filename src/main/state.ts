@@ -4,6 +4,7 @@ import type {
   ServiceId,
   ServiceRuntime,
   Settings,
+  SettingsFocus,
   ShellState,
   UpdateState,
 } from '../shared/types';
@@ -27,6 +28,9 @@ export class MainState {
   /** Home (the welcome screen) is a shell surface, not a persisted
    *  preference: a restart lands on the active service. */
   homeOpen = false;
+  /** the pane a main-side command asked Settings to open on (⌘⇧D); cleared
+   *  by setOverlayOpen when Settings closes, so it never re-selects later */
+  settingsFocus: SettingsFocus | null = null;
   /** The lock screen is up. Joins anyOverlayOpen, so every service view is
    *  hidden by the same machinery settings and Home already use. */
   locked = false;
@@ -104,6 +108,7 @@ export class MainState {
     quietActive: boolean,
     pins: PinView[] = [],
     lockConfigured = false,
+    pinsUnreadable = false,
   ): ShellState {
     const runtime = {} as ShellState['runtime'];
     for (const id of settings.order) runtime[id] = { ...this.runtime(id) };
@@ -120,10 +125,12 @@ export class MainState {
       switcherOpen: this.switcherOpen,
       settingsOpen: this.settingsOpen,
       homeOpen: this.homeOpen,
+      settingsFocus: this.settingsFocus,
       capTrimmed: [...this.capTrimmed],
       // pinned text is conversation content; a locked app hands the renderer
       // none of it, so not even devtools on the shell shows a message
       pins: this.locked ? [] : pins,
+      pinsUnreadable: this.locked ? false : pinsUnreadable,
       locked: this.locked,
       lockConfigured,
       touchIdAvailable: this.touchIdAvailable,

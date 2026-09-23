@@ -116,6 +116,16 @@ describe('parseBackup', () => {
     expect(r).toEqual({ ok: true, patch: { downloads: { ask: true, dir: null } } });
   });
 
+  it('normalises shortcuts on the way in and drops a non-object outright', () => {
+    expect(
+      parseBackup(wrap({ shortcuts: { home: 'CmdOrCtrl+C', switcher: 'CmdOrCtrl+Shift+E' } })),
+    ).toEqual({ ok: true, patch: { shortcuts: { switcher: 'CmdOrCtrl+Shift+E' } } });
+    expect(parseBackup(wrap({ shortcuts: 'CmdOrCtrl+K', theme: 'light' }))).toEqual({
+      ok: true,
+      patch: { theme: 'light' },
+    });
+  });
+
   it('round-trips what buildBackup wrote', () => {
     const text = JSON.stringify(buildBackup(settings, '0.18.0', now));
     const r = parseBackup(text);

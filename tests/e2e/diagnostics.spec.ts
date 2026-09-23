@@ -60,8 +60,44 @@ test('diagnostics: empty state, then a row and a pasteable report', async () => 
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toContainText('[recipe] zalo stale');
 
-  await win.getByTestId('diag-copy').click();
-  await expect(win.getByTestId('diag-copy')).toHaveText('Copied');
+  // the filter narrows what is shown and what Copy says it will copy —
+  // asserted before the first copy, since 'Copied' then holds the label for TOAST_MS
+  const copy = win.getByTestId('diag-copy');
+  const search = win.getByTestId('diag-search');
+  await expect(copy).toHaveText('Copy report');
+  await search.fill('STALE');
+  await expect(rows).toHaveCount(1);
+  await expect(copy).toHaveText('Copy 1 of 3');
+  await search.fill('nothing like this');
+  await expect(win.getByTestId('diag-no-match')).toBeVisible();
+  await win.getByTestId('diag-show-all').click();
+  await expect(search).toHaveValue('');
+  await expect(rows).toHaveCount(3);
+  await win.getByTestId('diag-tag-app').click();
+  await expect(win.getByTestId('diag-tag-app')).toHaveAttribute('aria-pressed', 'true');
+  await expect(rows).toHaveCount(2);
+  await expect(copy).toHaveText('Copy 2 of 3');
+
+  // a filtered copy carries the Filtered: line last in the header and only the shown rows
+  await copy.click();
+  await expect(copy).toHaveText('Copied');
+  await expect
+    .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+    .toContain('Filtered: tag=app · 2 of 3 lines');
+  const filtered = (await app.evaluate(({ clipboard }) => clipboard.readText())).split('\n');
+  const gap = filtered.indexOf('');
+  expect(filtered[gap - 1]).toBe('Filtered: tag=app · 2 of 3 lines');
+  const shownBody = filtered.slice(gap + 1);
+  expect(shownBody).toHaveLength(2);
+  for (const l of shownBody) expect(l).toContain('[app] started');
+
+  // chip off again: the whole report, byte for byte as before
+  await win.getByTestId('diag-tag-app').click();
+  await expect(rows).toHaveCount(3);
+  await copy.click();
+  await expect
+    .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+    .not.toContain('Filtered:');
   const text = await app.evaluate(({ clipboard }) => clipboard.readText());
   const lines = text.split('\n');
   expect(lines[0]).toMatch(/^Goetia \d+\.\d+\.\d+ · Electron \d+\.\d+\.\d+ · \w+ \w+ · OS /);

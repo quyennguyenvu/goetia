@@ -10,10 +10,12 @@ import {
   Menu,
   shell,
 } from 'electron';
+import { normalizeDiagFilter } from '../shared/diag-filter';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
 import type { GuardedAction } from '../shared/lock';
 import { muteExpiry } from '../shared/mute';
 import { serviceById } from '../shared/services';
+import { isRebindable } from '../shared/shortcuts';
 import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../shared/types';
 import {
   activateService,
@@ -24,6 +26,7 @@ import {
   setOverlayOpen,
 } from './activate';
 import { applyOverlay } from './badges';
+import type { DownloadManager } from './downloads';
 import { globalMuteMenuTemplate } from './global-mute-menu';
 import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
@@ -54,6 +57,7 @@ import type { PasskeyStore } from './passkeys/store';
 import type { PinStore } from './pins';
 import { purgeAll, purgeLogin } from './purge';
 import type { SettingsStore } from './settings';
+import type { ShortcutRecorder } from './shortcut-recorder';
 import type { MainState } from './state';
 import type { UpdateChecker } from './updates';
 import type { ServiceViewManager } from './views';
@@ -70,6 +74,10 @@ export interface AppContext {
   activity: ActivityLog;
   /** the pinboard; persisted, see pins.ts */
   pins: PinStore;
+  /** this session's downloads; in-memory rows behind Settings → Downloads */
+  downloads: DownloadManager;
+  /** Settings → Shortcuts' one pending recording */
+  recorder: ShortcutRecorder;
   /** the software authenticator behind every service view's WebAuthn shim */
   passkeys: PasskeyAuthenticator;
   /** its store — Settings → Passkeys lists and forgets through it */
@@ -321,6 +329,7 @@ export function applySettingsPatch(ctx: AppContext, patch: Partial<Settings>): b
   if ('railPosition' in patch) ctx.views.layout();
   if ('quietHours' in patch) ctx.quietScheduleChanged();
   if ('summonHotkey' in patch) ctx.summonHotkeyChanged();
+  if ('shortcuts' in patch) buildAppMenu(ctx); // the menu bakes its accelerators in
   if (patch.disabled) applyDisabledChange(ctx, before);
   if (patch.neverHibernate) {
     for (const id of after.order) {
@@ -568,31 +577,36 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     return ctx.passkeyStore.views();
   });
   onInvoke('diagnostics:recent', [], () => ctx.diag.recent());
-  onInvoke('diagnostics:report', '', () => {
+  onInvoke('diagnostics:report', '', (payload) => {
+    // renderer data until re-checked: unknown tags dropped, query clipped
+    const filter = normalizeDiagFilter(payload?.filter);
     const s = ctx.settings.get();
     const enabled = s.order.filter((id) => !s.disabled[id]);
-    return ctx.diag.report({
-      version: app.getVersion(),
-      electron: process.versions.electron,
-      platform: process.platform,
-      arch: process.arch,
-      os: release(),
-      startedAt: ctx.startedAt,
-      now: Date.now(),
-      enabled,
-      settings: settingsSummary(s),
-      services: enabled.map((id) => {
-        const rt = ctx.state.runtime(id);
-        return serviceSnapshotLine({
-          id,
-          page: ctx.views.pageUrl(id),
-          unread: rt.unread,
-          stale: rt.stale,
-          crashed: rt.crashed,
-          muted: s.muted[id],
-        });
-      }),
-    });
+    return ctx.diag.report(
+      {
+        version: app.getVersion(),
+        electron: process.versions.electron,
+        platform: process.platform,
+        arch: process.arch,
+        os: release(),
+        startedAt: ctx.startedAt,
+        now: Date.now(),
+        enabled,
+        settings: settingsSummary(s),
+        services: enabled.map((id) => {
+          const rt = ctx.state.runtime(id);
+          return serviceSnapshotLine({
+            id,
+            page: ctx.views.pageUrl(id),
+            unread: rt.unread,
+            stale: rt.stale,
+            crashed: rt.crashed,
+            muted: s.muted[id],
+          });
+        }),
+      },
+      filter,
+    );
   });
   onInvoke('downloads:chooseDir', null, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(ctx.win, {
@@ -600,6 +614,21 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       defaultPath: ctx.settings.get().downloads.dir ?? app.getPath('downloads'),
     });
     return canceled || filePaths.length === 0 ? null : filePaths[0];
+  });
+  onInvoke('downloads:recent', [], () => ctx.downloads.recent());
+  on('downloads:reveal', ({ id }) => {
+    if (Number.isSafeInteger(id)) ctx.downloads.reveal(id);
+  });
+  on('downloads:cancel', ({ id }) => {
+    if (Number.isSafeInteger(id)) ctx.downloads.cancel(id);
+  });
+  onInvoke('shortcuts:record', { ok: false, reason: 'cancelled' }, async ({ id }) => {
+    if (!isRebindable(id)) return { ok: false, reason: 'cancelled' };
+    const result = await ctx.recorder.start(id);
+    if (result.ok && Object.keys(result.patch).length > 0) {
+      applySettingsPatch(ctx, { shortcuts: { ...ctx.settings.get().shortcuts, ...result.patch } });
+    }
+    return result;
   });
   onInvoke('lock:unlock', { ok: false, waitMs: 0, reason: 'unavailable' }, async (req) => {
     const result = await ctx.lock.unlock(req);

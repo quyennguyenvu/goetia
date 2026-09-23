@@ -34,6 +34,10 @@ export function setOverlayOpen(
   key: 'settingsOpen' | 'switcherOpen',
   open: boolean,
 ): void {
+  if (key === 'settingsOpen' && !open) {
+    ctx.state.settingsFocus = null;
+    ctx.recorder.cancel(); // a recording cannot outlive the pane that asked
+  }
   ctx.state[key] = open;
   presentSurface(ctx);
   ctx.state.touch();

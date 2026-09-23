@@ -9,6 +9,7 @@ import {
 } from '../shared/types';
 import { trimToCap } from '../shared/welcome';
 import { BANISH_MAX_HOURS, BANISH_MIN_HOURS } from './lib/banish-rules';
+import { normalizeShortcuts } from './lib/shortcut-rules';
 import { clampZoom } from './lib/zoom-rules';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -158,6 +159,7 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
       summonHotkey: fillSummonHotkey(raw.summonHotkey),
       appLock: fillAppLock(raw.appLock),
       downloads: fillDownloads(raw.downloads),
+      shortcuts: normalizeShortcuts(raw.shortcuts),
     },
     trimmed: capped.trimmed,
   };

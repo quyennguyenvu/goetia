@@ -1,3 +1,4 @@
+import type { DiagFilter } from './diag-filter';
 import type {
   ConsentRequest,
   LockConfigResult,
@@ -5,10 +6,12 @@ import type {
   UnlockRequest,
   UnlockResult,
 } from './lock';
+import type { RebindableId, RecordResult } from './shortcuts';
 import type {
   ActivityEntryView,
   Counts,
   DiagEntry,
+  DownloadView,
   PasskeyView,
   ServiceId,
   Settings,
@@ -73,6 +76,10 @@ export interface RendererToMain {
   'pins:restore': { id: number };
   'pins:setNote': { id: number; note: string };
   'pins:open': { id: number };
+  /** Settings → Downloads rows: reveal a saved file, cancel a running one.
+   *  `id` is main's own row id; the path never leaves main. Shell-only. */
+  'downloads:reveal': { id: number };
+  'downloads:cancel': { id: number };
   /** a recipe asks for a trusted click at a point in its own view: keep-alive
    *  buttons and Zalo's conversation rows ignore synthetic events */
   'service:trusted-click': { serviceId: ServiceId; x: number; y: number };
@@ -144,6 +151,8 @@ export const R2M_CHANNELS = [
   'pins:restore',
   'pins:setNote',
   'pins:open',
+  'downloads:reveal',
+  'downloads:cancel',
   'service:trusted-click',
   'service:openExternal',
   'service:ready',
@@ -193,11 +202,20 @@ export interface RendererInvoke {
    *  through settings:update. Shell-only — a page must never move the
    *  folder its own downloads land in. */
   'downloads:chooseDir': { result: string | null };
+  /** Settings → Downloads: this session's rows, fetched when the pane opens
+   *  and polled once a second only while one is still downloading. */
+  'downloads:recent': { result: DownloadView[] };
+  /** Settings → Shortcuts: record the next chord for a row. Main reads the
+   *  key off the OS event, validates it (lib/shortcut-rules) and writes the
+   *  override itself; the pane only shows the verdict. Shell-only. */
+  'shortcuts:record': { payload: { id: RebindableId }; result: RecordResult };
   /** Settings → Diagnostics: the evidence ring, fetched once per open and
-   *  never broadcast; `report` is the pasteable text behind Copy report.
+   *  never broadcast; `report` is the pasteable text behind Copy report,
+   *  narrowed by the pane's filter (normalised in main — it is renderer data)
+   *  and stamped with a `Filtered:` header line when it narrows.
    *  Shell-only, so both are refused while locked. */
   'diagnostics:recent': { result: DiagEntry[] };
-  'diagnostics:report': { result: string };
+  'diagnostics:report': { payload: { filter: DiagFilter }; result: string };
   /** Settings → General → Backup. Export writes the allowlisted preferences
    *  (lib/settings-backup.ts) to a file the Save dialog names; import reads
    *  the file the Open dialog names and applies it through the ordinary
@@ -243,6 +261,8 @@ export const INVOKE_CHANNELS = [
   'lock:configure',
   'lock:confirm',
   'downloads:chooseDir',
+  'downloads:recent',
+  'shortcuts:record',
   'diagnostics:recent',
   'diagnostics:report',
   'settings:export',
@@ -282,6 +302,10 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'lock:configure',
   'lock:confirm',
   'downloads:chooseDir',
+  'downloads:recent',
+  'downloads:reveal',
+  'downloads:cancel',
+  'shortcuts:record',
   'diagnostics:recent',
   'diagnostics:report',
   'settings:export',

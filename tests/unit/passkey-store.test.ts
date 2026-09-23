@@ -2,7 +2,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { type KeyCodec, PasskeyStore } from '../../src/main/passkeys/store';
+import type { KeyCodec } from '../../src/main/codec';
+import { PasskeyStore } from '../../src/main/passkeys/store';
 import { PASSKEY_CAP } from '../../src/shared/passkeys';
 
 /** reversible and visibly not plaintext, so a leak shows in the file */

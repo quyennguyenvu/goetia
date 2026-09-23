@@ -6,14 +6,8 @@ import { PASSKEY_CAP } from '../../shared/passkeys';
 import { SERVICES } from '../../shared/services';
 import type { PasskeyView, ServiceId } from '../../shared/types';
 import { toBase64Url } from '../../shared/webauthn';
+import type { KeyCodec } from '../codec';
 import { type Passkey, parsePasskeys, passkeyViews } from '../lib/passkey-rules';
-
-/** Encrypts private keys at rest. Main hands in safeStorage; tests hand in
- *  something reversible, so the store itself never imports electron. */
-export interface KeyCodec {
-  encrypt(plain: string): string;
-  decrypt(cipher: string): string;
-}
 
 interface PasskeysFile {
   credentials: Passkey[];

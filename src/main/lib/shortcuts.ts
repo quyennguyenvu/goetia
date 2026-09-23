@@ -1,4 +1,4 @@
-import { ACCELERATORS, devtoolsAccelerator } from '../../shared/shortcuts';
+import { ACCELERATORS, type Accelerators, devtoolsAccelerator } from '../../shared/shortcuts';
 import { MAX_SERVICE_ACCELERATORS, serviceAccelerator } from './service-accelerator';
 
 /** The table lives in shared/shortcuts.ts so Settings can render it; this
@@ -16,6 +16,7 @@ export type ShellCommand =
   | { kind: 'mute' }
   | { kind: 'lock' }
   | { kind: 'settings' }
+  | { kind: 'downloads' }
   | { kind: 'reload' }
   | { kind: 'devtools' }
   | { kind: 'zoom'; step: 1 | -1 | 0 }
@@ -47,13 +48,24 @@ interface Chord {
   code: string;
 }
 
-// brackets: with Shift held a US layout reports } and {, so only the code matches
+// brackets: with Shift held a US layout reports } and {, so only the code
+// matches; arrows, Tab and Space report a name for `key` the table never
+// spells, so the code is the only match for them too
 const CODES: Record<string, string> = {
   '=': 'Equal',
   '-': 'Minus',
   ',': 'Comma',
+  '.': 'Period',
   ']': 'BracketRight',
   '[': 'BracketLeft',
+  Right: 'ArrowRight',
+  Left: 'ArrowLeft',
+  Up: 'ArrowUp',
+  Down: 'ArrowDown',
+  PageUp: 'PageUp',
+  PageDown: 'PageDown',
+  Tab: 'Tab',
+  Space: 'Space',
 };
 
 function parse(accelerator: string, platform: string): Chord {
@@ -96,27 +108,35 @@ function matches(input: KeyInput, chord: Chord): boolean {
   return input.key.toLowerCase() === chord.key || (input.code ?? '') === chord.code;
 }
 
-const FIXED: ReadonlyArray<readonly [readonly string[], ShellCommand]> = [
-  [[ACCELERATORS.home], { kind: 'home' }],
-  [[ACCELERATORS.pinSelection], { kind: 'pin-selection' }],
-  [[ACCELERATORS.switcher], { kind: 'switcher' }],
-  [[ACCELERATORS.nextUnread], { kind: 'unread', step: 1 }],
-  [[ACCELERATORS.prevUnread], { kind: 'unread', step: -1 }],
-  [[ACCELERATORS.mute], { kind: 'mute' }],
-  [[ACCELERATORS.lock], { kind: 'lock' }],
-  [[ACCELERATORS.settings], { kind: 'settings' }],
-  [ACCELERATORS.reload, { kind: 'reload' }],
-  [[ACCELERATORS.zoomIn], { kind: 'zoom', step: 1 }],
-  [[ACCELERATORS.zoomOut], { kind: 'zoom', step: -1 }],
-  [[ACCELERATORS.zoomReset], { kind: 'zoom', step: 0 }],
-];
+function fixedTable(a: Accelerators): ReadonlyArray<readonly [readonly string[], ShellCommand]> {
+  return [
+    [[a.home], { kind: 'home' }],
+    [[a.pinSelection], { kind: 'pin-selection' }],
+    [[a.switcher], { kind: 'switcher' }],
+    [[a.nextUnread], { kind: 'unread', step: 1 }],
+    [[a.prevUnread], { kind: 'unread', step: -1 }],
+    [[a.mute], { kind: 'mute' }],
+    [[a.lock], { kind: 'lock' }],
+    [[a.settings], { kind: 'settings' }],
+    [[a.downloads], { kind: 'downloads' }],
+    [a.reload, { kind: 'reload' }],
+    [[a.zoomIn], { kind: 'zoom', step: 1 }],
+    [[a.zoomOut], { kind: 'zoom', step: -1 }],
+    [[a.zoomReset], { kind: 'zoom', step: 0 }],
+  ];
+}
 
 /** The shell command a key-down inside a service page stands for, or null
- *  when the key is the page's to keep. */
-export function shellCommandFor(input: KeyInput, platform: string): ShellCommand | null {
+ *  when the key is the page's to keep. `accelerators` is the table as the
+ *  user has it (resolveAccelerators); the defaults when not given. */
+export function shellCommandFor(
+  input: KeyInput,
+  platform: string,
+  accelerators: Accelerators = ACCELERATORS,
+): ShellCommand | null {
   if (input.type !== 'keyDown') return null;
-  for (const [accelerators, command] of FIXED) {
-    for (const a of accelerators) if (matches(input, parse(a, platform))) return command;
+  for (const [accs, command] of fixedTable(accelerators)) {
+    for (const a of accs) if (matches(input, parse(a, platform))) return command;
   }
   if (matches(input, parse(devtoolsAccelerator(platform), platform))) return { kind: 'devtools' };
   for (let index = 0; index < MAX_SERVICE_ACCELERATORS; index++) {

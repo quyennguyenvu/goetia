@@ -65,6 +65,28 @@ describe('MainState', () => {
     expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false, pins).pins).toEqual(pins);
   });
 
+  it('snapshots pinsUnreadable, and hides it while locked like the pins', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).pinsUnreadable).toBe(false);
+    expect(
+      s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false, [], false, true).pinsUnreadable,
+    ).toBe(true);
+    s.locked = true;
+    expect(
+      s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false, [], false, true).pinsUnreadable,
+    ).toBe(false);
+  });
+
+  it('snapshots settingsFocus, null until a command sets it', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).settingsFocus).toBeNull();
+    s.settingsFocus = { section: 'downloads', seq: 2 };
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).settingsFocus).toEqual({
+      section: 'downloads',
+      seq: 2,
+    });
+  });
+
   it('starts with no update known', () => {
     const s = new MainState();
     expect(s.update).toEqual({ status: 'idle', latest: null, announce: null });

@@ -1,13 +1,14 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { ACCELERATORS, devtoolsAccelerator } from '../../../shared/shortcuts';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
 import CredentialConfirm from './CredentialConfirm';
 import DiagnosticsPane from './DiagnosticsPane';
+import DownloadsPane from './DownloadsPane';
 import LockPane from './LockPane';
 import PasskeysPane from './PasskeysPane';
+import ShortcutsPane from './ShortcutsPane';
 import { shouldAutoRecheck, updatePending } from './update-rules';
 
 type SectionId =
@@ -17,6 +18,7 @@ type SectionId =
   | 'passkeys'
   | 'lock'
   | 'notifications'
+  | 'downloads'
   | 'shortcuts'
   | 'updates'
   | 'diagnostics';
@@ -28,6 +30,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'passkeys', label: 'Passkeys' },
   { id: 'lock', label: 'Lock' },
   { id: 'notifications', label: 'Notifications' },
+  { id: 'downloads', label: 'Downloads' },
   { id: 'shortcuts', label: 'Shortcuts' },
   { id: 'updates', label: 'Updates' },
   { id: 'diagnostics', label: 'Diagnostics' },
@@ -93,35 +96,6 @@ function Pane({
       >
         {children}
       </div>
-    </div>
-  );
-}
-
-/** platform label for a table chord — '⇧⌘G' here, 'Ctrl+Shift+G' on Windows */
-const key = (accelerator: string) => comboLabel(accelerator, isMac);
-
-function ShortcutGroup({
-  title,
-  rows,
-  last,
-}: {
-  title: string;
-  rows: [string, string][];
-  last?: boolean;
-}) {
-  return (
-    <div className={`py-3 ${last ? '' : 'border-b border-border'}`}>
-      <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-2">
-        {title}
-      </h3>
-      <dl className="grid grid-cols-[minmax(120px,max-content)_1fr] gap-x-4 gap-y-1">
-        {rows.map(([chord, action]) => (
-          <div key={chord} className="contents">
-            <dt className="tabular text-text-1">{chord}</dt>
-            <dd className="text-text-2">{action}</dd>
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }
@@ -200,6 +174,16 @@ export default function SettingsView() {
     setFocusSection(null);
     setFlash(true);
   }, [open, focusSection, updateStatus, setFocusSection]);
+
+  // a main-side command (⌘⇧D, or a banner whose file has moved) asked for a
+  // pane; keyed on seq so a repeat press lands again and a later broadcast
+  // (a new object each time over IPC) does not drag the user back
+  const focusPaneSeq = state?.settingsFocus?.seq ?? 0;
+  const focusPane = state?.settingsFocus?.section;
+  useEffect(() => {
+    if (!open || !focusPane || focusPaneSeq === 0) return;
+    setActive(focusPane);
+  }, [open, focusPaneSeq, focusPane]);
 
   // the fade owns its own effect: parked in the one above, a status change
   // (checking -> current) ran the cleanup and cancelled the timer mid-flight,
@@ -375,52 +359,6 @@ export default function SettingsView() {
                       </option>
                     ))}
                   </select>
-                </Row>
-                <Row
-                  label="Downloads"
-                  hint={
-                    s.downloads.ask
-                      ? 'Asks where to save every file.'
-                      : 'Files a chat sends you are saved without asking.'
-                  }
-                >
-                  <select
-                    data-testid="downloads-mode"
-                    value={s.downloads.ask ? 'ask' : 'folder'}
-                    onChange={(e) =>
-                      update({ downloads: { ...s.downloads, ask: e.target.value === 'ask' } })
-                    }
-                    className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1"
-                  >
-                    <option value="folder">Save to folder</option>
-                    <option value="ask">Always ask</option>
-                  </select>
-                </Row>
-                <Row label="Folder" hint={s.downloads.dir ?? 'Your Downloads folder'}>
-                  <span className="flex items-center gap-3">
-                    {/* null is the OS folder proper — it follows a relocated
-                        Downloads, which an explicit path to it would not */}
-                    {s.downloads.dir !== null && (
-                      <button
-                        type="button"
-                        data-testid="downloads-reset"
-                        disabled={s.downloads.ask}
-                        onClick={() => update({ downloads: { ...s.downloads, dir: null } })}
-                        className="text-[11px] text-accent hover:underline disabled:opacity-40"
-                      >
-                        Use Downloads folder
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      data-testid="downloads-choose"
-                      disabled={s.downloads.ask}
-                      onClick={() => void chooseDownloadDir()}
-                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
-                    >
-                      Choose…
-                    </button>
-                  </span>
                 </Row>
                 <Row label="Backup" hint="Preferences only — never logins, pins or passkeys.">
                   <span className="flex items-center gap-3">
@@ -660,6 +598,63 @@ export default function SettingsView() {
                 <DiagnosticsPane />
               </Pane>
             )}
+            {active === 'downloads' && (
+              <div className="flex flex-col gap-4">
+                <Pane title="Downloads">
+                  <Row
+                    label="When a chat sends a file"
+                    hint={
+                      s.downloads.ask
+                        ? 'Asks where to save every file.'
+                        : 'Files a chat sends you are saved without asking.'
+                    }
+                  >
+                    <select
+                      data-testid="downloads-mode"
+                      value={s.downloads.ask ? 'ask' : 'folder'}
+                      onChange={(e) =>
+                        update({ downloads: { ...s.downloads, ask: e.target.value === 'ask' } })
+                      }
+                      className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1"
+                    >
+                      <option value="folder">Save to folder</option>
+                      <option value="ask">Always ask</option>
+                    </select>
+                  </Row>
+                  <Row label="Folder" hint={s.downloads.dir ?? 'Your Downloads folder'}>
+                    <span className="flex items-center gap-3">
+                      {/* null is the OS folder proper — it follows a relocated
+                          Downloads, which an explicit path to it would not */}
+                      {s.downloads.dir !== null && (
+                        <button
+                          type="button"
+                          data-testid="downloads-reset"
+                          disabled={s.downloads.ask}
+                          onClick={() => update({ downloads: { ...s.downloads, dir: null } })}
+                          className="whitespace-nowrap text-[11px] text-accent hover:underline disabled:opacity-40"
+                        >
+                          Use Downloads folder
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        data-testid="downloads-choose"
+                        disabled={s.downloads.ask}
+                        onClick={() => void chooseDownloadDir()}
+                        className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
+                      >
+                        Choose…
+                      </button>
+                    </span>
+                  </Row>
+                </Pane>
+                <Pane title="Recent · this session">
+                  <DownloadsPane
+                    landing={s.downloads.ask ? null : (s.downloads.dir ?? 'your Downloads folder')}
+                  />
+                </Pane>
+              </div>
+            )}
             {active === 'notifications' && (
               <Pane title="Notifications">
                 <Row label="Mute all notifications">
@@ -756,71 +751,7 @@ export default function SettingsView() {
 
             {active === 'shortcuts' && (
               <Pane title="Shortcuts">
-                <p className="pt-3 text-[11px] text-text-2">
-                  Goetia's keys work inside every chat page, even where the site binds the same
-                  chord. Home and Pin are on the left half of the keyboard so they can be pressed
-                  with the mouse in the other hand.
-                </p>
-                <ShortcutGroup
-                  title="Navigate"
-                  rows={[
-                    [`${key('CmdOrCtrl+1')}…9`, 'jump to a service'],
-                    [
-                      key(ACCELERATORS.switcher),
-                      'quick switcher — services and recent conversations',
-                    ],
-                    [
-                      `${key(ACCELERATORS.nextUnread)} / ${key(ACCELERATORS.prevUnread)}`,
-                      'next / previous unread conversation',
-                    ],
-                    [key(ACCELERATORS.home), 'Home — all services and the pinboard'],
-                    [key(ACCELERATORS.findService), 'find a service (on Home)'],
-                    ['Esc', 'close this window, or leave Home'],
-                  ]}
-                />
-                <ShortcutGroup
-                  title="Pins"
-                  rows={[
-                    [key(ACCELERATORS.pinSelection), 'pin the selected text to the pinboard'],
-                    ['Right-click a message', 'Pin Message — where the site allows our menu'],
-                    ['Drag ⠿ on Home', 'reprioritize — the top pin is in progress'],
-                  ]}
-                />
-                <ShortcutGroup
-                  title="Service page"
-                  rows={[
-                    [`${key(ACCELERATORS.reload[0])} or F5`, 'reload the current service'],
-                    [
-                      `${key(ACCELERATORS.zoomIn)} / ${key(ACCELERATORS.zoomOut)} / ${key(ACCELERATORS.zoomReset)}`,
-                      'zoom in / out / actual size (remembered per service)',
-                    ],
-                    [key(devtoolsAccelerator(isMac ? 'darwin' : 'win32')), 'developer tools'],
-                  ]}
-                />
-                <ShortcutGroup
-                  title="Notifications"
-                  rows={[
-                    [key(ACCELERATORS.mute), 'mute / unmute everything'],
-                    ...(s.summonHotkey.enabled
-                      ? [
-                          [
-                            `${comboLabel(s.summonHotkey.accelerator, isMac)} (system-wide)`,
-                            'summon / dismiss Goetia',
-                          ] as [string, string],
-                        ]
-                      : []),
-                  ]}
-                />
-                <ShortcutGroup
-                  title="Rail"
-                  last
-                  rows={[
-                    [key(ACCELERATORS.settings), 'settings'],
-                    [key(ACCELERATORS.lock), 'lock Goetia'],
-                    ['Right-click a tile', 'mute or banish the service'],
-                    ['Drag tiles', 'reorder services'],
-                  ]}
-                />
+                <ShortcutsPane settings={s} />
               </Pane>
             )}
 

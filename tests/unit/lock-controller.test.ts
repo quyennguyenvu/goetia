@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { KeyCodec } from '../../src/main/codec';
 import { LockController, LockStore } from '../../src/main/lock';
-import type { KeyCodec } from '../../src/main/passkeys/store';
 
 let dir: string;
 afterEach(() => rmSync(dir, { recursive: true, force: true }));

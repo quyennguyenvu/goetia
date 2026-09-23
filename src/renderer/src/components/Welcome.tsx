@@ -315,6 +315,7 @@ export default function Welcome() {
           pins={state.pins}
           services={state.services}
           disabled={state.settings.disabled}
+          unreadable={state.pinsUnreadable}
         />
         <ServiceBand
           testid="welcome-section-summoned"
