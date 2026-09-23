@@ -254,6 +254,9 @@ test('history survives a relaunch, rows leave with Undo, and the guard asks once
   await expect(win.getByTestId('credential-confirm')).toHaveCount(0);
   await expect(rows).toHaveCount(1);
   await expect(win.getByTestId('downloads-undo')).toContainText('1 file removed');
+  await expect(win.getByTestId('downloads-undo').getByTestId('toast-drain')).toHaveCount(1);
+  // Clear all… sits beside the Undo, so it never waits out the 8 s
+  await expect(win.getByTestId('downloads-clear')).toBeVisible();
   await win.getByTestId('downloads-undo').getByRole('button', { name: 'Undo' }).click();
   await expect(rows).toHaveCount(2);
 

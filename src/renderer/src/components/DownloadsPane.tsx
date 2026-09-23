@@ -8,7 +8,7 @@ import { useShell } from '../store';
 import CredentialConfirm from './CredentialConfirm';
 import Pane from './Pane';
 import { relativeTime } from './relative-time';
-import { TOAST_MS } from './toast-rules';
+import { ToastDrain, useToastTimer } from './toast-timer';
 
 /** while a row is downloading the pane re-fetches this often; never otherwise */
 const POLL_MS = 1000;
@@ -109,8 +109,10 @@ export default function DownloadsPane({
   const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set());
   /** the guarded action waiting on the credential, or null */
   const [asking, setAsking] = useState<GuardedAction | null>(null);
-  /** how many rows the last removal took, while its Undo shows */
-  const [undo, setUndo] = useState<number | null>(null);
+  /** the last removal, while its Undo shows — a fresh object per removal, so a
+   *  second removal of the same count restarts the clock */
+  const [undo, setUndo] = useState<{ count: number } | null>(null);
+  const clock = useToastTimer<HTMLSpanElement>(undo, () => setUndo(null));
 
   const load = useCallback(() => {
     window.goetia.invoke('downloads:recent').then(setData);
@@ -124,12 +126,6 @@ export default function DownloadsPane({
     const t = setInterval(load, POLL_MS);
     return () => clearInterval(t);
   }, [live, load]);
-
-  useEffect(() => {
-    if (undo === null) return;
-    const t = setTimeout(() => setUndo(null), TOAST_MS);
-    return () => clearTimeout(t);
-  }, [undo]);
 
   // a row that left the list, or started downloading again, cannot stay selected
   useEffect(() => {
@@ -184,10 +180,10 @@ export default function DownloadsPane({
   const perform = (action: GuardedAction) => {
     if (action.kind === 'downloads-remove') {
       window.goetia.send('downloads:remove', { ids: action.ids });
-      setUndo(action.ids.length);
+      setUndo({ count: action.ids.length });
     } else if (action.kind === 'downloads-clear') {
       window.goetia.send('downloads:clear', {});
-      setUndo(rows?.filter(selectable).length ?? 0);
+      setUndo({ count: rows?.filter(selectable).length ?? 0 });
     }
     clearSelection();
     load();
@@ -215,8 +211,47 @@ export default function DownloadsPane({
         ? rows.filter(selectable).length
         : 0;
 
-  // the header line's right side, by precedence: a selection, then a pending
-  // Undo, then the whole-list action — every state at one text size
+  // the header line's right side, every state at one text size: a selection
+  // replaces the line; otherwise a pending Undo and the whole-list action sit
+  // side by side, so Clear all… never waits out an Undo (user decision, 2026-09-24)
+  const wholeList =
+    shownEnded.length > 0 &&
+    (narrows ? (
+      <button
+        type="button"
+        data-testid="downloads-remove-shown"
+        onClick={() => request({ kind: 'downloads-remove', ids: shownEnded.map((r) => r.id) })}
+        className={`${quiet} hover:text-danger`}
+      >
+        Remove {files(shownEnded.length)} shown…
+      </button>
+    ) : (
+      <button
+        type="button"
+        data-testid="downloads-clear"
+        onClick={() => request({ kind: 'downloads-clear' })}
+        className={`${quiet} hover:text-danger`}
+      >
+        Clear all…
+      </button>
+    ));
+  // the toasts' clock: the bar drains over TOAST_MS, and hovering or focusing
+  // the line banks the remainder, so a hand reaching for Undo is never raced
+  const undoLine = undo !== null && (
+    <span
+      ref={clock.surface}
+      role="status"
+      data-testid="downloads-undo"
+      {...clock.pauseWhile}
+      className="relative flex items-center gap-3"
+    >
+      <span>{files(undo.count)} removed from the list.</span>
+      <button type="button" onClick={restore} className={`${quiet} font-semibold text-accent`}>
+        Undo
+      </button>
+      <ToastDrain paused={clock.paused} className="-bottom-1 bg-accent" />
+    </span>
+  );
   let state: React.ReactNode = null;
   if (count > 0) {
     state = (
@@ -240,34 +275,13 @@ export default function DownloadsPane({
         </button>
       </span>
     );
-  } else if (undo !== null) {
+  } else if (undoLine || wholeList) {
     state = (
-      <span role="status" data-testid="downloads-undo" className="flex items-center gap-3">
-        <span>{files(undo)} removed from the list.</span>
-        <button type="button" onClick={restore} className={`${quiet} font-semibold text-accent`}>
-          Undo
-        </button>
-      </span>
-    );
-  } else if (shownEnded.length > 0) {
-    state = narrows ? (
-      <button
-        type="button"
-        data-testid="downloads-remove-shown"
-        onClick={() => request({ kind: 'downloads-remove', ids: shownEnded.map((r) => r.id) })}
-        className={`${quiet} hover:text-danger`}
-      >
-        Remove {files(shownEnded.length)} shown…
-      </button>
-    ) : (
-      <button
-        type="button"
-        data-testid="downloads-clear"
-        onClick={() => request({ kind: 'downloads-clear' })}
-        className={`${quiet} hover:text-danger`}
-      >
-        Clear all…
-      </button>
+      <>
+        {undoLine}
+        {undoLine && wholeList && <span aria-hidden="true" className="h-3 w-px bg-border" />}
+        {wholeList}
+      </>
     );
   }
 
