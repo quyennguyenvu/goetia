@@ -20,4 +20,19 @@ describe('matchesDownloadQuery', () => {
     expect(matchesDownloadQuery(row, 'Zalo', 'slack')).toBe(false);
     expect(matchesDownloadQuery(row, 'Zalo', 'gia-v4')).toBe(false);
   });
+  it('matches across Unicode normalization forms', () => {
+    // macOS writes a file name decomposed (e + U+0301); a keyboard types the composed e-acute.
+    const decomposed = { filename: 'te\u0301t4.jpeg' };
+    const composed = { filename: 't\u00e9t4.jpeg' };
+    expect(matchesDownloadQuery(decomposed, 'Messenger', normalizeDownloadQuery('té'))).toBe(true);
+    expect(matchesDownloadQuery(composed, 'Messenger', normalizeDownloadQuery('te\u0301'))).toBe(
+      true,
+    );
+    expect(matchesDownloadQuery(decomposed, 'Messenger', normalizeDownloadQuery('TÉT4'))).toBe(
+      true,
+    );
+    expect(matchesDownloadQuery(decomposed, 'Messenger', normalizeDownloadQuery('tet'))).toBe(
+      false,
+    );
+  });
 });
