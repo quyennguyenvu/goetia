@@ -12,7 +12,7 @@ import {
 } from 'electron';
 import { normalizeDiagFilter } from '../shared/diag-filter';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
-import type { GuardedAction } from '../shared/lock';
+import { describeAction, type GuardedAction } from '../shared/lock';
 import { muteExpiry } from '../shared/mute';
 import { serviceById } from '../shared/services';
 import { isRebindable } from '../shared/shortcuts';
@@ -40,8 +40,14 @@ import {
   settingsSummary,
   withPage,
 } from './lib/diagnostics';
+import { DOWNLOAD_HISTORY_CAP, downloadsSettingLines } from './lib/download-rules';
 import { isSafeExternalUrl } from './lib/external-url';
-import { actionGuarded } from './lib/guard-policy';
+import {
+  actionGuarded,
+  normalizeAction,
+  normalizeRemoveIds,
+  stripAppLock,
+} from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
@@ -74,7 +80,7 @@ export interface AppContext {
   activity: ActivityLog;
   /** the pinboard; persisted, see pins.ts */
   pins: PinStore;
-  /** this session's downloads; in-memory rows behind Settings → Downloads */
+  /** the download history behind Settings → Downloads; persisted, see download-history.ts */
   downloads: DownloadManager;
   /** Settings → Shortcuts' one pending recording */
   recorder: ShortcutRecorder;
@@ -268,14 +274,19 @@ function replayPending(ctx: AppContext): void {
 }
 
 /** True when this action may proceed: either the guard is off, or the user
- *  has just authorized exactly this action. A refusal is silent, like every
- *  other refusal in this file. */
+ *  has just authorized exactly this action. A refusal is silent to the
+ *  caller, like every other refusal in this file — and noted in the ring,
+ *  because someone asked for a guarded action without the credential. */
 function authorized(ctx: AppContext, action: GuardedAction): boolean {
   const guarded = actionGuarded({
     guardActions: ctx.settings.get().appLock.guardActions,
     configured: ctx.lock.configured(),
   });
-  return !guarded || ctx.lock.consumeConsent(action);
+  if (!guarded) return true;
+  const ok = ctx.lock.consumeConsent(action);
+  const what = describeAction(action);
+  ctx.diag.note('lock', ok ? `${what} authorized` : `${what} refused: no consent`);
+  return ok;
 }
 
 /** The one mute tail: the tile menu, the Settings checkbox and the expiry
@@ -304,11 +315,22 @@ export function setServiceMuted(
  *  Home commits adds, removals and the new order together on purpose, so
  *  there is no partial patch to apply; a banish-only or reorder-only commit
  *  summons nothing and never reaches that branch). */
-export function applySettingsPatch(ctx: AppContext, patch: Partial<Settings>): boolean {
+export function applySettingsPatch(ctx: AppContext, raw: Partial<Settings>): boolean {
+  const stripped = stripAppLock(raw);
+  if (stripped.carried) ctx.diag.note('ipc', 'settings:update carried appLock; dropped');
+  const patch = stripped.patch;
   const before = ctx.settings.get();
   if (patch.disabled) {
     const summoned = summonedIds(before.order, before.disabled, patch.disabled);
-    if (summoned.length > 0 && !authorized(ctx, { kind: 'summon' })) return false;
+    if (summoned.length > 0) {
+      if (!authorized(ctx, { kind: 'summon' })) return false;
+      ctx.diag.note('app', `summoned: ${summoned.join(', ')}`);
+    }
+  }
+  if (patch.downloads) {
+    for (const line of downloadsSettingLines(before.downloads, patch.downloads)) {
+      ctx.diag.note('downloads', line);
+    }
   }
   // summoning restarts the unused clock, in the same write as the summon:
   // Home commits adds, banishes and reorders as one frame, and a second
@@ -425,6 +447,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('service:purgeLogin', ({ serviceId }) => {
     if (!authorized(ctx, { kind: 'purge-one', serviceId })) return;
+    ctx.diag.note('app', `purged login: ${serviceId}`);
     void purgeLogin(ctx, serviceId);
   });
   on('service:reorder', ({ orderedIds }) => {
@@ -461,6 +484,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     } catch {
       return { ok: false, reason: 'write-failed' };
     }
+    ctx.diag.note('app', 'settings exported');
     return { ok: true, path };
   });
   onInvoke('settings:import', { ok: false, reason: 'cancelled' }, async ({ retry }) => {
@@ -498,6 +522,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       pendingImport = { patch: parsed.patch, path: parsed.path, at: Date.now() };
       return { ok: false, reason: 'guarded' };
     }
+    ctx.diag.note('app', `settings imported (${Object.keys(parsed.patch).length} keys)`);
     // the tails settings:update never needed, because the UI moves these
     // through other doors (⌘1…9's menu, the zoom chords, the mute tails)
     if (patch.order) buildAppMenu(ctx);
@@ -541,11 +566,13 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
   onInvoke('activity:recent', [], () => ctx.activity.recent());
-  onInvoke('services:purgeAll', { purged: 0 }, () => {
+  onInvoke('services:purgeAll', { purged: 0 }, async () => {
     // the same shape a blocked sender gets, so the toast says nothing
     // happened — which is true
     if (!authorized(ctx, { kind: 'purge-all' })) return { purged: 0 };
-    return purgeAll(ctx);
+    const result = await purgeAll(ctx);
+    ctx.diag.note('app', `purged all logins (${result.purged})`);
+    return result;
   });
   onInvoke('webauthn:create', { ok: false, error: 'NotAllowedError' }, (payload, e) => {
     const origin = invokeOrigin(e);
@@ -569,7 +596,12 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   onInvoke('passkeys:list', [], () => ctx.passkeyStore.views());
   onInvoke('passkeys:forget', [], ({ id }) => {
-    ctx.passkeyStore.forget(id);
+    // destroys a credential Goetia made: guarded like a purge, and recorded
+    if (typeof id !== 'string' || !authorized(ctx, { kind: 'passkey-forget', id })) {
+      return ctx.passkeyStore.views();
+    }
+    const rpId = ctx.passkeyStore.get(id)?.rpId;
+    if (ctx.passkeyStore.forget(id) && rpId) ctx.diag.note('passkey', `forgot ${rpId}`);
     return ctx.passkeyStore.views();
   });
   onInvoke('passkeys:restore', [], ({ id }) => {
@@ -615,12 +647,30 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     });
     return canceled || filePaths.length === 0 ? null : filePaths[0];
   });
-  onInvoke('downloads:recent', [], () => ctx.downloads.recent());
+  onInvoke('downloads:recent', { rows: [], storage: 'sealed' }, () => ctx.downloads.recent());
   on('downloads:reveal', ({ id }) => {
     if (Number.isSafeInteger(id)) ctx.downloads.reveal(id);
   });
   on('downloads:cancel', ({ id }) => {
     if (Number.isSafeInteger(id)) ctx.downloads.cancel(id);
+  });
+  on('downloads:remove', ({ ids }) => {
+    const set = normalizeRemoveIds(ids, DOWNLOAD_HISTORY_CAP);
+    if (!set || !authorized(ctx, { kind: 'downloads-remove', ids: set })) return;
+    const n = ctx.downloads.remove(set);
+    if (n > 0) ctx.diag.note('downloads', `history: removed ${n} rows`);
+  });
+  on('downloads:clear', () => {
+    if (!authorized(ctx, { kind: 'downloads-clear' })) return;
+    const n = ctx.downloads.clear();
+    if (n > 0) ctx.diag.note('downloads', `history cleared (${n} rows)`);
+  });
+  on('downloads:restore', () => {
+    const n = ctx.downloads.restore();
+    if (n > 0) ctx.diag.note('downloads', `history: restored ${n} rows`);
+  });
+  on('downloads:openDir', () => {
+    ctx.downloads.openFolder();
   });
   onInvoke('shortcuts:record', { ok: false, reason: 'cancelled' }, async ({ id }) => {
     if (!isRebindable(id)) return { ok: false, reason: 'cancelled' };
@@ -636,9 +686,11 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     if (result.ok) replayPending(ctx);
     return result;
   });
-  onInvoke('lock:confirm', { ok: false, waitMs: 0, reason: 'unavailable' }, (req) =>
-    ctx.lock.grantConsent(req.action, req.credential),
-  );
+  onInvoke('lock:confirm', { ok: false, waitMs: 0, reason: 'unavailable' }, (req) => {
+    const action = normalizeAction(req.action, DOWNLOAD_HISTORY_CAP);
+    if (!action) return { ok: false, waitMs: 0, reason: 'unavailable' };
+    return ctx.lock.grantConsent(action, req.credential);
+  });
   onInvoke('lock:configure', { ok: false, error: 'wrong' }, async (req) => {
     const result = await ctx.lock.configure(req);
     // the pane renders from ShellState.settings and lockConfigured, and

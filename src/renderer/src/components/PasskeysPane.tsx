@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PasskeyView } from '../../../shared/types';
 import { useShell } from '../store';
+import CredentialConfirm from './CredentialConfirm';
 import { TOAST_MS } from './toast-rules';
 
 const dateOf = (t: number) => (t > 0 ? new Date(t).toLocaleDateString() : '—');
@@ -14,6 +15,11 @@ export default function PasskeysPane() {
   const services = useShell((s) => s.state?.services);
   const [list, setList] = useState<PasskeyView[] | null>(null);
   const [undo, setUndo] = useState<{ id: string; rpId: string } | null>(null);
+  // main enforces; this only decides when to ask — the PurgeConfirm line
+  const guarded = useShell(
+    (s) => (s.state?.settings.appLock.guardActions ?? false) && (s.state?.lockConfigured ?? false),
+  );
+  const [asking, setAsking] = useState<PasskeyView | null>(null);
 
   const load = useCallback(() => {
     window.goetia.invoke('passkeys:list').then(setList);
@@ -27,9 +33,11 @@ export default function PasskeysPane() {
   }, [undo]);
 
   const forget = async (p: PasskeyView) => {
+    setAsking(null);
     setList(await window.goetia.invoke('passkeys:forget', { id: p.id }));
     setUndo({ id: p.id, rpId: p.rpId });
   };
+  const request = (p: PasskeyView) => (guarded ? setAsking(p) : void forget(p));
   const restore = async () => {
     if (!undo) return;
     setList(await window.goetia.invoke('passkeys:restore', { id: undo.id }));
@@ -55,28 +63,46 @@ export default function PasskeysPane() {
       {list.map((p) => {
         const svc = services?.find((s) => s.id === p.createdIn);
         return (
-          <div
-            key={p.id}
-            data-testid={`passkey-${p.rpId}`}
-            className="flex items-center justify-between gap-4 border-b border-border py-2"
-          >
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-text-1">
-                {p.rpId} <span className="text-text-2">· {p.account}</span>
+          <div key={p.id} data-testid={`passkey-${p.rpId}`} className="border-b border-border">
+            <div className="flex items-center justify-between gap-4 py-2">
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-text-1">
+                  {p.rpId} <span className="text-text-2">· {p.account}</span>
+                </span>
+                <span className="text-[11px] text-text-2">
+                  {svc ? `via ${svc.name} · ` : ''}created {dateOf(p.createdAt)} · last used{' '}
+                  {dateOf(p.lastUsedAt)}
+                </span>
               </span>
-              <span className="text-[11px] text-text-2">
-                {svc ? `via ${svc.name} · ` : ''}created {dateOf(p.createdAt)} · last used{' '}
-                {dateOf(p.lastUsedAt)}
-              </span>
-            </span>
-            <button
-              type="button"
-              data-testid={`forget-${p.rpId}`}
-              onClick={() => forget(p)}
-              className="rounded-ctl border border-border bg-bg-2 px-2.5 py-1 text-text-1 transition-colors duration-120 hover:border-accent"
-            >
-              Forget
-            </button>
+              <button
+                type="button"
+                data-testid={`forget-${p.rpId}`}
+                onClick={() => request(p)}
+                className="rounded-ctl border border-border bg-bg-2 px-2.5 py-1 text-text-1 transition-colors duration-120 hover:border-accent"
+              >
+                Forget
+              </button>
+            </div>
+            {asking?.id === p.id && (
+              <div className="pb-2">
+                <p className="text-[12px] text-text-1">
+                  Prove it's you to forget the passkey for {p.rpId}.
+                </p>
+                <CredentialConfirm
+                  autoFocus
+                  action={{ kind: 'passkey-forget', id: p.id }}
+                  onVerified={() => void forget(p)}
+                />
+                <button
+                  type="button"
+                  data-testid="passkey-ask-cancel"
+                  onClick={() => setAsking(null)}
+                  className="text-[11px] text-text-2 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         );
       })}

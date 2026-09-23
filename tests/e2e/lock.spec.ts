@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, type Page, test } from '@playwright/test';
@@ -184,4 +184,38 @@ test('removing lock.json recovers a forgotten passcode without touching anything
   expect(service.url()).toContain('zalo');
 
   await recovered.app.close();
+});
+
+test('settings:update cannot switch the lock off — lock:configure is its only writer', async () => {
+  const profile = makeProfile();
+  const { app, win } = await launch(profile);
+  await win.getByTestId('settings-btn').click();
+  await win.getByTestId('settings-nav-lock').click();
+  await win.getByTestId('lock-new-passcode').fill(PASSCODE);
+  await win.getByTestId('lock-enable').click();
+  await expect(win.getByTestId('lock-status')).toHaveText('Lock on.');
+
+  // what the shell's own console could send: a patch that carries appLock
+  await win.evaluate(() => {
+    (window as unknown as { goetia: { send(c: string, p: unknown): void } }).goetia.send(
+      'settings:update',
+      { appLock: { enabled: false, touchId: false, guardActions: false } },
+    );
+  });
+  await win.getByTestId('settings-nav-diagnostics').click();
+  await expect(
+    win
+      .getByTestId('diag-row')
+      .filter({ hasText: '[ipc] settings:update carried appLock; dropped' }),
+  ).toHaveCount(1);
+  await app.close();
+
+  expect(JSON.parse(readFileSync(join(profile, 'settings.json'), 'utf8')).appLock).toMatchObject({
+    enabled: true,
+    guardActions: true,
+  });
+  // and the next launch comes up locked
+  const again = await launch(profile);
+  await expect(again.win.getByTestId('lock-screen')).toBeVisible();
+  await again.app.close();
 });

@@ -7,7 +7,7 @@
 export const ACCELERATORS = {
   home: 'CmdOrCtrl+Shift+G',
   pinSelection: 'CmdOrCtrl+Shift+S',
-  /** left half too: Settings → Downloads, this session's files */
+  /** left half too: Settings → Downloads, your files */
   downloads: 'CmdOrCtrl+Shift+D',
   switcher: 'CmdOrCtrl+K',
   /** the browser's next/previous-tab chords, walking only tiles with unread */

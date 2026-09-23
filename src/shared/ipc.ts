@@ -11,6 +11,7 @@ import type {
   ActivityEntryView,
   Counts,
   DiagEntry,
+  DownloadStorage,
   DownloadView,
   PasskeyView,
   ServiceId,
@@ -80,6 +81,15 @@ export interface RendererToMain {
    *  `id` is main's own row id; the path never leaves main. Shell-only. */
   'downloads:reveal': { id: number };
   'downloads:cancel': { id: number };
+  /** Settings → Downloads history. `remove` and `clear` are guarded actions —
+   *  lock:confirm mints the consent first when the guard is on, and main
+   *  refuses without one; `restore` is the Undo and is not guarded (the safe
+   *  direction); `openDir` opens the download folder itself, a directory from
+   *  settings, never a page's path. Ids are main's row ids. All shell-only. */
+  'downloads:remove': { ids: number[] };
+  'downloads:clear': Record<string, never>;
+  'downloads:restore': Record<string, never>;
+  'downloads:openDir': Record<string, never>;
   /** a recipe asks for a trusted click at a point in its own view: keep-alive
    *  buttons and Zalo's conversation rows ignore synthetic events */
   'service:trusted-click': { serviceId: ServiceId; x: number; y: number };
@@ -153,6 +163,10 @@ export const R2M_CHANNELS = [
   'pins:open',
   'downloads:reveal',
   'downloads:cancel',
+  'downloads:remove',
+  'downloads:clear',
+  'downloads:restore',
+  'downloads:openDir',
   'service:trusted-click',
   'service:openExternal',
   'service:ready',
@@ -202,9 +216,10 @@ export interface RendererInvoke {
    *  through settings:update. Shell-only — a page must never move the
    *  folder its own downloads land in. */
   'downloads:chooseDir': { result: string | null };
-  /** Settings → Downloads: this session's rows, fetched when the pane opens
-   *  and polled once a second only while one is still downloading. */
-  'downloads:recent': { result: DownloadView[] };
+  /** Settings → Downloads: the history rows, fetched when the pane opens and
+   *  polled once a second only while one is still downloading, plus how the
+   *  file rests (the pane's keychain band). */
+  'downloads:recent': { result: { rows: DownloadView[]; storage: DownloadStorage } };
   /** Settings → Shortcuts: record the next chord for a row. Main reads the
    *  key off the OS event, validates it (lib/shortcut-rules) and writes the
    *  override itself; the pane only shows the verdict. Shell-only. */
@@ -305,6 +320,10 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'downloads:recent',
   'downloads:reveal',
   'downloads:cancel',
+  'downloads:remove',
+  'downloads:clear',
+  'downloads:restore',
+  'downloads:openDir',
   'shortcuts:record',
   'diagnostics:recent',
   'diagnostics:report',

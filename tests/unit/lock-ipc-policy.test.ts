@@ -45,6 +45,19 @@ describe('channelAllowedWhileLocked', () => {
     }
   });
 
+  // a locked app lists, removes, restores and opens nothing
+  it('refuses every download history channel', () => {
+    for (const channel of [
+      'downloads:recent',
+      'downloads:remove',
+      'downloads:clear',
+      'downloads:restore',
+      'downloads:openDir',
+    ] as const) {
+      expect(channelAllowedWhileLocked(channel)).toBe(false);
+    }
+  });
+
   it('refuses every channel that would put a service on screen or change it', () => {
     for (const channel of [
       'service:activate',

@@ -120,6 +120,20 @@ test('a service page registers a passkey, asserts with it, and Settings lists it
     await expect(win.getByTestId('passkey-undo')).toBeVisible();
     await win.getByTestId('passkey-undo').getByRole('button', { name: 'Undo' }).click();
     await expect(win.getByTestId(`passkey-${rp}`)).toBeVisible();
+
+    // arm the lock from the pane beside it: Forget now asks before it forgets
+    await win.getByTestId('settings-nav-lock').click();
+    await win.getByTestId('lock-new-passcode').fill('correct horse');
+    await win.getByTestId('lock-enable').click();
+    await expect(win.getByTestId('lock-status')).toHaveText('Lock on.');
+    await win.getByTestId('settings-nav-passkeys').click();
+    await win.getByTestId(`forget-${rp}`).click();
+    await expect(win.getByTestId(`passkey-${rp}`)).toBeVisible();
+    await expect(win.getByTestId('credential-confirm')).toBeVisible();
+    await win.getByTestId('credential-passcode').fill('correct horse');
+    await win.getByTestId('credential-passcode').press('Enter');
+    await expect(win.getByTestId('passkey-undo')).toBeVisible();
+    await expect(win.getByTestId(`passkey-${rp}`)).toHaveCount(0);
   } finally {
     await app.close();
   }

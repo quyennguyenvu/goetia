@@ -8,11 +8,15 @@ import {
   DOWNLOAD_BURST_WINDOW_MS,
   DOWNLOAD_DEDUP_MAX,
   DOWNLOAD_HISTORY_CAP,
+  DOWNLOAD_NAME_MAX,
   type DownloadRecord,
   decideSave,
+  downloadsSettingLines,
   historyEvict,
   historyViews,
+  persistable,
   progressFraction,
+  restoreRecords,
   safeFilename,
   uniquePath,
 } from '../../src/main/lib/download-rules';
@@ -256,5 +260,90 @@ describe('historyEvict', () => {
     expect(historyEvict(full)).toBe(2); // id 1 is the oldest but still in flight
     const live = full.map((r) => ({ ...r, state: 'downloading' as const }));
     expect(historyEvict(live)).toBe(1);
+  });
+});
+
+describe('DOWNLOAD_HISTORY_CAP', () => {
+  it('is 200, Diagnostics parity', () => {
+    expect(DOWNLOAD_HISTORY_CAP).toBe(200);
+  });
+});
+
+const KNOWN: ReadonlySet<string> = new Set(['whatsapp', 'zalo']);
+const saved = (id: number, at: number, over: Partial<DownloadRecord> = {}): DownloadRecord => ({
+  id,
+  serviceId: 'whatsapp',
+  filename: `f${id}.txt`,
+  path: `/tmp/dl/f${id}.txt`,
+  state: 'saved',
+  received: 10,
+  total: 10,
+  at,
+  ...over,
+});
+
+describe('restoreRecords', () => {
+  it('keeps saved and failed rows of the exact shape and drops the rest', () => {
+    const raw = [
+      saved(1, 100),
+      saved(2, 200, { state: 'failed', path: '' }),
+      saved(3, 300, { state: 'downloading' }),
+      { ...saved(4, 400), serviceId: 'myspace' },
+      { ...saved(5, 500), received: 'ten' },
+      { ...saved(6, 600), at: Number.NaN },
+      { ...saved(7, 700), filename: 42 },
+      { ...saved(8, 800), id: 1.5 },
+      'junk',
+      null,
+    ];
+    expect(restoreRecords(raw, KNOWN).map((r) => r.id)).toEqual([2, 1]);
+  });
+
+  it('is empty for anything that is not an array', () => {
+    expect(restoreRecords(undefined, KNOWN)).toEqual([]);
+    expect(restoreRecords({ downloads: [] }, KNOWN)).toEqual([]);
+    expect(restoreRecords('[]', KNOWN)).toEqual([]);
+  });
+
+  it('drops a repeated id, clips the name, and keeps the newest cap', () => {
+    const raw = [saved(1, 100), saved(1, 101)];
+    expect(restoreRecords(raw, KNOWN)).toHaveLength(1);
+    const long = saved(2, 200, { filename: 'x'.repeat(DOWNLOAD_NAME_MAX + 20) });
+    expect(restoreRecords([long], KNOWN)[0].filename).toHaveLength(DOWNLOAD_NAME_MAX);
+    const many = Array.from({ length: DOWNLOAD_HISTORY_CAP + 5 }, (_, i) => saved(i + 1, i + 1));
+    const kept = restoreRecords(many, KNOWN);
+    expect(kept).toHaveLength(DOWNLOAD_HISTORY_CAP);
+    expect(kept[0].id).toBe(DOWNLOAD_HISTORY_CAP + 5); // newest first
+    expect(kept.at(-1)?.id).toBe(6); // the five oldest fell off
+  });
+});
+
+describe('persistable', () => {
+  it('holds ended rows only', () => {
+    const rows = [
+      saved(1, 1),
+      saved(2, 2, { state: 'downloading' }),
+      saved(3, 3, { state: 'failed' }),
+    ];
+    expect(persistable(rows).map((r) => r.id)).toEqual([1, 3]);
+  });
+});
+
+describe('downloadsSettingLines', () => {
+  it('names a folder change without the path, and a mode change', () => {
+    expect(
+      downloadsSettingLines({ ask: false, dir: null }, { ask: false, dir: '/Volumes/X' }),
+    ).toEqual(['folder changed']);
+    expect(
+      downloadsSettingLines({ ask: false, dir: '/Volumes/X' }, { ask: false, dir: null }),
+    ).toEqual(['folder reset to the OS default']);
+    expect(downloadsSettingLines({ ask: false, dir: null }, { ask: true, dir: null })).toEqual([
+      'mode: ask',
+    ]);
+    expect(downloadsSettingLines({ ask: true, dir: null }, { ask: false, dir: '/V' })).toEqual([
+      'folder changed',
+      'mode: save to folder',
+    ]);
+    expect(downloadsSettingLines({ ask: true, dir: '/V' }, { ask: true, dir: '/V' })).toEqual([]);
   });
 });

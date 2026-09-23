@@ -33,6 +33,7 @@ describe('DIAG_TAGS', () => {
       'open',
       'identity',
       'passkey',
+      'lock',
       'ipc',
       'notifications',
       'downloads',

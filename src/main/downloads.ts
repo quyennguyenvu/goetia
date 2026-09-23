@@ -1,14 +1,17 @@
 import { basename } from 'node:path';
-import type { DownloadView, ServiceId, Settings } from '../shared/types';
+import type { DownloadStorage, DownloadView, ServiceId, Settings } from '../shared/types';
+import type { DownloadHistoryLike } from './download-history';
 import {
   ASK_URL_CAP,
   bannerFor,
   DOWNLOAD_BURST_WINDOW_MS,
+  DOWNLOAD_HISTORY_CAP,
   type DownloadEnd,
   type DownloadRecord,
   decideSave,
   historyEvict,
   historyViews,
+  persistable,
   progressFraction,
 } from './lib/download-rules';
 import { redactBanner } from './lib/lock-rules';
@@ -63,6 +66,14 @@ export interface DownloadManagerDeps {
   showWindow(): void;
   /** Settings → Downloads — a completed banner clicked after its file moved */
   openDownloads(): void;
+  /** downloads.json — ended rows, sealed; see download-history.ts */
+  history: DownloadHistoryLike;
+  /** statSync(path).isDirectory(), false on any error */
+  isDirectory(path: string): boolean;
+  /** shell.openPath — the one openPath in the app, and only ever on a directory */
+  openFolder(path: string): void;
+  /** ctx.diag.note('downloads', …): counts and states, never a name */
+  note(line: string): void;
   now(): number;
 }
 
@@ -83,11 +94,20 @@ export class DownloadManager {
   private starts = new Map<ServiceId, number[]>();
   /** URLs Save Image As… promised a dialog for; consumed on first match */
   private askUrls: string[] = [];
-  /** this session's rows behind Settings → Downloads; DOWNLOAD_HISTORY_CAP */
+  /** the history rows behind Settings → Downloads; DOWNLOAD_HISTORY_CAP,
+   *  restored from `deps.history` and written back on every change to the
+   *  ended set */
   private records = new Map<number, DownloadRecord>();
   private nextId = 1;
+  /** the last remove or clear, kept for one Undo */
+  private lastRemoved: DownloadRecord[] = [];
+  /** row ids whose Cancel the user pressed — a lifecycle cancel notes nothing */
+  private userCancelled = new Set<number>();
 
-  constructor(private deps: DownloadManagerDeps) {}
+  constructor(private deps: DownloadManagerDeps) {
+    for (const r of deps.history.load()) this.records.set(r.id, r);
+    this.nextId = [...this.records.keys()].reduce((max, id) => Math.max(max, id), 0) + 1;
+  }
 
   attach(id: ServiceId, ses: DownloadSessionLike): void {
     if (this.listeners.has(id)) return;
@@ -142,7 +162,10 @@ export class DownloadManager {
     if (!userRequested) this.starts.set(id, [...recent, now]);
 
     const evict = historyEvict([...this.records.values()]);
-    if (evict !== null) this.records.delete(evict);
+    if (evict !== null) {
+      this.records.delete(evict);
+      this.persist(); // an ended row left the set
+    }
     // the row is named by the file on disk: a de-duplicated save is
     // `note (1).txt`, not the `note.txt` the page asked for
     const record: DownloadRecord = {
@@ -180,12 +203,14 @@ export class DownloadManager {
     const record = this.records.get(f.id);
     if (state === 'cancelled') {
       this.records.delete(f.id); // a cancelled file gets no row, as it gets no banner
+      if (this.userCancelled.delete(f.id)) this.deps.note(`cancelled by user: ${id}`);
     } else if (record) {
       record.state = state === 'completed' ? 'saved' : 'failed';
       record.path = path;
       if (path) record.filename = basename(path); // an Ask save learns its name here
       record.received = item.getReceivedBytes();
       record.total = item.getTotalBytes();
+      this.persist();
     }
     const name = this.deps.serviceName(id);
     const banner = bannerFor(state, item.getFilename(), name);
@@ -209,19 +234,81 @@ export class DownloadManager {
 
   /** Settings → Downloads, in flight first then newest; `missing` decided
    *  here against the disk so the renderer never holds a path. */
-  recent(): DownloadView[] {
-    return historyViews([...this.records.values()], this.deps.exists);
+  recent(): { rows: DownloadView[]; storage: DownloadStorage } {
+    return {
+      rows: historyViews([...this.records.values()], this.deps.exists),
+      storage: this.deps.history.storage(),
+    };
   }
 
   /** Cancel an in-flight download by row id; false for anything else. */
   cancel(id: number): boolean {
     for (const [item, f] of this.inflight) {
       if (f.id === id) {
+        this.userCancelled.add(id);
         item.cancel();
         return true;
       }
     }
     return false;
+  }
+
+  /** Remove ended rows by id. An in-flight id is skipped (Cancel is its
+   *  control) and so is an unknown one. Returns how many left. */
+  remove(ids: readonly number[]): number {
+    const removed: DownloadRecord[] = [];
+    for (const id of ids) {
+      const r = this.records.get(id);
+      if (!r || r.state === 'downloading') continue;
+      this.records.delete(id);
+      removed.push(r);
+    }
+    return this.forget(removed);
+  }
+
+  /** Remove every ended row; a running download keeps its row and its Cancel. */
+  clear(): number {
+    const removed = [...this.records.values()].filter((r) => r.state !== 'downloading');
+    for (const r of removed) this.records.delete(r.id);
+    return this.forget(removed);
+  }
+
+  /** Undo the last remove or clear, once. Restoring is the safe direction and
+   *  is not guarded; the cap still holds. */
+  restore(): number {
+    const back = this.lastRemoved;
+    this.lastRemoved = [];
+    if (back.length === 0) return 0;
+    for (const r of back) this.records.set(r.id, r);
+    let evict = historyEvict([...this.records.values()]);
+    while (this.records.size > DOWNLOAD_HISTORY_CAP && evict !== null) {
+      this.records.delete(evict);
+      evict = historyEvict([...this.records.values()]);
+    }
+    this.persist();
+    return back.length;
+  }
+
+  /** Open the download folder itself — settings' folder, never a page's path,
+   *  and only when it is a directory right now. */
+  openFolder(): boolean {
+    const dir = this.deps.settings().dir ?? this.deps.defaultDir();
+    if (!this.deps.isDirectory(dir)) return false;
+    this.deps.openFolder(dir);
+    return true;
+  }
+
+  private forget(removed: DownloadRecord[]): number {
+    if (removed.length === 0) return 0;
+    this.lastRemoved = removed;
+    this.persist();
+    return removed.length;
+  }
+
+  /** Whenever the set of ended rows changes — never on progress, never at quit.
+   *  Ended rows only: a downloading one cannot survive quit. */
+  private persist(): void {
+    this.deps.history.save(persistable([...this.records.values()]));
   }
 
   /** Reveal a saved file by row id — the banner's click, re-checked the same

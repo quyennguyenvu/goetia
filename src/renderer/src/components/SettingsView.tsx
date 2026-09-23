@@ -7,6 +7,7 @@ import CredentialConfirm from './CredentialConfirm';
 import DiagnosticsPane from './DiagnosticsPane';
 import DownloadsPane from './DownloadsPane';
 import LockPane from './LockPane';
+import Pane from './Pane';
 import PasskeysPane from './PasskeysPane';
 import ShortcutsPane from './ShortcutsPane';
 import { shouldAutoRecheck, updatePending } from './update-rules';
@@ -66,37 +67,10 @@ function Row({
     <label className="flex items-center justify-between gap-4 py-2">
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-text-1">{label}</span>
-        {hint && <span className="text-[11px] text-text-2">{hint}</span>}
+        {hint && <span className="break-words text-[11px] text-text-2">{hint}</span>}
       </span>
       {children}
     </label>
-  );
-}
-
-function Pane({
-  title,
-  children,
-  highlight,
-}: {
-  title: string;
-  children: React.ReactNode;
-  highlight?: boolean;
-}) {
-  return (
-    <div>
-      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-2">
-        {title}
-      </h2>
-      {/* the highlight rides the card, not a wrapper: the card is opaque and
-          would paint straight over a tinted ancestor */}
-      <div
-        className={`rounded-modal border bg-bg-1 px-4 py-1 transition duration-300 ${
-          highlight ? 'border-accent ring-2 ring-accent/25' : 'border-border'
-        }`}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -621,8 +595,45 @@ export default function SettingsView() {
                       <option value="ask">Always ask</option>
                     </select>
                   </Row>
-                  <Row label="Folder" hint={s.downloads.dir ?? 'Your Downloads folder'}>
-                    <span className="flex items-center gap-3">
+                  {/* label and its two actions on one line, the path on its own
+                      full-width line beneath: a long path wraps or clips there
+                      instead of squeezing the controls into each other */}
+                  <div className="py-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-text-1">Folder</span>
+                        <span className="text-[11px] text-text-2">
+                          Where files a chat sends you land.
+                        </span>
+                      </span>
+                      <span className="flex flex-none items-center gap-2">
+                        <button
+                          type="button"
+                          data-testid="downloads-open-dir"
+                          onClick={() => window.goetia.send('downloads:openDir', {})}
+                          className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1"
+                        >
+                          Open folder
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="downloads-choose"
+                          disabled={s.downloads.ask}
+                          onClick={() => void chooseDownloadDir()}
+                          className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
+                        >
+                          Choose…
+                        </button>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex min-w-0 items-center gap-3 text-[11px] text-text-2">
+                      <span
+                        className="min-w-0 truncate"
+                        title={s.downloads.dir ?? undefined}
+                        data-testid="downloads-dir"
+                      >
+                        {s.downloads.dir ?? 'Your Downloads folder'}
+                      </span>
                       {/* null is the OS folder proper — it follows a relocated
                           Downloads, which an explicit path to it would not */}
                       {s.downloads.dir !== null && (
@@ -631,28 +642,18 @@ export default function SettingsView() {
                           data-testid="downloads-reset"
                           disabled={s.downloads.ask}
                           onClick={() => update({ downloads: { ...s.downloads, dir: null } })}
-                          className="whitespace-nowrap text-[11px] text-accent hover:underline disabled:opacity-40"
+                          className="flex-none whitespace-nowrap text-accent hover:underline disabled:opacity-40"
                         >
                           Use Downloads folder
                         </button>
                       )}
-                      <button
-                        type="button"
-                        data-testid="downloads-choose"
-                        disabled={s.downloads.ask}
-                        onClick={() => void chooseDownloadDir()}
-                        className="rounded-ctl border border-border bg-bg-2 px-2 py-1 text-text-1 disabled:opacity-40"
-                      >
-                        Choose…
-                      </button>
-                    </span>
-                  </Row>
+                    </div>
+                  </div>
                 </Pane>
-                <Pane title="Recent · this session">
-                  <DownloadsPane
-                    landing={s.downloads.ask ? null : (s.downloads.dir ?? 'your Downloads folder')}
-                  />
-                </Pane>
+                <DownloadsPane
+                  landing={s.downloads.ask ? null : (s.downloads.dir ?? 'your Downloads folder')}
+                  guarded={s.appLock.guardActions && state.lockConfigured}
+                />
               </div>
             )}
             {active === 'notifications' && (

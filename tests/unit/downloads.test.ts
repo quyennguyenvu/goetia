@@ -1,13 +1,19 @@
 import { EventEmitter } from 'node:events';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import type { DownloadHistoryLike } from '../../src/main/download-history';
 import {
   type DownloadBanner,
   type DownloadItemLike,
   DownloadManager,
   type DownloadManagerDeps,
 } from '../../src/main/downloads';
-import { DOWNLOAD_BURST_CAP, DOWNLOAD_HISTORY_CAP } from '../../src/main/lib/download-rules';
+import {
+  DOWNLOAD_BURST_CAP,
+  DOWNLOAD_HISTORY_CAP,
+  type DownloadRecord,
+} from '../../src/main/lib/download-rules';
+import type { DownloadStorage } from '../../src/shared/types';
 
 const DIR = '/tmp/goetia-dl';
 
@@ -63,9 +69,24 @@ class FakeSession extends EventEmitter {
   }
 }
 
-function harness(over: Partial<DownloadManagerDeps> & { files?: Set<string> } = {}) {
+/** In-memory stand-in for DownloadHistoryStore that records every write. */
+function fakeHistory(initial: DownloadRecord[] = [], storage: DownloadStorage = 'sealed') {
+  const writes: DownloadRecord[][] = [];
+  const store: DownloadHistoryLike = {
+    load: () => initial,
+    save: (records) => void writes.push([...records]),
+    storage: () => storage,
+  };
+  return { store, writes };
+}
+
+function harness(
+  over: Partial<DownloadManagerDeps> & { files?: Set<string>; initial?: DownloadRecord[] } = {},
+) {
   const files = over.files ?? new Set<string>();
   const banners: DownloadBanner[] = [];
+  const notes: string[] = [];
+  const history = fakeHistory(over.initial ?? []);
   const box = { locked: false, settings: { ask: false, dir: null as string | null } };
   const deps: DownloadManagerDeps = {
     settings: () => box.settings,
@@ -80,13 +101,17 @@ function harness(over: Partial<DownloadManagerDeps> & { files?: Set<string> } = 
     setProgress: vi.fn(),
     showWindow: vi.fn(),
     openDownloads: vi.fn(),
+    history: history.store,
+    isDirectory: (p) => p === DIR,
+    openFolder: vi.fn(),
+    note: (line) => void notes.push(line),
     now: () => 1_000_000,
     ...over,
   };
   const dm = new DownloadManager(deps);
   const ses = new FakeSession();
   dm.attach('whatsapp', ses);
-  return { dm, ses, deps, banners, box, files };
+  return { dm, ses, deps, banners, box, files, notes, writes: history.writes };
 }
 
 describe('DownloadManager', () => {
@@ -255,7 +280,7 @@ describe('history', () => {
     const { dm, ses, files } = harness();
     const item = new FakeItem('photo.jpg');
     ses.fire(item);
-    expect(dm.recent()).toEqual([
+    expect(dm.recent().rows).toEqual([
       {
         id: 1,
         serviceId: 'whatsapp',
@@ -267,11 +292,11 @@ describe('history', () => {
       },
     ]);
     item.progress(40);
-    expect(dm.recent()[0]).toMatchObject({ received: 40, total: 100 });
+    expect(dm.recent().rows[0]).toMatchObject({ received: 40, total: 100 });
     files.add(join(DIR, 'photo.jpg'));
     item.finish('completed');
-    expect(dm.recent()[0]).toMatchObject({ state: 'saved', received: 40 });
-    expect('path' in dm.recent()[0]).toBe(false);
+    expect(dm.recent().rows[0]).toMatchObject({ state: 'saved', received: 40 });
+    expect('path' in dm.recent().rows[0]).toBe(false);
   });
 
   it('reads missing once the file is gone, failed on interruption, nothing on cancel', () => {
@@ -279,15 +304,15 @@ describe('history', () => {
     const a = new FakeItem('a.pdf');
     ses.fire(a);
     a.finish('completed'); // never added to files
-    expect(dm.recent()[0].state).toBe('missing');
+    expect(dm.recent().rows[0].state).toBe('missing');
     const b = new FakeItem('b.pdf');
     ses.fire(b);
     b.finish('interrupted');
-    expect(dm.recent()[0]).toMatchObject({ filename: 'b.pdf', state: 'failed' });
+    expect(dm.recent().rows[0]).toMatchObject({ filename: 'b.pdf', state: 'failed' });
     const c = new FakeItem('c.pdf');
     ses.fire(c);
     c.finish('cancelled');
-    expect(dm.recent().map((r) => r.filename)).toEqual(['b.pdf', 'a.pdf']);
+    expect(dm.recent().rows.map((r) => r.filename)).toEqual(['b.pdf', 'a.pdf']);
   });
 
   it('names a de-duplicated save by the name on disk', () => {
@@ -297,7 +322,7 @@ describe('history', () => {
     files.add(join(DIR, 'photo.jpg'));
     a.finish('completed');
     ses.fire(new FakeItem('photo.jpg'));
-    expect(dm.recent().map((r) => r.filename)).toEqual(['photo (1).jpg', 'photo.jpg']);
+    expect(dm.recent().rows.map((r) => r.filename)).toEqual(['photo (1).jpg', 'photo.jpg']);
   });
 
   it('puts in-flight rows first', () => {
@@ -307,7 +332,7 @@ describe('history', () => {
     a.finish('completed');
     ses.fire(new FakeItem('b.pdf'));
     ses.fire(new FakeItem('c.pdf'));
-    expect(dm.recent().map((r) => r.filename)).toEqual(['c.pdf', 'b.pdf', 'a.pdf']);
+    expect(dm.recent().rows.map((r) => r.filename)).toEqual(['c.pdf', 'b.pdf', 'a.pdf']);
   });
 
   it('cancel ends only an in-flight download and removes its row', () => {
@@ -321,7 +346,7 @@ describe('history', () => {
     expect(dm.cancel(99)).toBe(false);
     expect(dm.cancel(2)).toBe(true);
     expect(b.cancelled).toBe(true);
-    expect(dm.recent().map((r) => r.filename)).toEqual(['a.pdf']);
+    expect(dm.recent().rows.map((r) => r.filename)).toEqual(['a.pdf']);
   });
 
   it('reveals only a saved file that is still there, never while locked', () => {
@@ -359,7 +384,7 @@ describe('history', () => {
     a.finish('completed');
     ses.fire(new FakeItem('b.pdf'));
     dm.detach('whatsapp');
-    expect(dm.recent().map((r) => r.filename)).toEqual(['a.pdf']);
+    expect(dm.recent().rows.map((r) => r.filename)).toEqual(['a.pdf']);
   });
 
   it('keeps at most DOWNLOAD_HISTORY_CAP rows, dropping ended ones first', () => {
@@ -370,10 +395,129 @@ describe('history', () => {
       ses.fire(it);
       it.finish('completed');
     }
-    const names = dm.recent().map((r) => r.filename);
+    const names = dm.recent().rows.map((r) => r.filename);
     expect(names).toHaveLength(DOWNLOAD_HISTORY_CAP);
     expect(names[0]).toBe('live.bin');
     expect(names).not.toContain('f0.txt');
     expect(names).toContain('f49.txt');
+  });
+});
+
+describe('history at rest', () => {
+  const rec = (id: number, state: DownloadRecord['state'] = 'saved'): DownloadRecord => ({
+    id,
+    serviceId: 'whatsapp',
+    filename: `f${id}.txt`,
+    path: join(DIR, `f${id}.txt`),
+    state,
+    received: 1,
+    total: 1,
+    at: id,
+  });
+
+  it('restores the store at construction and numbers new rows after it', () => {
+    const { dm, ses } = harness({ initial: [rec(7), rec(3, 'failed')] });
+    expect(dm.recent().rows.map((r) => r.id)).toEqual([7, 3]);
+    ses.fire(new FakeItem('new.txt'));
+    expect(dm.recent().rows[0]).toMatchObject({ id: 8, filename: 'new.txt' });
+  });
+
+  it('writes on finish, never on progress, and never a downloading row', () => {
+    const { ses, writes } = harness();
+    const item = new FakeItem('a.pdf');
+    ses.fire(item);
+    item.progress(50);
+    expect(writes).toHaveLength(0);
+    item.finish('completed');
+    expect(writes).toHaveLength(1);
+    expect(writes[0].map((r) => r.filename)).toEqual(['a.pdf']);
+    const bad = new FakeItem('b.pdf');
+    ses.fire(bad);
+    expect(writes).toHaveLength(1);
+    bad.finish('interrupted');
+    expect(writes).toHaveLength(2);
+    expect(writes[1].map((r) => r.state)).toEqual(['saved', 'failed']);
+  });
+
+  it('a cancelled download writes nothing: it was never on disk', () => {
+    const { ses, writes } = harness();
+    const item = new FakeItem('a.pdf');
+    ses.fire(item);
+    item.finish('cancelled');
+    expect(writes).toHaveLength(0);
+  });
+
+  it('writes when an eviction drops an ended row', () => {
+    const initial = Array.from({ length: DOWNLOAD_HISTORY_CAP }, (_, i) => rec(i + 1));
+    const { ses, writes } = harness({ initial });
+    ses.fire(new FakeItem('overflow.txt'));
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toHaveLength(DOWNLOAD_HISTORY_CAP - 1);
+    expect(writes[0].some((r) => r.id === 1)).toBe(false);
+  });
+
+  it('remove drops the ended rows named, skips an in-flight or unknown id, and writes once', () => {
+    const { dm, ses, writes } = harness({ initial: [rec(1), rec(2, 'failed')] });
+    ses.fire(new FakeItem('live.bin')); // id 3
+    expect(dm.remove([1, 2, 3, 99])).toBe(2);
+    expect(dm.recent().rows.map((r) => r.id)).toEqual([3]);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toEqual([]);
+    expect(dm.remove([42])).toBe(0);
+    expect(writes).toHaveLength(1); // nothing removed, nothing written
+  });
+
+  it('clear drops every ended row and leaves the running one', () => {
+    const { dm, ses, writes } = harness({ initial: [rec(1), rec(2, 'failed')] });
+    ses.fire(new FakeItem('live.bin'));
+    expect(dm.clear()).toBe(2);
+    expect(dm.recent().rows.map((r) => r.filename)).toEqual(['live.bin']);
+    expect(writes).toHaveLength(1);
+    expect(dm.clear()).toBe(0);
+  });
+
+  it('restore puts the last removal back once, under the cap', () => {
+    const { dm, writes } = harness({ initial: [rec(1), rec(2)] });
+    dm.remove([1]);
+    expect(dm.restore()).toBe(1);
+    expect(dm.recent().rows.map((r) => r.id)).toEqual([2, 1]);
+    expect(writes).toHaveLength(2);
+    expect(dm.restore()).toBe(0);
+    dm.clear();
+    expect(dm.restore()).toBe(2);
+    const full = harness({
+      initial: Array.from({ length: DOWNLOAD_HISTORY_CAP }, (_, i) => rec(i + 1)),
+    });
+    full.dm.remove([1, 2]);
+    full.ses.fire(new FakeItem('x.txt'));
+    expect(full.dm.restore()).toBe(2);
+    expect(full.dm.recent().rows.length).toBeLessThanOrEqual(DOWNLOAD_HISTORY_CAP);
+  });
+
+  it('opens the folder only when it is a directory', () => {
+    const { dm, deps, box } = harness();
+    expect(dm.openFolder()).toBe(true);
+    expect(deps.openFolder).toHaveBeenCalledWith(DIR);
+    box.settings = { ask: false, dir: '/Volumes/Gone' };
+    expect(dm.openFolder()).toBe(false);
+    expect(deps.openFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it('recent carries the storage state', () => {
+    const plain = fakeHistory([], 'plain');
+    const { dm } = harness({ history: plain.store });
+    expect(dm.recent().storage).toBe('plain');
+  });
+
+  it('notes a cancel the user asked for, not one the lifecycle made', () => {
+    const { dm, ses, notes } = harness();
+    const a = new FakeItem('a.bin');
+    ses.fire(a);
+    dm.cancel(1);
+    expect(notes).toEqual(['cancelled by user: whatsapp']);
+    const b = new FakeItem('b.bin');
+    ses.fire(b);
+    dm.detach('whatsapp');
+    expect(notes).toHaveLength(1);
   });
 });

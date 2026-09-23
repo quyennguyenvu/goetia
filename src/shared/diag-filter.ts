@@ -10,6 +10,7 @@ const TAG_ORDER: Record<DiagTag, true> = {
   open: true,
   identity: true,
   passkey: true,
+  lock: true,
   ipc: true,
   notifications: true,
   downloads: true,

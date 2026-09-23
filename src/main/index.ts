@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   app,
@@ -19,6 +19,7 @@ import { applyLocked } from './activate';
 import { applyBadges } from './badges';
 import { safeStorageCodec } from './codec';
 import { runShellCommand } from './commands';
+import { DownloadHistoryStore } from './download-history';
 import { DownloadManager } from './downloads';
 import { HibernationController } from './hibernation';
 import { IdentityShare } from './identity-share';
@@ -131,6 +132,14 @@ app
     } else if (!pinCodec) {
       diag.note('app', 'pins stored unencrypted: the OS keychain is unavailable');
     }
+    // the download history rests under the same key as the pins; a file this
+    // launch cannot open is kept, and the pane's band says so
+    const downloadHistory = new DownloadHistoryStore(app.getPath('userData'), pinCodec);
+    if (downloadHistory.storage() === 'unreadable') {
+      diag.note('downloads', 'history unreadable: sealed file, keychain would not open it');
+    } else if (downloadHistory.storage() === 'plain') {
+      diag.note('downloads', 'history stored unencrypted: the OS keychain is unavailable');
+    }
     const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
     const lock = new LockController(new LockStore(app.getPath('userData'), safeStorageCodec()), {
       enabled: () => settings.get().appLock.enabled,
@@ -141,6 +150,8 @@ app
         settings.update({ appLock: { ...settings.get().appLock, ...patch } });
       },
       now: Date.now,
+      // the ring is evidence: who tried what at the lock, as methods and counts
+      note: (line) => diag.note('lock', line),
     });
     const state = new MainState();
     const win = createWindow();
@@ -196,6 +207,17 @@ app
       },
       // ctx is assembled below; a banner cannot be clicked before it exists
       openDownloads: () => runShellCommand(ctx, { kind: 'downloads' }),
+      history: downloadHistory,
+      isDirectory: (p) => {
+        try {
+          return statSync(p).isDirectory();
+        } catch {
+          return false;
+        }
+      },
+      // the one openPath in the app, and only ever on the directory above
+      openFolder: (p) => void shell.openPath(p),
+      note: (line) => diag.note('downloads', line),
       now: Date.now,
     });
     const accelerators = () => resolveAccelerators(settings.get().shortcuts);

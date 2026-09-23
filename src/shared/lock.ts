@@ -58,22 +58,52 @@ export const CONSENT_TTL_MS = 60_000;
 
 /** An action that needs the lock's credential even while the app is unlocked.
  *  See the 2026-09-13 spec: the guard is on the direction that *exposes*
- *  (summon) and on the two that destroy (purge), never on banish or reorder. */
+ *  (summon) and on the ones that destroy — purge, forgetting a passkey, and
+ *  erasing the download record (2026-09-23) — never on banish, reorder or an
+ *  Undo. */
 export type GuardedAction =
   | { kind: 'summon' }
   | { kind: 'purge-one'; serviceId: ServiceId }
-  | { kind: 'purge-all' };
+  | { kind: 'purge-all' }
+  /** bound to the exact rows: a consent for two ids is not a consent for three */
+  | { kind: 'downloads-remove'; ids: number[] }
+  | { kind: 'downloads-clear' }
+  | { kind: 'passkey-forget'; id: string };
+
+/** The shape a consent is bound to: sorted, deduplicated. */
+export function idSet(ids: readonly number[]): number[] {
+  return [...new Set(ids)].sort((a, b) => a - b);
+}
 
 export interface ConsentRequest {
   action: GuardedAction;
   credential: UnlockRequest;
 }
 
-/** Exact match on kind *and* service. Without the service, a consent would be
+/** Exact match on kind *and* target. Without the target, a consent would be
  *  a capability rather than an authorization, and one logic bug would spend a
- *  confirm for Slack on Discord. */
+ *  confirm for Slack on Discord, or one for two rows on the whole list. */
 export function sameAction(a: GuardedAction, b: GuardedAction): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'purge-one' && b.kind === 'purge-one') return a.serviceId === b.serviceId;
+  if (a.kind === 'passkey-forget' && b.kind === 'passkey-forget') return a.id === b.id;
+  if (a.kind === 'downloads-remove' && b.kind === 'downloads-remove') {
+    const x = idSet(a.ids);
+    const y = idSet(b.ids);
+    return x.length === y.length && x.every((v, i) => v === y[i]);
+  }
   return true;
+}
+
+/** For a Diagnostics line: kind plus service or count. Never an id that
+ *  could name content — a passkey's credential id is left out. */
+export function describeAction(a: GuardedAction): string {
+  switch (a.kind) {
+    case 'purge-one':
+      return `purge-one ${a.serviceId}`;
+    case 'downloads-remove':
+      return `downloads-remove (${idSet(a.ids).length} rows)`;
+    default:
+      return a.kind;
+  }
 }

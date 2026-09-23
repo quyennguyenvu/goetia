@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { KeyCodec } from '../../src/main/codec';
 import { LockController, LockStore } from '../../src/main/lock';
-import { CONSENT_TTL_MS } from '../../src/shared/lock';
+import { CONSENT_TTL_MS, describeAction, idSet } from '../../src/shared/lock';
 
 let dir: string;
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -19,6 +19,7 @@ function build(opts: { touchId?: boolean; sensor?: boolean; finger?: boolean } =
   const store = new LockStore(dir, codec);
   const settings = { enabled: true, touchId: opts.touchId ?? true, guardActions: true };
   let now = 0;
+  const notes: string[] = [];
   const controller = new LockController(store, {
     enabled: () => settings.enabled,
     touchIdEnabled: () => settings.touchId,
@@ -26,8 +27,9 @@ function build(opts: { touchId?: boolean; sensor?: boolean; finger?: boolean } =
     biometric: async () => opts.finger ?? true,
     persist: (patch) => Object.assign(settings, patch),
     now: () => now,
+    note: (line) => void notes.push(line),
   });
-  return { controller, store, settings, advance: (ms: number) => (now += ms) };
+  return { controller, store, settings, notes, advance: (ms: number) => (now += ms) };
 }
 
 async function armed(opts: Parameters<typeof build>[0] = {}) {
@@ -87,6 +89,19 @@ describe('LockController.grantConsent', () => {
       waitMs: 1000,
     });
   });
+
+  it('records a granted and a refused consent by action, never by content', async () => {
+    const { controller, notes } = await armed();
+    await controller.grantConsent({ kind: 'purge-one', serviceId: 'slack' }, pass);
+    await controller.grantConsent(
+      { kind: 'downloads-remove', ids: [2, 1] },
+      { method: 'passcode', passcode: 'wrong' },
+    );
+    expect(notes.slice(-2)).toEqual([
+      'consent granted: purge-one slack (passcode)',
+      'consent refused: downloads-remove (2 rows), wrong passcode (1 failures)',
+    ]);
+  });
 });
 
 describe('LockController.consumeConsent', () => {
@@ -129,5 +144,40 @@ describe('LockController.consumeConsent', () => {
     await controller.grantConsent({ kind: 'summon' }, pass);
     controller.lock();
     expect(controller.consumeConsent({ kind: 'summon' })).toBe(false);
+  });
+
+  it('binds a downloads-remove to its exact id set, order- and duplicate-insensitive', async () => {
+    const { controller } = await armed();
+    await controller.grantConsent({ kind: 'downloads-remove', ids: [3, 1, 3] }, pass);
+    expect(controller.consumeConsent({ kind: 'downloads-remove', ids: [1, 2, 3] })).toBe(false);
+    expect(controller.consumeConsent({ kind: 'downloads-clear' })).toBe(false);
+    expect(controller.consumeConsent({ kind: 'downloads-remove', ids: [1, 3] })).toBe(true);
+  });
+
+  it('matches downloads-clear and passkey-forget only with themselves', async () => {
+    const { controller } = await armed();
+    await controller.grantConsent({ kind: 'downloads-clear' }, pass);
+    expect(controller.consumeConsent({ kind: 'downloads-remove', ids: [1] })).toBe(false);
+    expect(controller.consumeConsent({ kind: 'downloads-clear' })).toBe(true);
+    await controller.grantConsent({ kind: 'passkey-forget', id: 'abc' }, pass);
+    expect(controller.consumeConsent({ kind: 'passkey-forget', id: 'xyz' })).toBe(false);
+    expect(controller.consumeConsent({ kind: 'passkey-forget', id: 'abc' })).toBe(true);
+  });
+});
+
+describe('idSet / describeAction', () => {
+  it('sorts and deduplicates', () => {
+    expect(idSet([3, 1, 3, 2])).toEqual([1, 2, 3]);
+    expect(idSet([])).toEqual([]);
+  });
+  it('describes an action by kind, service or count — never by content', () => {
+    expect(describeAction({ kind: 'summon' })).toBe('summon');
+    expect(describeAction({ kind: 'purge-one', serviceId: 'slack' })).toBe('purge-one slack');
+    expect(describeAction({ kind: 'purge-all' })).toBe('purge-all');
+    expect(describeAction({ kind: 'downloads-remove', ids: [4, 4, 9] })).toBe(
+      'downloads-remove (2 rows)',
+    );
+    expect(describeAction({ kind: 'downloads-clear' })).toBe('downloads-clear');
+    expect(describeAction({ kind: 'passkey-forget', id: 'abc' })).toBe('passkey-forget');
   });
 });

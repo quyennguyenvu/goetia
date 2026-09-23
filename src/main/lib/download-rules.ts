@@ -1,5 +1,5 @@
 import { basename, extname, join } from 'node:path';
-import type { DownloadView, ServiceId } from '../../shared/types';
+import type { DownloadView, ServiceId, Settings } from '../../shared/types';
 
 /** Silent saves a page may start inside one window before the rest of them
  *  fall back to the Save dialog, which needs a human. Chrome bounds this with
@@ -107,8 +107,11 @@ export function progressFraction(items: readonly { received: number; total: numb
   return Math.min(1, received / total);
 }
 
-/** Rows Settings → Downloads keeps for the session; in memory only. */
-export const DOWNLOAD_HISTORY_CAP = 50;
+/** Rows Settings → Downloads keeps, across launches (downloads.json). 200 is
+ *  Diagnostics parity — the one bounded-history number the app already has. */
+export const DOWNLOAD_HISTORY_CAP = 200;
+/** A restored name is clipped here; Chromium already bounds a live one. */
+export const DOWNLOAD_NAME_MAX = 255;
 
 /** Main's own record of one download. `path` is empty until Chromium knows
  *  it (an Ask download learns it at done) and never leaves main. */
@@ -151,4 +154,57 @@ export function historyEvict(records: readonly DownloadRecord[]): number | null 
   const ended = records.filter((r) => r.state !== 'downloading');
   const pool = ended.length > 0 ? ended : records;
   return pool.reduce((a, b) => (b.at < a.at || (b.at === a.at && b.id < a.id) ? b : a)).id;
+}
+
+/** What comes back from disk is data, not trust: exact shape, a known
+ *  service, a state in saved | failed (a downloading row cannot survive
+ *  quit), finite numbers, string name and path; newest DOWNLOAD_HISTORY_CAP
+ *  kept, a repeated id dropped. */
+export function restoreRecords(raw: unknown, known: ReadonlySet<string>): DownloadRecord[] {
+  if (!Array.isArray(raw)) return [];
+  const kept: DownloadRecord[] = [];
+  const seen = new Set<number>();
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const r = item as Record<string, unknown>;
+    const id = r.id;
+    if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 1 || seen.has(id)) continue;
+    if (typeof r.serviceId !== 'string' || !known.has(r.serviceId)) continue;
+    if (r.state !== 'saved' && r.state !== 'failed') continue;
+    if (typeof r.filename !== 'string' || typeof r.path !== 'string') continue;
+    const nums = [r.received, r.total, r.at];
+    if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n))) continue;
+    seen.add(id);
+    kept.push({
+      id,
+      serviceId: r.serviceId as ServiceId,
+      filename: r.filename.slice(0, DOWNLOAD_NAME_MAX),
+      path: r.path,
+      state: r.state,
+      received: r.received as number,
+      total: r.total as number,
+      at: r.at as number,
+    });
+  }
+  kept.sort((a, b) => b.at - a.at || b.id - a.id);
+  return kept.slice(0, DOWNLOAD_HISTORY_CAP);
+}
+
+/** The rows the file holds: a downloading row is never written. */
+export function persistable(records: readonly DownloadRecord[]): DownloadRecord[] {
+  return records.filter((r) => r.state !== 'downloading');
+}
+
+/** Diagnostics lines for a change to the downloads block — the folder is an
+ *  exfiltration channel, so it is recorded (never the path itself). */
+export function downloadsSettingLines(
+  before: Settings['downloads'],
+  after: Settings['downloads'],
+): string[] {
+  const lines: string[] = [];
+  if (before.dir !== after.dir) {
+    lines.push(after.dir === null ? 'folder reset to the OS default' : 'folder changed');
+  }
+  if (before.ask !== after.ask) lines.push(after.ask ? 'mode: ask' : 'mode: save to folder');
+  return lines;
 }

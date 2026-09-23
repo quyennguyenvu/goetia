@@ -24,7 +24,7 @@ const NAVIGATE: RowSpec[] = [
   { ids: ['switcher'], desc: 'quick switcher — services and recent conversations' },
   { ids: ['nextUnread', 'prevUnread'], desc: 'next / previous unread conversation' },
   { ids: ['home'], desc: 'Home — all services and the pinboard' },
-  { ids: ['downloads'], desc: "downloads — this session's files" },
+  { ids: ['downloads'], desc: 'downloads — your files' },
   { fixed: key(ACCELERATORS.findService), desc: 'find a service (on Home)' },
   { fixed: 'Esc', desc: 'close this window, or leave Home' },
 ];

@@ -79,6 +79,7 @@ export type DiagTag =
   | 'open'
   | 'identity'
   | 'passkey'
+  | 'lock'
   | 'ipc'
   | 'notifications'
   | 'downloads'
@@ -100,6 +101,10 @@ export interface SettingsFocus {
 }
 
 export type DownloadState = 'downloading' | 'saved' | 'failed' | 'missing';
+
+/** How downloads.json rests: sealed by the keychain, plaintext because there
+ *  is none, or sealed by a keychain this launch cannot open (read-only). */
+export type DownloadStorage = 'sealed' | 'plain' | 'unreadable';
 
 /** One row of Settings → Downloads. No path: the pane needs none, and a path
  *  is where a later feature would be tempted to open something. */

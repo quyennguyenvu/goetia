@@ -133,39 +133,40 @@ export default function LockPane() {
           </span>
         </div>
       ) : verified === null ? (
-        <form onSubmit={unlock} className="rounded-ctl border border-border bg-bg-2 px-3 py-2.5">
-          <div className="flex items-center justify-between gap-4">
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-text-1">Enter your passcode to change these settings</span>
-              <span className="text-[11px] text-text-2">
-                {enabled
-                  ? 'The lock is on. Goetia asks at launch, and whenever you lock it.'
-                  : 'The lock is off, but your passcode is still stored on this device.'}
-              </span>
+        <form
+          onSubmit={unlock}
+          className="flex flex-col gap-2 rounded-ctl border border-border bg-bg-2 px-3 py-2.5"
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="text-text-1">Enter your passcode to change these settings</span>
+            <span className="text-[11px] text-text-2">
+              {enabled
+                ? 'The lock is on. Goetia asks at launch, and whenever you lock it.'
+                : 'The lock is off, but your passcode is still stored on this device.'}
             </span>
-            <span className="flex flex-none items-center gap-2">
-              <input
-                type="password"
-                value={entry}
-                data-testid="lock-current-passcode"
-                aria-label="Your passcode"
-                autoComplete="off"
-                disabled={busy}
-                onChange={(e) => setEntry(e.target.value)}
-                className={box}
-              />
-              <button
-                type="submit"
-                data-testid="lock-unlock"
-                disabled={busy || entry === ''}
-                className={btn}
-              >
-                Unlock
-              </button>
-            </span>
-          </div>
+          </span>
+          <span className="flex items-center gap-2">
+            <input
+              type="password"
+              value={entry}
+              data-testid="lock-current-passcode"
+              aria-label="Your passcode"
+              autoComplete="off"
+              disabled={busy}
+              onChange={(e) => setEntry(e.target.value)}
+              className={box}
+            />
+            <button
+              type="submit"
+              data-testid="lock-unlock"
+              disabled={busy || entry === ''}
+              className={btn}
+            >
+              Unlock
+            </button>
+          </span>
           {error && (
-            <p role="alert" data-testid="lock-error" className="pt-1.5 text-[11px] text-danger">
+            <p role="alert" data-testid="lock-error" className="text-[11px] text-danger">
               {error}
             </p>
           )}
@@ -214,11 +215,14 @@ export default function LockPane() {
             data-testid="lock-guard-row"
           >
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-text-1">Ask before summoning a service or purging a login</span>
+              <span className="text-text-1">
+                Ask before summoning a service, purging a login or removing download history
+              </span>
               <span className="text-[11px] text-text-2">
                 A banished service keeps its login, so summoning one back reveals its conversations
-                — and a purge cannot be undone. This asks even while Goetia is unlocked. It does not
-                guard services already on your rail.
+                — a purge cannot be undone, and removing download history erases the record of what
+                was downloaded. This asks even while Goetia is unlocked. It does not guard services
+                already on your rail.
               </span>
             </span>
             <input

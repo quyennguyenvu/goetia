@@ -20,6 +20,7 @@ function build(
   const store = new LockStore(dir, codec);
   const settings = { enabled: opts.enabled ?? true, touchId: opts.touchId ?? true };
   let now = 0;
+  const notes: string[] = [];
   const controller = new LockController(store, {
     enabled: () => settings.enabled,
     touchIdEnabled: () => settings.touchId,
@@ -27,8 +28,9 @@ function build(
     biometric: async () => opts.finger ?? true,
     persist: (patch) => Object.assign(settings, patch),
     now: () => now,
+    note: (line) => void notes.push(line),
   });
-  return { controller, store, settings, advance: (ms: number) => (now += ms) };
+  return { controller, store, settings, notes, advance: (ms: number) => (now += ms) };
 }
 
 /** the lock is on and a passcode is set — the only state that can engage */
@@ -238,5 +240,61 @@ describe('LockController pending banner action', () => {
     controller.setPending({ serviceId: 'discord', entryId: 7 });
     controller.lock();
     expect(controller.takePending()).toBeNull();
+  });
+});
+
+describe('LockController notes', () => {
+  it('records unlocks and refusals with the method and the failure count', async () => {
+    const { controller, notes } = await armed();
+    controller.lock();
+    await controller.unlock({ method: 'passcode', passcode: 'wrong' });
+    await controller.unlock({ method: 'touchId' });
+    expect(notes.slice(-2)).toEqual([
+      'unlock refused: wrong passcode (1 failures)',
+      'unlocked (touch id)',
+    ]);
+  });
+
+  it('records a cancelled Touch ID and a throttled try', async () => {
+    const { controller, notes, advance } = await armed({ finger: false });
+    controller.lock();
+    await controller.unlock({ method: 'touchId' });
+    await controller.unlock({ method: 'passcode', passcode: 'wrong' });
+    await controller.unlock({ method: 'passcode', passcode: 'correct horse' });
+    expect(notes.slice(-3)).toEqual([
+      'unlock refused: touch id cancelled',
+      'unlock refused: wrong passcode (1 failures)',
+      'unlock throttled',
+    ]);
+    advance(60_000);
+    await controller.unlock({ method: 'passcode', passcode: 'correct horse' });
+    expect(notes.at(-1)).toBe('unlocked (passcode)');
+  });
+
+  it('records every configuration and a refused one', async () => {
+    const { controller, notes } = build();
+    await controller.configure({ action: 'enable', passcode: 'correct horse' });
+    await controller.configure({ action: 'setTouchId', current: 'correct horse', touchId: false });
+    await controller.configure({
+      action: 'setGuardActions',
+      current: 'correct horse',
+      guardActions: false,
+    });
+    await controller.configure({
+      action: 'change',
+      current: 'correct horse',
+      next: 'battery staple',
+    });
+    await controller.configure({ action: 'verify', current: 'nope' });
+    await controller.configure({ action: 'verify', current: 'battery staple' });
+    await controller.configure({ action: 'disable', current: 'battery staple' });
+    expect(notes).toEqual([
+      'configured: enabled',
+      'configured: touch id off',
+      'configured: guard off',
+      'configured: passcode changed',
+      'configure refused: wrong passcode',
+      'configured: disabled',
+    ]);
   });
 });

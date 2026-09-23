@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 import Conf from 'conf';
 import {
   CONSENT_TTL_MS,
+  describeAction,
   type GuardedAction,
   type LockConfigResult,
   type LockConfigure,
@@ -113,7 +114,11 @@ export interface LockDeps {
   biometric(reason: string): Promise<boolean>;
   persist(patch: { enabled?: boolean; touchId?: boolean; guardActions?: boolean }): void;
   now(): number;
+  /** ctx.diag.note('lock', …): methods, kinds and counts, never a secret */
+  note?(line: string): void;
 }
+
+const method = (req: UnlockRequest): string => (req.method === 'touchId' ? 'touch id' : 'passcode');
 
 /** The ceremony. Owns whether the app is locked, the consecutive-failure
  *  backoff, and the one parked banner click. Electron-free by construction:
@@ -155,7 +160,14 @@ export class LockController {
   async unlock(req: UnlockRequest): Promise<UnlockResult> {
     if (!this.locked) return { ok: false, waitMs: 0, reason: 'unavailable' };
     const result = await this.check(req);
-    if (result.ok) this.open();
+    if (result.ok) {
+      this.open();
+      this.deps.note?.(`unlocked (${method(req)})`);
+    } else {
+      const why = this.failure(result);
+      if (result.reason === 'throttled') this.deps.note?.('unlock throttled');
+      else if (why) this.deps.note?.(`unlock refused: ${why}`);
+    }
     return result;
   }
 
@@ -190,8 +202,31 @@ export class LockController {
       return { ok: false, waitMs: 0, reason: 'unavailable' };
     }
     const result = await this.check(credential);
-    if (result.ok) this.consent = { action, at: this.deps.now() };
+    const what = describeAction(action);
+    if (result.ok) {
+      this.consent = { action, at: this.deps.now() };
+      this.deps.note?.(`consent granted: ${what} (${method(credential)})`);
+    } else {
+      const why = this.failure(result);
+      if (result.reason === 'throttled') this.deps.note?.(`consent throttled: ${what}`);
+      else if (why) this.deps.note?.(`consent refused: ${what}, ${why}`);
+    }
     return result;
+  }
+
+  /** The refusal, worded for the ring; null for the reasons that say nothing
+   *  about the person at the keyboard (unavailable). */
+  private failure(result: UnlockResult): string | null {
+    switch (result.reason) {
+      case 'wrong':
+        return `wrong passcode (${this.failures} failures)`;
+      case 'cancelled':
+        return 'touch id cancelled';
+      case 'unreadable':
+        return 'stored passcode unreadable';
+      default:
+        return null;
+    }
   }
 
   /** Spend the consent for exactly this action, or refuse. */
@@ -213,6 +248,7 @@ export class LockController {
       if (!passcodeAcceptable(req.passcode)) return { ok: false, error: 'too-short' };
       await this.store.set(req.passcode);
       this.deps.persist({ enabled: true });
+      this.deps.note?.('configured: enabled');
       return { ok: true };
     }
     if (!this.store.has()) return { ok: false, error: 'not-set' };
@@ -220,6 +256,7 @@ export class LockController {
     // the credential a second enrolled finger defeats must not be able to
     // widen or remove the lock it guards
     if (!this.store.readable() || !(await this.store.verify(req.current))) {
+      this.deps.note?.('configure refused: wrong passcode');
       return { ok: false, error: 'wrong' };
     }
     if (req.action === 'verify') return { ok: true };
@@ -228,18 +265,22 @@ export class LockController {
       // a state nothing else in the app could recover from
       this.store.clear();
       this.deps.persist({ enabled: false });
+      this.deps.note?.('configured: disabled');
       return { ok: true };
     }
     if (req.action === 'change') {
       if (!passcodeAcceptable(req.next)) return { ok: false, error: 'too-short' };
       await this.store.set(req.next);
+      this.deps.note?.('configured: passcode changed');
       return { ok: true };
     }
     if (req.action === 'setTouchId') {
       this.deps.persist({ touchId: req.touchId });
+      this.deps.note?.(`configured: touch id ${req.touchId ? 'on' : 'off'}`);
       return { ok: true };
     }
     this.deps.persist({ guardActions: req.guardActions });
+    this.deps.note?.(`configured: guard ${req.guardActions ? 'on' : 'off'}`);
     return { ok: true };
   }
 
