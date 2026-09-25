@@ -1,4 +1,4 @@
-import type { ActivityEntryView, ServiceId } from '../../../shared/types';
+import type { RecentView, ServiceId } from '../../../shared/types';
 import { fuzzyScore } from './fuzzy';
 
 export const MAX_RECENTS = 8;
@@ -9,23 +9,21 @@ export interface SwitcherService {
 }
 
 /** The switcher's two sections from one query. Recents arrive newest-first
- *  from main; rows for since-disabled services are dropped so Enter is
- *  always actionable. Empty query keeps main's order and the user's rail
+ *  from main with the on-screen conversation already left out; rows for
+ *  since-disabled services are dropped so Enter is always actionable. Empty query keeps main's order and the user's rail
  *  order; a query fuzzy-ranks each section independently. */
 export function switcherRows(opts: {
   query: string;
-  recents: ActivityEntryView[];
+  recents: RecentView[];
   services: SwitcherService[];
-}): { recents: ActivityEntryView[]; services: SwitcherService[] } {
+}): { recents: RecentView[]; services: SwitcherService[] } {
   const enabled = new Set(opts.services.map((s) => s.id));
   const live = opts.recents.filter((r) => enabled.has(r.serviceId));
   if (opts.query.length === 0) {
     return { recents: live.slice(0, MAX_RECENTS), services: opts.services };
   }
   const recents = live
-    // the sender counts as part of the row: "github" must find the channel
-    // its alerts land in, which the title alone no longer names
-    .map((r) => ({ r, score: fuzzyScore(opts.query, recentHaystack(r)) }))
+    .map((r) => ({ r, score: fuzzyScore(opts.query, r.title) }))
     .filter((x) => x.score >= 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_RECENTS)
@@ -36,10 +34,6 @@ export function switcherRows(opts: {
     .sort((a, b) => b.score - a.score)
     .map((x) => x.svc);
   return { recents, services };
-}
-
-function recentHaystack(r: ActivityEntryView): string {
-  return r.author ? `${r.title} ${r.author}` : r.title;
 }
 
 export function relativeTime(at: number, now: number): string {

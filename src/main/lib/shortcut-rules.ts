@@ -174,7 +174,7 @@ export function pairFor(chord: string): { next: string; prev: string } | null {
   return null;
 }
 
-const PAIR: readonly RebindableId[] = ['nextUnread', 'prevUnread'];
+const PAIR: readonly RebindableId[] = ['nextConversation', 'prevConversation'];
 
 function holderOf(
   canon: string,
@@ -204,7 +204,7 @@ function refusal(
 }
 
 /** The verdict on recording `chord` for `id` against the table as resolved
- *  now. The unread pair records as one: the opposite is inferred, both halves
+ *  now. The conversation pair records as one: the opposite is inferred, both halves
  *  are checked with the pair's own slots excused, and both go in the patch. */
 export function recordVerdict(
   id: RebindableId,
@@ -219,12 +219,12 @@ export function recordVerdict(
     const bad = refusal(pair.next, PAIR, resolved) ?? refusal(pair.prev, PAIR, resolved);
     if (bad) return bad;
     if (
-      canonical(resolved.nextUnread) === pair.next &&
-      canonical(resolved.prevUnread) === pair.prev
+      canonical(resolved.nextConversation) === pair.next &&
+      canonical(resolved.prevConversation) === pair.prev
     ) {
       return { ok: true, patch: {} };
     }
-    return { ok: true, patch: { nextUnread: pair.next, prevUnread: pair.prev } };
+    return { ok: true, patch: { nextConversation: pair.next, prevConversation: pair.prev } };
   }
   const bad = refusal(chord, [id], resolved);
   if (bad) return bad;
@@ -236,10 +236,19 @@ export function recordVerdict(
 /** Data in — settings.json, a backup, a hand edit — valid overrides out:
  *  strings that parse, carry CmdOrCtrl, are not reserved, do not collide with
  *  another command once resolved (the later id in REBINDABLE order loses),
- *  and the unread pair kept only whole and mirrored. */
+ *  and the conversation pair kept only whole and mirrored. */
 export function normalizeShortcuts(raw: unknown): ShortcutOverrides {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  const r = raw as Record<string, unknown>;
+  const r = { ...(raw as Record<string, unknown>) };
+  // 2026-09-24: the pair was renamed from nextUnread/prevUnread; an override
+  // a settings.json or backup still holds under the old names means the same
+  // two keys, and the new names win where both are present
+  if (r.nextConversation === undefined && typeof r.nextUnread === 'string') {
+    r.nextConversation = r.nextUnread;
+  }
+  if (r.prevConversation === undefined && typeof r.prevUnread === 'string') {
+    r.prevConversation = r.prevUnread;
+  }
   const out: ShortcutOverrides = {};
   const used = new Set<string>();
   for (const id of REBINDABLE) {
@@ -258,11 +267,11 @@ export function normalizeShortcuts(raw: unknown): ShortcutOverrides {
     if (v === undefined) continue;
     if (holderOf(v, resolved, PAIR.includes(id) ? PAIR : [id])) delete out[id];
   }
-  const n = out.nextUnread;
-  const p = out.prevUnread;
+  const n = out.nextConversation;
+  const p = out.prevConversation;
   if ((n === undefined) !== (p === undefined) || (n !== undefined && pairFor(n)?.prev !== p)) {
-    delete out.nextUnread;
-    delete out.prevUnread;
+    delete out.nextConversation;
+    delete out.prevConversation;
   }
   return out;
 }

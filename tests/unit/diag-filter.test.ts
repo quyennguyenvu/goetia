@@ -40,6 +40,7 @@ describe('DIAG_TAGS', () => {
       'recipe',
       'view',
       'peek',
+      'recents',
     ]);
     expect(isDiagTag('recipe')).toBe(true);
     expect(isDiagTag('bogus')).toBe(false);

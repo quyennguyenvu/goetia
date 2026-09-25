@@ -31,6 +31,7 @@ export async function purgeService(ctx: AppContext, id: ServiceId): Promise<void
   // hibernated one would keep showing a badge for mail it can no longer open
   ctx.state.setRuntime(id, { unread: { direct: 0, indirect: 0 }, stale: false });
   ctx.activity.clear(id);
+  ctx.recents.clear(id);
 }
 
 export async function purgeLogin(ctx: AppContext, id: ServiceId): Promise<void> {

@@ -70,8 +70,8 @@ export class NotificationRouter {
     });
     if (silenced) return;
     const icon = this.icons.get(serviceId);
-    // the log above keeps the real title: it is in-memory, and activity:recent
-    // is refused while locked, so recents are correct the moment it lifts
+    // the log above keeps the real title: it is in-memory and only a banner
+    // click reads it back, so the entry is correct the moment the lock lifts
     const shown = this.ctx.lock.locked
       ? redactBanner(serviceById(serviceId).name)
       : { title, body };

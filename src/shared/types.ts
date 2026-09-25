@@ -17,22 +17,7 @@ export interface Counts {
   indirect: number;
 }
 
-/** What the switcher renders per recent conversation. Deliberately hrefless:
- *  conversation links never cross IPC — main re-validates at open time. */
-export interface ActivityEntryView {
-  id: number;
-  serviceId: ServiceId;
-  /** the conversation the banner came from — what the row leads with */
-  title: string;
-  /** who sent it, shown after the conversation; absent unless the service
-   *  named the two separately (Discord alone does) */
-  author?: string;
-  /** mute or quiet hours suppressed the banner itself at fire time (🌙) */
-  silenced: boolean;
-  at: number;
-}
-
-/** What Home renders per pin. Hrefless like ActivityEntryView: the
+/** What Home renders per pin. Hrefless like RecentView: the
  *  conversation URL stays in main and is re-validated at open time. */
 export interface PinView {
   id: number;
@@ -85,7 +70,8 @@ export type DiagTag =
   | 'downloads'
   | 'recipe'
   | 'view'
-  | 'peek';
+  | 'peek'
+  | 'recents';
 
 export interface DiagEntry {
   at: number;
@@ -105,6 +91,20 @@ export type DownloadState = 'downloading' | 'saved' | 'failed' | 'missing';
 /** How downloads.json rests: sealed by the keychain, plaintext because there
  *  is none, or sealed by a keychain this launch cannot open (read-only). */
 export type DownloadStorage = 'sealed' | 'plain' | 'unreadable';
+
+/** How recents.json rests — the three states downloads.json has. */
+export type RecentsStorage = DownloadStorage;
+
+/** What the switcher renders per recent conversation. Hrefless like PinView:
+ *  the URL stays in main and is re-validated at open time. */
+export interface RecentView {
+  id: number;
+  serviceId: ServiceId;
+  /** the conversation's label — the row's text and the search haystack */
+  title: string;
+  /** last time it was on screen */
+  at: number;
+}
 
 /** One row of Settings → Downloads. No path: the pane needs none, and a path
  *  is where a later feature would be tempted to open something. */

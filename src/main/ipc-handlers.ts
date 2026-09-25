@@ -19,7 +19,9 @@ import { isRebindable } from '../shared/shortcuts';
 import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../shared/types';
 import {
   activateService,
+  onScreenKey,
   openActivityEntry,
+  openRecentEntry,
   performBannerAction,
   rememberSurface,
   setHomeOpen,
@@ -51,6 +53,13 @@ import {
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import {
+  acceptReport,
+  conversationKey,
+  recentLabel,
+  recentRows,
+  sanitizeReport,
+} from './lib/recents-rules';
 import { BACKUP_MAX_BYTES, backupFileName, buildBackup, parseBackup } from './lib/settings-backup';
 import { type TileMenuAction, tileMenuItems } from './lib/tile-menu';
 import { releaseUrl } from './lib/update-check';
@@ -62,6 +71,7 @@ import type { PasskeyAuthenticator } from './passkeys/authenticator';
 import type { PasskeyStore } from './passkeys/store';
 import type { PinStore } from './pins';
 import { purgeAll, purgeLogin } from './purge';
+import type { RecentsStore } from './recents';
 import type { SettingsStore } from './settings';
 import type { ShortcutRecorder } from './shortcut-recorder';
 import type { MainState } from './state';
@@ -76,8 +86,10 @@ export interface AppContext {
   settings: SettingsStore;
   waking: WakingTracker;
   updates: UpdateChecker;
-  /** banner history behind the switcher's Recent section; in-memory only */
+  /** banner history behind banner clicks and the lock's parked click; in-memory only */
   activity: ActivityLog;
+  /** ⌘K's Recent: the conversations the user opened; persisted sealed, see recents.ts */
+  recents: RecentsStore;
   /** the pinboard; persisted, see pins.ts */
   pins: PinStore;
   /** the download history behind Settings → Downloads; persisted, see download-history.ts */
@@ -565,7 +577,51 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   });
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
   on('notification:fired', (n) => router.handle(n));
-  onInvoke('activity:recent', [], () => ctx.activity.recent());
+  on('conversation:active', ({ serviceId, conversation, url, title }) => {
+    // the preload's focus gate runs in a world the page shares, so the
+    // service on screen is decided here, from main's own state
+    if (
+      !acceptReport({
+        serviceId,
+        activeId: ctx.state.activeId,
+        overlayOpen: anyOverlayOpen(ctx.state),
+        windowFocused: ctx.win.isFocused(),
+        disabled: ctx.settings.get().disabled[serviceId],
+      })
+    ) {
+      return;
+    }
+    const report = sanitizeReport({ conversation, url, title });
+    if (!report) return;
+    const meta = serviceById(serviceId);
+    const named = recentLabel({ ...report, serviceUrl: meta.url, serviceName: meta.name });
+    if (!named) {
+      // the empty chat list, a login page: nothing is on screen to exclude
+      ctx.state.onScreen.delete(serviceId);
+      return;
+    }
+    const sighting = {
+      serviceId,
+      label: named.label,
+      ...(named.conversation ? { conversation: named.conversation } : {}),
+      url: report.url,
+      at: Date.now(),
+    };
+    // a chat the user clicked into themselves ends a chord walk; the one the
+    // walk just opened reports the cursor's own key and keeps it
+    const key = conversationKey(sighting);
+    if (ctx.state.walk && ctx.state.walk.cursor !== key) ctx.state.walk = null;
+    ctx.state.onScreen.set(serviceId, key);
+    ctx.recents.upsert(sighting);
+  });
+  onInvoke('recents:list', { rows: [], storage: 'sealed' }, () => ({
+    rows: recentRows(ctx.recents.rows(), onScreenKey(ctx)),
+    storage: ctx.recents.storage(),
+  }));
+  on('recents:open', ({ id }) => {
+    const entry = ctx.recents.get(id);
+    if (entry) openRecentEntry(ctx, entry); // else purged since the switcher fetched
+  });
   onInvoke('services:purgeAll', { purged: 0 }, async () => {
     // the same shape a blocked sender gets, so the toast says nothing
     // happened — which is true
@@ -697,10 +753,6 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     // configure() may have moved both
     if (result.ok) ctx.broadcast();
     return result;
-  });
-  on('activity:open', ({ entryId }) => {
-    const entry = ctx.activity.get(entryId);
-    if (entry) openActivityEntry(ctx, entry); // else rotated out since the switcher fetched
   });
   // every mutation broadcasts only when the store actually changed — a stale
   // renderer's no-op must not cost a fan-out

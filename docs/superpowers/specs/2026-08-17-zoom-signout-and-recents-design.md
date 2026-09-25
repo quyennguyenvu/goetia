@@ -2,6 +2,8 @@
 
 Date: 2026-08-17. Status: accepted. Product brainstorm outcome for the release after banner-to-conversation: three daily-convenience items chosen for a small-circle user base, shipped together as v0.9 (~6 dev-days). Cross-service share ("Share to ▸" in the context menu) was designed, then dropped by user decision — v0.8's Copy Image plus a service switch and paste already serves the job, so the submenu adds surface without enough delta. Spellcheck was found already shipped in v0.8 (session languages `en-US` + `vi`, suggestions in the context menu), shrinking the original scope.
 
+> Superseded in part (2026-09-24): section 3's activity log no longer feeds ⌘K. Recent is the conversations the user opened — see `2026-09-24-recent-conversations-design.md`. The banner log remains for banner clicks.
+
 ## Problem
 
 Three gaps a daily user feels:

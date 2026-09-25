@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { badgeLabel } from '../../../shared/badges';
-import type { ActivityEntryView, ServiceId } from '../../../shared/types';
+import type { RecentsStorage, RecentView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
 import { nextLabelChange, relativeTime, switcherRows } from './switcher-results';
 
@@ -10,6 +10,15 @@ const logos = import.meta.glob<string>('../assets/logos/*.svg', {
   query: '?url',
   import: 'default',
 });
+
+/** how recents.json rests when it is not sealed — one quiet line, the
+ *  Downloads pane's wording */
+const BAND: Record<Exclude<RecentsStorage, 'sealed'>, string> = {
+  unreadable:
+    'Goetia cannot read its recent conversations on this device. The file is sealed to a keychain this launch cannot open; it is kept as it is, and conversations you open this session are not being recorded.',
+  plain:
+    'Recent conversations are kept unencrypted on this device. The OS keychain is unavailable.',
+};
 
 // the rail's molten-squircle language, sized for a list row: the cursor row's
 // tile floods like the active rail tile so the highlight reads the same way
@@ -51,7 +60,8 @@ export default function QuickSwitcher() {
   const state = useShell((s) => s.state);
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
-  const [recents, setRecents] = useState<ActivityEntryView[]>([]);
+  const [recents, setRecents] = useState<RecentView[]>([]);
+  const [storage, setStorage] = useState<RecentsStorage>('sealed');
   const [nowMs, setNowMs] = useState(() => Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -70,8 +80,11 @@ export default function QuickSwitcher() {
       navByKey.current = false;
       // one fetch per open — recents are never broadcast
       window.goetia
-        .invoke('activity:recent')
-        .then(setRecents)
+        .invoke('recents:list')
+        .then(({ rows, storage }) => {
+          setRecents(rows);
+          setStorage(storage);
+        })
         .catch(() => setRecents([]));
       requestAnimationFrame(() => inputRef.current?.focus());
     }
@@ -122,8 +135,8 @@ export default function QuickSwitcher() {
     window.goetia.send('service:activate', { serviceId: id });
     close();
   };
-  const openRecent = (entryId: number) => {
-    window.goetia.send('activity:open', { entryId });
+  const openRecent = (id: number) => {
+    window.goetia.send('recents:open', { id });
     close();
   };
   const submit = (i: number) => {
@@ -172,7 +185,10 @@ export default function QuickSwitcher() {
           className="w-full border-b border-border bg-transparent px-4 py-3 text-[15px] text-text-1 outline-none placeholder:text-text-2"
         />
         <ul ref={listRef} className="max-h-[420px] overflow-y-auto">
-          {rows.recents.length > 0 && <SectionLabel>Recent</SectionLabel>}
+          {(rows.recents.length > 0 || storage !== 'sealed') && <SectionLabel>Recent</SectionLabel>}
+          {storage !== 'sealed' && (
+            <li className="px-4 pb-2 text-[11px] leading-snug text-text-2">{BAND[storage]}</li>
+          )}
           {rows.recents.map((r, i) => (
             <li key={`recent-${r.id}`}>
               <button
@@ -186,14 +202,8 @@ export default function QuickSwitcher() {
                 className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${i === cursor ? 'bg-text-1/6' : ''}`}
               >
                 <RowTile serviceId={r.serviceId} active={i === cursor} />
-                <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                  <span className="truncate text-text-1">{r.title}</span>
-                  {r.author && <span className="truncate text-[12px] text-text-2">{r.author}</span>}
-                </span>
-                <span className="tabular text-[11px] text-text-2">
-                  {relativeTime(r.at, nowMs)}
-                  {r.silenced && <span title="Silenced by mute or quiet hours"> 🌙</span>}
-                </span>
+                <span className="min-w-0 flex-1 truncate text-text-1">{r.title}</span>
+                <span className="tabular text-[11px] text-text-2">{relativeTime(r.at, nowMs)}</span>
               </button>
             </li>
           ))}

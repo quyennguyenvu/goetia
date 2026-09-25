@@ -6,17 +6,12 @@ import {
   relativeTime,
   switcherRows,
 } from '../../src/renderer/src/components/switcher-results';
-import type { ActivityEntryView } from '../../src/shared/types';
+import type { RecentView } from '../../src/shared/types';
 
-const recent = (
-  id: number,
-  title: string,
-  over: Partial<ActivityEntryView> = {},
-): ActivityEntryView => ({
+const recent = (id: number, title: string, over: Partial<RecentView> = {}): RecentView => ({
   id,
   serviceId: 'telegram',
   title,
-  silenced: false,
   at: id,
   ...over,
 });

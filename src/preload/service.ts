@@ -9,7 +9,7 @@ import { installVisibilitySpoof } from './lib/visibility-spoof';
 import { installWebAuthnShim } from './lib/webauthn-shim';
 import { recipes } from './recipes';
 import { startReadyPoll } from './recipes/ready';
-import { startRecipe } from './recipes/runner';
+import { COUNT_TIMEOUT_MS, startRecipe } from './recipes/runner';
 
 const arg = process.argv.find((a) => a.startsWith('--goetia-service='));
 const serviceId = (arg?.split('=')[1] ?? '') as ServiceId;
@@ -134,6 +134,12 @@ if (!inSubcontext) {
       // snap back to the service URL; a url = the recipe's login page for a
       // logged-out shell (see Recipe.loginUrl).
       (url?: string) => window.location.assign(url ?? serviceById(serviceId).url),
+      setInterval,
+      Date.now,
+      COUNT_TIMEOUT_MS,
+      // the chat on screen, for ⌘K's Recent; main decides whether it counts
+      ({ conversation, url, title }) =>
+        ipcRenderer.send('conversation:active', { serviceId, conversation, url, title }),
     );
     startReadyPoll(
       recipe,

@@ -33,8 +33,8 @@ describe('channelAllowedWhileLocked', () => {
   // the leaks a lock on opening a service would not have closed
   it('refuses every channel that serves conversation content', () => {
     for (const channel of [
-      'activity:recent',
-      'activity:open',
+      'recents:list',
+      'recents:open',
       'pins:open',
       'pins:reorder',
       'pins:unpin',

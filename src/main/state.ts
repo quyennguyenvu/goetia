@@ -8,6 +8,7 @@ import type {
   ShellState,
   UpdateState,
 } from '../shared/types';
+import type { Walk } from './lib/recents-walk';
 
 const defaultRuntime = (): ServiceRuntime => ({
   unread: { direct: 0, indirect: 0 },
@@ -42,9 +43,14 @@ export class MainState {
   capTrimmed: ServiceId[] = [];
   /** set by the summon-hotkey wiring; true when disabled or registered */
   summonHotkeyOk = true;
-  /** the unread target ⌘⇧] last landed on (lib/unread-jump.ts key); in-memory
-   *  and never broadcast — the walk restarts when it is gone from the list */
-  unreadCursor: string | null = null;
+  /** the chord walk in flight (lib/recents-walk.ts): a snapshot of ⌘K's
+   *  Recent order, the cursor and a deadline; in-memory and never broadcast.
+   *  Cleared by activateService, so any other activation ends it. */
+  walk: Walk | null = null;
+  /** the Recent row key (recents-rules conversationKey) each service last
+   *  reported on screen; read only for the active service while Home is
+   *  closed. In-memory, never broadcast. */
+  onScreen = new Map<ServiceId, string>();
   private runtimes = new Map<ServiceId, ServiceRuntime>();
   private listeners: (() => void)[] = [];
   private updateState: UpdateState = defaultUpdate();

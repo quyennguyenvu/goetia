@@ -149,39 +149,41 @@ describe('ipcSenderAllowed', () => {
       }),
     ).toBe(false);
   });
-  it('allows activity channels from the shell frame', () => {
-    expect(
-      ipcSenderAllowed({
-        channel: 'activity:open',
-        fromShell: true,
-        senderServiceId: null,
-        payloadServiceId: undefined,
-      }),
-    ).toBe(true);
-    expect(
-      ipcSenderAllowed({
-        channel: 'activity:recent',
-        fromShell: true,
-        senderServiceId: null,
-        payloadServiceId: undefined,
-      }),
-    ).toBe(true);
+  it('keeps the recents channels shell-only', () => {
+    for (const channel of ['recents:list', 'recents:open'] as const) {
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: true,
+          senderServiceId: null,
+          payloadServiceId: undefined,
+        }),
+      ).toBe(true);
+      expect(
+        ipcSenderAllowed({
+          channel,
+          fromShell: false,
+          senderServiceId: 'messenger',
+          payloadServiceId: undefined,
+        }),
+      ).toBe(false);
+    }
   });
-  it('rejects activity channels from a service frame', () => {
+  it('validates conversation:active against the sending view', () => {
     expect(
       ipcSenderAllowed({
-        channel: 'activity:open',
+        channel: 'conversation:active',
         fromShell: false,
-        senderServiceId: 'messenger',
-        payloadServiceId: undefined,
+        senderServiceId: 'whatsapp',
+        payloadServiceId: 'whatsapp',
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       ipcSenderAllowed({
-        channel: 'activity:recent',
+        channel: 'conversation:active',
         fromShell: false,
-        senderServiceId: 'messenger',
-        payloadServiceId: undefined,
+        senderServiceId: 'whatsapp',
+        payloadServiceId: 'discord',
       }),
     ).toBe(false);
   });

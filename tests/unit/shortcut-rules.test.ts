@@ -188,37 +188,37 @@ describe('recordVerdict', () => {
   });
 
   it('records the unread pair from either arrow and validates both halves', () => {
-    expect(recordVerdict('nextUnread', 'CmdOrCtrl+Right', defaults)).toEqual({
+    expect(recordVerdict('nextConversation', 'CmdOrCtrl+Right', defaults)).toEqual({
       ok: true,
-      patch: { nextUnread: 'CmdOrCtrl+Right', prevUnread: 'CmdOrCtrl+Left' },
+      patch: { nextConversation: 'CmdOrCtrl+Right', prevConversation: 'CmdOrCtrl+Left' },
     });
-    expect(recordVerdict('prevUnread', 'CmdOrCtrl+Left', defaults)).toEqual({
+    expect(recordVerdict('prevConversation', 'CmdOrCtrl+Left', defaults)).toEqual({
       ok: true,
-      patch: { nextUnread: 'CmdOrCtrl+Right', prevUnread: 'CmdOrCtrl+Left' },
+      patch: { nextConversation: 'CmdOrCtrl+Right', prevConversation: 'CmdOrCtrl+Left' },
     });
     // = is zoom in: refused through its own half
-    expect(recordVerdict('nextUnread', 'CmdOrCtrl+=', defaults)).toEqual({
+    expect(recordVerdict('nextConversation', 'CmdOrCtrl+=', defaults)).toEqual({
       ok: false,
       reason: 'reserved',
       chord: 'CmdOrCtrl+=',
     });
     // . pairs with , which is Settings
-    expect(recordVerdict('nextUnread', 'CmdOrCtrl+.', defaults)).toEqual({
+    expect(recordVerdict('nextConversation', 'CmdOrCtrl+.', defaults)).toEqual({
       ok: false,
       reason: 'reserved',
       chord: 'CmdOrCtrl+,',
     });
-    expect(recordVerdict('nextUnread', 'CmdOrCtrl+Shift+G', defaults)).toEqual({
+    expect(recordVerdict('nextConversation', 'CmdOrCtrl+Shift+G', defaults)).toEqual({
       ok: false,
       reason: 'pair',
       chord: 'CmdOrCtrl+Shift+G',
     });
-    expect(recordVerdict('nextUnread', 'Shift+]', defaults)).toEqual({
+    expect(recordVerdict('nextConversation', 'Shift+]', defaults)).toEqual({
       ok: false,
       reason: 'modifier',
       chord: 'Shift+]',
     });
-    expect(recordVerdict('nextUnread', 'CmdOrCtrl+Shift+]', defaults)).toEqual({
+    expect(recordVerdict('nextConversation', 'CmdOrCtrl+Shift+]', defaults)).toEqual({
       ok: true,
       patch: {},
     });
@@ -226,12 +226,12 @@ describe('recordVerdict', () => {
 
   it("never reports the pair's own halves as taken", () => {
     const moved = resolveAccelerators({
-      nextUnread: 'CmdOrCtrl+Right',
-      prevUnread: 'CmdOrCtrl+Left',
+      nextConversation: 'CmdOrCtrl+Right',
+      prevConversation: 'CmdOrCtrl+Left',
     });
-    expect(recordVerdict('nextUnread', 'CmdOrCtrl+Shift+]', moved)).toEqual({
+    expect(recordVerdict('nextConversation', 'CmdOrCtrl+Shift+]', moved)).toEqual({
       ok: true,
-      patch: { nextUnread: 'CmdOrCtrl+Shift+]', prevUnread: 'CmdOrCtrl+Shift+[' },
+      patch: { nextConversation: 'CmdOrCtrl+Shift+]', prevConversation: 'CmdOrCtrl+Shift+[' },
     });
   });
 });
@@ -262,13 +262,35 @@ describe('normalizeShortcuts', () => {
   });
 
   it('keeps the unread pair only whole and only mirrored', () => {
-    expect(normalizeShortcuts({ nextUnread: 'CmdOrCtrl+Right' })).toEqual({});
+    expect(normalizeShortcuts({ nextConversation: 'CmdOrCtrl+Right' })).toEqual({});
     expect(
-      normalizeShortcuts({ nextUnread: 'CmdOrCtrl+Right', prevUnread: 'CmdOrCtrl+Up' }),
+      normalizeShortcuts({ nextConversation: 'CmdOrCtrl+Right', prevConversation: 'CmdOrCtrl+Up' }),
     ).toEqual({});
     expect(
+      normalizeShortcuts({
+        nextConversation: 'CmdOrCtrl+Right',
+        prevConversation: 'CmdOrCtrl+Left',
+      }),
+    ).toEqual({ nextConversation: 'CmdOrCtrl+Right', prevConversation: 'CmdOrCtrl+Left' });
+  });
+
+  // 2026-09-24: the pair was renamed; a rebinding stored under the old names
+  // still means the same two keys, and the new names win when both exist
+  it('carries an override stored under the old nextUnread / prevUnread names', () => {
+    expect(
       normalizeShortcuts({ nextUnread: 'CmdOrCtrl+Right', prevUnread: 'CmdOrCtrl+Left' }),
-    ).toEqual({ nextUnread: 'CmdOrCtrl+Right', prevUnread: 'CmdOrCtrl+Left' });
+    ).toEqual({
+      nextConversation: 'CmdOrCtrl+Right',
+      prevConversation: 'CmdOrCtrl+Left',
+    });
+    expect(
+      normalizeShortcuts({
+        nextUnread: 'CmdOrCtrl+Right',
+        prevUnread: 'CmdOrCtrl+Left',
+        nextConversation: 'CmdOrCtrl+Shift+]',
+        prevConversation: 'CmdOrCtrl+Shift+[',
+      }),
+    ).toEqual({ nextConversation: 'CmdOrCtrl+Shift+]', prevConversation: 'CmdOrCtrl+Shift+[' });
   });
 });
 

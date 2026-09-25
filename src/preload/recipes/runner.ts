@@ -31,6 +31,7 @@ export function startRecipe(
   setIntervalFn: typeof setInterval = setInterval,
   nowFn: () => number = Date.now,
   countTimeoutMs: number = COUNT_TIMEOUT_MS,
+  reportConversation?: (r: { conversation: string | null; url: string; title: string }) => void,
 ): void {
   let last: Counts | null = null;
   let stale = false;
@@ -49,6 +50,9 @@ export function startRecipe(
   let watched: Node | null = null;
   let observer: MutationObserver | null = null;
   let lastTitle: string | undefined;
+  /** what the last conversation:active named, so a tick with the same chat
+   *  on screen costs one string compare and no IPC */
+  let lastConversationKey: string | null = null;
 
   /** Point the observer at the current subtree, re-binding when the page has
    *  swapped it out (virtualized lists replace their container wholesale). A
@@ -144,6 +148,25 @@ export function startRecipe(
         }
       } catch {
         // keep-alive is best-effort; counting below still decides staleness
+      }
+    }
+    // the conversation on screen, for ⌘K's Recent. Only the focused document
+    // reports — a hidden view and the shell's surfaces cost one boolean here —
+    // and only when what it names has changed. Main derives the label and
+    // decides whether the report counts; this stays a dumb reporter.
+    if (reportConversation && doc.hasFocus()) {
+      let conversation: string | null = null;
+      try {
+        conversation = recipe.conversation?.(doc) ?? null;
+      } catch {
+        conversation = null; // a throwing hook must never stop the counting below
+      }
+      const title = doc.title;
+      const key =
+        conversation ?? `${(doc.location?.pathname ?? '') + (doc.location?.hash ?? '')}\n${title}`;
+      if (key !== lastConversationKey) {
+        lastConversationKey = key;
+        reportConversation({ conversation, url: doc.location?.href ?? '', title });
       }
     }
     // The count itself: skipped only while an observer is live and neither the

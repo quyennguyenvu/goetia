@@ -1,4 +1,4 @@
-import type { ActivityEntryView, ServiceId } from '../../shared/types';
+import type { ServiceId } from '../../shared/types';
 
 export interface ActivityEntry {
   id: number;
@@ -37,8 +37,9 @@ export function openHref(e: ActivityEntry): string | undefined {
 const conversationKey = (e: Pick<ActivityEntry, 'serviceId' | 'conversation'>) =>
   `${e.serviceId}\n${e.conversation}`;
 
-/** Bounded and in-memory only, on purpose: conversation titles never touch
- *  disk (settings.json is plaintext), and the log dies with the process. */
+/** Banner history for banner clicks. Bounded and in-memory only, on purpose:
+ *  conversation titles never touch disk unsealed, and the log dies with the
+ *  process. */
 export class ActivityLog {
   private entries: ActivityEntry[] = [];
   private nextId = 1;
@@ -89,29 +90,5 @@ export class ActivityLog {
 
   get(id: number): ActivityEntry | undefined {
     return this.entries.find((e) => e.id === id);
-  }
-
-  /** Newest-first, one row per conversation (href key, else service +
-   *  conversation — the parsed thread, so two Discord banners from one channel
-   *  are one row however that channel's sender differed), hrefs stripped: the
-   *  renderer sees display fields and opaque ids only. */
-  recent(): ActivityEntryView[] {
-    const seen = new Set<string>();
-    const rows: ActivityEntryView[] = [];
-    for (let i = this.entries.length - 1; i >= 0; i--) {
-      const e = this.entries[i];
-      const key = e.href ?? `${e.serviceId}\n${e.conversation}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push({
-        id: e.id,
-        serviceId: e.serviceId,
-        title: e.conversation,
-        author: e.author,
-        silenced: e.silenced,
-        at: e.at,
-      });
-    }
-    return rows;
   }
 }

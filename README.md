@@ -70,7 +70,7 @@ Unread counts land on the rail, on the dock or taskbar, and in the tray tooltip.
   </picture>
 </p>
 
-<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> fuzzy-jumps to any service — or straight into a conversation: recent banners sit on top of the list (silenced ones too, marked 🌙), and picking one lands in that exact thread, not just the app:
+<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> fuzzy-jumps to any service — or straight back into a conversation: the chats you opened most recently sit on top of the list, and picking one lands in that exact thread, not just the app:
 
 <p align="center">
   <picture>
@@ -195,10 +195,10 @@ Closing the window does **not** quit Goetia — it keeps running in the menu bar
 - **Service icons sit in a top bar** by default (each chat app already has its own left-hand column, so a second left rail would double up). Want them on the side? **Settings → Appearance → Menu position**.
 - **Add or drop services later**: press ⌘/Ctrl+⇧+G, or click the ember sigil at the head of the icon bar, for **Home**. Clicking a tile moves it between **Summoned** and **Unbound**, dragging arranges the summoned row, and nothing takes effect until you press **Summon**/**Banish**/**Apply new order** — add, drop and reorder in one go; **Discard** throws the staged edit away. Nine services can be summoned at once — one per ⌘/Ctrl 1…9 shortcut; banish one to make room. Banishing keeps the login — summon it back and you're still signed in. ⌘/Ctrl+F jumps to the box that filters the unbound row by name.
 - **Shortcuts** (they work inside every chat page, even where the site uses the same keys — the full list is in Settings → Shortcuts):
-  - *Navigate*: ⌘/Ctrl+1…9 jump to a service, ⌘/Ctrl+K opens a quick switcher (recent conversations on top — 🌙 marks ones quiet hours or mute silenced; the list lives in memory and clears on quit), ⌘/Ctrl+⇧+G opens Home, Esc leaves it.
+  - *Navigate*: ⌘/Ctrl+1…9 jump to a service, ⌘/Ctrl+K opens a quick switcher (the conversations you opened most recently on top — kept encrypted on this device, so they survive a restart), ⌘/Ctrl+⇧+G opens Home, Esc leaves it.
   - *Pins*: select text and press ⌘/Ctrl+⇧+S to pin it (or right-click → Pin Message). Home and Pin are left-hand chords on purpose — your right hand is on the mouse.
   - *Service page*: ⌘/Ctrl + / − / 0 zoom the current service (remembered per service), ⌘/Ctrl+R (or F5) reloads it, ⌥⌘I / Ctrl+⇧+I opens its developer tools.
-  - *Unread*: ⌘/Ctrl+⇧+] and ⌘/Ctrl+⇧+[ jump to the next or previous unread conversation — the same rows the quick switcher lists, newest first, opened straight into the thread — and to the service itself when a badge has no known conversation yet.
+  - *Conversations*: ⌘/Ctrl+⇧+] and ⌘/Ctrl+⇧+[ step down and up the quick switcher's recent list — one press of ⌘/Ctrl+⇧+] is "back to the chat I was just in", and pressing again within a few seconds keeps going back.
   - *Notifications and rail*: ⌘/Ctrl+⇧+M mutes everything (right-click the bell for an hour or until tomorrow morning), right-click an icon to mute a service — for an hour, until tomorrow morning, or until you unmute it — or banish it, drag icons to reorder.
 - **Purging a login**: Settings → Services → `Purge login…` clears one service's saved login on this device; Home's `Purge all logins…` clears every service's, summoned and unbound alike — the only way to reach a banished service's credentials. Neither revokes the session on the service's own servers: the site keeps listing this device until the token expires there. Purging never changes which services are summoned, and banishing never touches a login.
 - **"Continue with Facebook / Google / Apple" works in-app**: identity-provider sign-in popups open in their own hardened Goetia window instead of your browser (which doesn't share Goetia's logins), and they close with the service. When a site offers **Continue with Facebook** and you're signed in to Messenger, Goetia can lend that Facebook session to the popup so the sign-in is one click — it asks first with Touch ID (or a native confirm) every time, and takes the session back moments after the popup closes.

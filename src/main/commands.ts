@@ -1,8 +1,15 @@
-import { activateService, openActivityEntry, setHomeOpen, setOverlayOpen } from './activate';
+import {
+  activateService,
+  onScreenKey,
+  openRecentEntry,
+  setHomeOpen,
+  setOverlayOpen,
+} from './activate';
 import type { AppContext } from './ipc-handlers';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import { conversationKey } from './lib/recents-rules';
+import { beginWalk, stepWalk, walkActive, walkTargets } from './lib/recents-walk';
 import type { ShellCommand } from './lib/shortcuts';
-import { nextTarget, unreadTargets } from './lib/unread-jump';
 import { stepZoom } from './lib/zoom-rules';
 import { toggleDetachedDevTools } from './views';
 
@@ -55,22 +62,29 @@ export function runShellCommand(ctx: AppContext, command: ShellCommand): void {
       activateService(ctx, id);
       return;
     }
-    case 'unread': {
-      // conversations the log knows (the ⌘K rows), then badge-only services;
-      // an entry opens through the very tail a banner or ⌘K row uses
+    case 'conversation': {
+      // ⌘K's Recent list from the keyboard: ] is the row below (older), [ the
+      // row above (newer), over a snapshot — the row just opened moves to the
+      // top, and the live order would turn the second press into a ping-pong
+      const now = Date.now();
       const s = ctx.settings.get();
-      const targets = unreadTargets(
-        ctx.activity.recent(),
-        s.order.filter((x) => !s.disabled[x]),
-        (x) => ctx.state.runtime(x).unread,
-      );
-      const target = nextTarget(targets, ctx.state.unreadCursor, command.step);
-      if (!target) return; // nothing unread elsewhere: the rail already says so
-      const entry = target.entryId === undefined ? undefined : ctx.activity.get(target.entryId);
-      ctx.state.unreadCursor = target.key;
+      const walk = walkActive(ctx.state.walk, now)
+        ? ctx.state.walk
+        : beginWalk(
+            walkTargets(ctx.recents.rows(), (x) => !s.disabled[x]),
+            onScreenKey(ctx),
+            now,
+          );
+      const stepped = stepWalk(walk, command.step, now);
+      ctx.state.walk = stepped.walk;
+      if (stepped.target === null) return; // one row, and it is the one on screen
+      const entry = ctx.recents.rows().find((r) => conversationKey(r) === stepped.target);
+      if (!entry) return; // purged between the snapshot and this press
       ctx.win.show();
-      if (entry) openActivityEntry(ctx, entry);
-      else activateService(ctx, target.serviceId);
+      openRecentEntry(ctx, entry);
+      // activateService inside cleared the walk; it is stored again so the
+      // next press within the deadline keeps stepping the snapshot
+      ctx.state.walk = stepped.walk;
       return;
     }
     case 'pin-selection':

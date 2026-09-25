@@ -10,9 +10,10 @@ export const ACCELERATORS = {
   /** left half too: Settings → Downloads, your files */
   downloads: 'CmdOrCtrl+Shift+D',
   switcher: 'CmdOrCtrl+K',
-  /** the browser's next/previous-tab chords, walking only tiles with unread */
-  nextUnread: 'CmdOrCtrl+Shift+]',
-  prevUnread: 'CmdOrCtrl+Shift+[',
+  /** the browser's next/previous-tab chords, walking ⌘K's Recent list: ]
+   *  the row below (older), [ the row above (newer) */
+  nextConversation: 'CmdOrCtrl+Shift+]',
+  prevConversation: 'CmdOrCtrl+Shift+[',
   mute: 'CmdOrCtrl+Shift+M',
   /** left half like Home and Pin: reached one-handed on the way out the door */
   lock: 'CmdOrCtrl+Shift+L',
@@ -36,8 +37,8 @@ export function devtoolsAccelerator(platform: string): string {
  *  browser convention and stays a constant. (2026-09-23, user decision.) */
 export const REBINDABLE = [
   'switcher',
-  'nextUnread',
-  'prevUnread',
+  'nextConversation',
+  'prevConversation',
   'home',
   'downloads',
   'pinSelection',
@@ -54,8 +55,8 @@ export type Accelerators = {
 /** what a refusal names: "taken by Quick Switcher" */
 export const SHORTCUT_LABELS: Record<RebindableId, string> = {
   switcher: 'Quick Switcher',
-  nextUnread: 'Next Unread',
-  prevUnread: 'Previous Unread',
+  nextConversation: 'Next Conversation',
+  prevConversation: 'Previous Conversation',
   home: 'Home',
   downloads: 'Downloads',
   pinSelection: 'Pin Selection',
@@ -79,7 +80,7 @@ export function resolveAccelerators(overrides: ShortcutOverrides | undefined): A
 
 export type RecordFailure = 'modifier' | 'reserved' | 'taken' | 'pair' | 'cancelled';
 /** main's answer to shortcuts:record; `patch` holds one id, or both halves
- *  of the unread pair, and is empty when the chord already was the row's */
+ *  of the conversation pair, and is empty when the chord already was the row's */
 export type RecordResult =
   | { ok: true; patch: ShortcutOverrides }
   | { ok: false; reason: RecordFailure; chord?: string; takenBy?: RebindableId };

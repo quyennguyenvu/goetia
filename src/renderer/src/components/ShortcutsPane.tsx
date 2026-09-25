@@ -22,7 +22,10 @@ type RowSpec = { fixed: string; desc: string } | { ids: readonly RebindableId[];
 const NAVIGATE: RowSpec[] = [
   { fixed: `${key('CmdOrCtrl+1')}…9`, desc: 'jump to a service' },
   { ids: ['switcher'], desc: 'quick switcher — services and recent conversations' },
-  { ids: ['nextUnread', 'prevUnread'], desc: 'next / previous unread conversation' },
+  {
+    ids: ['nextConversation', 'prevConversation'],
+    desc: 'next / previous conversation — down / up the Recent list',
+  },
   { ids: ['home'], desc: 'Home — all services and the pinboard' },
   { ids: ['downloads'], desc: 'downloads — your files' },
   { fixed: key(ACCELERATORS.findService), desc: 'find a service (on Home)' },

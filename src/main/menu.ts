@@ -135,14 +135,14 @@ export function buildAppMenu(ctx: AppContext): void {
           click: run({ kind: 'switcher' }),
         },
         {
-          label: 'Next Unread',
-          accelerator: acc.nextUnread,
-          click: run({ kind: 'unread', step: 1 }),
+          label: 'Next Conversation',
+          accelerator: acc.nextConversation,
+          click: run({ kind: 'conversation', step: 1 }),
         },
         {
-          label: 'Previous Unread',
-          accelerator: acc.prevUnread,
-          click: run({ kind: 'unread', step: -1 }),
+          label: 'Previous Conversation',
+          accelerator: acc.prevConversation,
+          click: run({ kind: 'conversation', step: -1 }),
         },
         {
           label: 'Downloads',

@@ -17,6 +17,7 @@ const TAG_ORDER: Record<DiagTag, true> = {
   recipe: true,
   view: true,
   peek: true,
+  recents: true,
 };
 export const DIAG_TAGS = Object.keys(TAG_ORDER) as DiagTag[];
 const TAG_SET: ReadonlySet<string> = new Set(DIAG_TAGS);

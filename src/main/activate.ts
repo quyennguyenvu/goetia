@@ -5,6 +5,7 @@ import { type ActivityEntry, openHref } from './lib/activity-log';
 import { withPage } from './lib/diagnostics';
 import { type BannerClickAction, resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import type { RecentEntry } from './lib/recents-rules';
 
 /** Remember the surface to restore on the next launch. Written on change, not
  *  at quit: force-quit, a crash, and an OS restart never run before-quit.
@@ -79,6 +80,9 @@ export function activateService(ctx: AppContext, id: ServiceId): void {
   ctx.state.settingsOpen = false;
   ctx.state.switcherOpen = false;
   ctx.state.homeOpen = false;
+  // a tile, a ⌘K row, ⌘1…9, a banner or a pin ends a chord walk; the chord's
+  // own open runs through here too and stores its walk afterwards
+  ctx.state.walk = null;
   ctx.state.activeId = id;
   ctx.state.setRuntime(id, { hibernated: false });
   ctx.noteActivated(id);
@@ -139,4 +143,30 @@ export function openActivityEntry(ctx: AppContext, entry: ActivityEntry): void {
     chatPaths: meta.chatPaths,
   });
   void performBannerAction(ctx, entry.serviceId, action, { entryId: entry.id });
+}
+
+/** The Recent row on screen right now, or null: the active service's last
+ *  accepted report, and nothing while Home covers every view. Read by ⌘K's
+ *  exclusion and by the chord walk's anchor. */
+export function onScreenKey(ctx: AppContext): string | null {
+  if (ctx.state.homeOpen) return null;
+  return ctx.state.onScreen.get(ctx.state.activeId) ?? null;
+}
+
+/** Open the conversation a Recent row names: the banner tail with the row's
+ *  URL as the href and its hook name as the name lane — used whenever the
+ *  row has one, not only on bannerTitleNamesConversation services, because
+ *  it came from the recipe's own conversation(doc) and is the string its
+ *  openConversation matches by construction. No replay lane, no learnUrl. */
+export function openRecentEntry(ctx: AppContext, entry: RecentEntry): void {
+  const meta = serviceById(entry.serviceId);
+  const action = resolveBannerClick({
+    disabled: ctx.settings.get().disabled[entry.serviceId],
+    hasView: ctx.views.has(entry.serviceId),
+    href: entry.url,
+    conversation: entry.conversation,
+    serviceUrl: meta.url,
+    chatPaths: meta.chatPaths,
+  });
+  void performBannerAction(ctx, entry.serviceId, action);
 }

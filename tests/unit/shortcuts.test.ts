@@ -77,26 +77,26 @@ describe('shellCommandFor', () => {
     expect(shellCommandFor(press({ key: 'a' }), 'darwin')).toBeNull();
   });
 
-  it('maps ⌘⇧] and ⌘⇧[ to the unread jump, through the shifted character too', () => {
+  it('maps ⌘⇧] and ⌘⇧[ to the conversation walk, through the shifted character too', () => {
     // with Shift held a US layout reports } and {; the physical key is what matches
     const next = { key: '}', code: 'BracketRight', shift: true };
     const prev = { key: '{', code: 'BracketLeft', shift: true };
     expect(shellCommandFor(press({ ...next, meta: true }), 'darwin')).toEqual({
-      kind: 'unread',
+      kind: 'conversation',
       step: 1,
     });
     expect(shellCommandFor(press({ ...prev, meta: true }), 'darwin')).toEqual({
-      kind: 'unread',
+      kind: 'conversation',
       step: -1,
     });
     expect(shellCommandFor(press({ ...next, control: true }), 'win32')).toEqual({
-      kind: 'unread',
+      kind: 'conversation',
       step: 1,
     });
     expect(shellCommandFor(press({ ...next, meta: true, shift: false }), 'darwin')).toBeNull();
     expect(
       shellCommandFor(press({ key: ']', code: '', meta: true, shift: true }), 'darwin'),
-    ).toEqual({ kind: 'unread', step: 1 });
+    ).toEqual({ kind: 'conversation', step: 1 });
   });
 
   it('falls back to the physical key when the layout rewrites the character', () => {
@@ -115,8 +115,8 @@ describe('accelerator table', () => {
     expect(ACCELERATORS.pinSelection).toBe('CmdOrCtrl+Shift+S');
     expect(ACCELERATORS.downloads).toBe('CmdOrCtrl+Shift+D');
     expect(ACCELERATORS.reload).toEqual(['CmdOrCtrl+R', 'F5']);
-    expect(ACCELERATORS.nextUnread).toBe('CmdOrCtrl+Shift+]');
-    expect(ACCELERATORS.prevUnread).toBe('CmdOrCtrl+Shift+[');
+    expect(ACCELERATORS.nextConversation).toBe('CmdOrCtrl+Shift+]');
+    expect(ACCELERATORS.prevConversation).toBe('CmdOrCtrl+Shift+[');
     expect(devtoolsAccelerator('darwin')).toBe('Alt+CmdOrCtrl+I');
     expect(devtoolsAccelerator('win32')).toBe('Ctrl+Shift+I');
   });
@@ -139,8 +139,8 @@ describe('lock chord', () => {
 describe('rebound chords', () => {
   const rebound = resolveAccelerators({
     home: 'CmdOrCtrl+Shift+E',
-    nextUnread: 'CmdOrCtrl+Right',
-    prevUnread: 'CmdOrCtrl+Left',
+    nextConversation: 'CmdOrCtrl+Right',
+    prevConversation: 'CmdOrCtrl+Left',
   });
 
   it('matches the override and no longer the default', () => {
@@ -158,14 +158,14 @@ describe('rebound chords', () => {
         'darwin',
         rebound,
       ),
-    ).toEqual({ kind: 'unread', step: 1 });
+    ).toEqual({ kind: 'conversation', step: 1 });
     expect(
       shellCommandFor(
         press({ key: 'ArrowLeft', code: 'ArrowLeft', meta: true }),
         'darwin',
         rebound,
       ),
-    ).toEqual({ kind: 'unread', step: -1 });
+    ).toEqual({ kind: 'conversation', step: -1 });
     const dots = resolveAccelerators({ switcher: 'CmdOrCtrl+Shift+.' });
     expect(
       shellCommandFor(press({ key: '>', code: 'Period', meta: true, shift: true }), 'darwin', dots),

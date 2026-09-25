@@ -136,8 +136,8 @@ test('shortcuts: a key is rebound by pressing it, the page honours it, Reset all
   await shellKey(app, 'Escape', 'Escape');
   await expect(pin).toHaveText(mac ? '⇧⌘S' : 'Ctrl+Shift+S');
 
-  // the unread pair records from one arrow
-  const pair = win.getByTestId('shortcut-cap-nextUnread');
+  // the conversation pair records from one arrow
+  const pair = win.getByTestId('shortcut-cap-nextConversation');
   await pair.click();
   await shellKey(app, 'ArrowRight', 'ArrowRight', cmd);
   await expect(pair).toHaveText(mac ? '⌘→ / ⌘←' : 'Ctrl+→ / Ctrl+←');
@@ -173,10 +173,11 @@ test('shortcuts: ⌘/Ctrl ⇧ G inside a service page opens Home', async () => {
   await app.close();
 });
 
-// the e2e boot hook gives zalo three direct unread and one recents row (its
-// conversation); telegram is where we start, and zalo has no view yet, so the
-// row resolves to plain activation — the tile still lands on zalo
-test('shortcuts: ⌘/Ctrl ⇧ ] jumps to the next unread conversation, once', async () => {
+// the e2e boot hook gives zalo three direct unread and one Recent row (a
+// conversation); telegram is where we start with nothing of its own in the
+// list, so ⌘⇧] opens the newest row — zalo has no view yet, so the row
+// resolves to plain activation and the tile still lands on zalo
+test('shortcuts: ⌘/Ctrl ⇧ ] opens the most recent conversation, once', async () => {
   const { app, win } = await launch(
     makeProfile({ active: 'telegram', enabled: ['telegram', 'zalo'] }),
   );
@@ -188,7 +189,7 @@ test('shortcuts: ⌘/Ctrl ⇧ ] jumps to the next unread conversation, once', as
   await expect(rail.locator('button[aria-label="Zalo"]')).toContainText('3');
   await chord(app, '}', 'BracketRight');
   await expect(rail.locator('button[aria-label="Zalo"]')).toHaveAttribute('aria-current', 'page');
-  // the zalo row is the only target and the cursor already sits on it: nowhere to go
+  // the zalo row is the only target and the walk's cursor already sits on it: nowhere to go
   await chord(app, '}', 'BracketRight');
   await expect(rail.locator('button[aria-label="Zalo"]')).toHaveAttribute('aria-current', 'page');
   await app.close();

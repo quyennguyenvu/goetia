@@ -2,6 +2,8 @@
 
 Date: 2026-09-21. Status: approved in brainstorm (user decision, same day); not implemented. Scope: one chord pair that walks the rail to the next or previous service with an unread badge, from the keyboard, inside a service page or on Home. No new state, no page injection.
 
+> Superseded (2026-09-24): the pair now walks ⌘K's Recent list — the conversations the user opened — not unread banners. See `2026-09-24-recent-conversations-design.md`.
+
 ## Problem
 
 Getting to what came in means reading the rail for badges and then `⌘/Ctrl 1…9` or a click — a look-then-aim step every time a badge appears. Every tabbed client offers "next unread" for exactly this; Goetia's services are its tabs.

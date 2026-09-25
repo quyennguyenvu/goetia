@@ -8,12 +8,13 @@ import type {
 } from './lock';
 import type { RebindableId, RecordResult } from './shortcuts';
 import type {
-  ActivityEntryView,
   Counts,
   DiagEntry,
   DownloadStorage,
   DownloadView,
   PasskeyView,
+  RecentsStorage,
+  RecentView,
   ServiceId,
   Settings,
   ShellState,
@@ -67,8 +68,8 @@ export interface RendererToMain {
     clickId?: number;
     href?: string;
   };
-  /** open a recents row: main resolves the stored entry and re-validates */
-  'activity:open': { entryId: number };
+  /** open a Recent row: main resolves the stored row and re-validates its URL */
+  'recents:open': { id: number };
   /** Home's pinboard. All shell-only; ids are opaque handles into PinStore
    *  and hrefs never cross IPC — main re-validates at open time. */
   'pins:reorder': { ids: number[] };
@@ -99,6 +100,15 @@ export interface RendererToMain {
    *  new reach, since window.open already lands there. */
   'service:openExternal': { serviceId: ServiceId; url: string };
   'service:ready': { serviceId: ServiceId };
+  /** the conversation on screen in the focused view, for ⌘K's Recent — sent
+   *  on change only. Every field is page data: main sanitizes it and accepts
+   *  it for the active, focused, overlay-free service alone (recents-rules) */
+  'conversation:active': {
+    serviceId: ServiceId;
+    conversation: string | null;
+    url: string;
+    title: string;
+  };
   'updates:check': Record<string, never>;
   'updates:openDownload': Record<string, never>;
 }
@@ -155,7 +165,7 @@ export const R2M_CHANNELS = [
   'unread:update',
   'unread:stale',
   'notification:fired',
-  'activity:open',
+  'recents:open',
   'pins:reorder',
   'pins:unpin',
   'pins:restore',
@@ -170,6 +180,7 @@ export const R2M_CHANNELS = [
   'service:trusted-click',
   'service:openExternal',
   'service:ready',
+  'conversation:active',
   'service:readyTimeout',
   'updates:check',
   'updates:openDownload',
@@ -178,8 +189,10 @@ export const R2M_CHANNELS = [
 /** renderer -> main round-trips, via ipcRenderer.invoke. `payload` is what
  *  the sender passes; channels without one are invoked bare. */
 export interface RendererInvoke {
-  /** recents for the quick switcher: fetched once per open, never broadcast */
-  'activity:recent': { result: ActivityEntryView[] };
+  /** ⌘K's Recent: the conversations the user opened, newest first, the one
+   *  on screen left out, fetched once per open and never broadcast — plus how
+   *  recents.json rests, for the switcher's one quiet line */
+  'recents:list': { result: { rows: RecentView[]; storage: RecentsStorage } };
   /** Home's sweep: wipes every service's login, summoned and unbound.
    *  Returns the count so the renderer can toast it — invoke rather than
    *  send because the confirm is modal and the wipes are async, and a
@@ -265,7 +278,7 @@ export type InvokePayload<C extends keyof RendererInvoke> = RendererInvoke[C] ex
   : undefined;
 
 export const INVOKE_CHANNELS = [
-  'activity:recent',
+  'recents:list',
   'services:purgeAll',
   'webauthn:create',
   'webauthn:get',
@@ -302,8 +315,8 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'badge:overlay',
   'updates:check',
   'updates:openDownload',
-  'activity:open',
-  'activity:recent',
+  'recents:open',
+  'recents:list',
   'services:purgeAll',
   'passkeys:list',
   'passkeys:forget',

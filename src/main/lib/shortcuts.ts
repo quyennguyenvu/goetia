@@ -20,7 +20,7 @@ export type ShellCommand =
   | { kind: 'reload' }
   | { kind: 'devtools' }
   | { kind: 'zoom'; step: 1 | -1 | 0 }
-  | { kind: 'unread'; step: 1 | -1 }
+  | { kind: 'conversation'; step: 1 | -1 }
   | { kind: 'service'; index: number };
 
 /** The slice of Electron's `Input` the matcher reads — structural, so this
@@ -113,8 +113,8 @@ function fixedTable(a: Accelerators): ReadonlyArray<readonly [readonly string[],
     [[a.home], { kind: 'home' }],
     [[a.pinSelection], { kind: 'pin-selection' }],
     [[a.switcher], { kind: 'switcher' }],
-    [[a.nextUnread], { kind: 'unread', step: 1 }],
-    [[a.prevUnread], { kind: 'unread', step: -1 }],
+    [[a.nextConversation], { kind: 'conversation', step: 1 }],
+    [[a.prevConversation], { kind: 'conversation', step: -1 }],
     [[a.mute], { kind: 'mute' }],
     [[a.lock], { kind: 'lock' }],
     [[a.settings], { kind: 'settings' }],

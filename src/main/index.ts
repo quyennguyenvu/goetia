@@ -49,6 +49,7 @@ import { electronPrompt, identitySharePrompt } from './passkeys/prompt';
 import { PasskeyStore } from './passkeys/store';
 import { PinStore } from './pins';
 import { QuietHoursController } from './quiet-hours';
+import { RecentsStore } from './recents';
 import { ResilienceManager } from './resilience';
 import { SettingsStore } from './settings';
 import { ShortcutRecorder } from './shortcut-recorder';
@@ -139,6 +140,17 @@ app
       diag.note('downloads', 'history unreadable: sealed file, keychain would not open it');
     } else if (downloadHistory.storage() === 'plain') {
       diag.note('downloads', 'history stored unencrypted: the OS keychain is unavailable');
+    }
+    // ⌘K's Recent rests under the same key; an unreadable file is kept and
+    // records nothing this launch, plaintext says so
+    const recents = new RecentsStore(app.getPath('userData'), pinCodec);
+    if (recents.storage() === 'unreadable') {
+      diag.note(
+        'recents',
+        'unreadable: sealed file, keychain would not open it; nothing recorded this launch',
+      );
+    } else if (recents.storage() === 'plain') {
+      diag.note('recents', 'stored unencrypted: the OS keychain is unavailable');
     }
     const passkeyStore = new PasskeyStore(app.getPath('userData'), safeStorageCodec());
     const lock = new LockController(new LockStore(app.getPath('userData'), safeStorageCodec()), {
@@ -438,6 +450,7 @@ app
       waking,
       updates,
       activity,
+      recents,
       pins,
       downloads,
       recorder,
@@ -569,13 +582,12 @@ app
         state.setRuntime('zalo', { unread: { direct: 3, indirect: 0 } });
         // and one evidence line, so the Diagnostics pane has a row to show
         diag.note('recipe', 'zalo stale', 'zalo');
-        // and one recents row, so ⌘⇧] has a conversation to land on
-        activity.append({
+        // and one Recent row, so ⌘⇧] has a conversation to land on
+        recents.upsert({
           serviceId: 'zalo',
-          title: 'Minh Anh',
+          label: 'Minh Anh',
           conversation: 'Minh Anh',
-          synthetic: false,
-          silenced: false,
+          url: 'https://chat.zalo.me/',
           at: Date.now(),
         });
       }, 1500);
