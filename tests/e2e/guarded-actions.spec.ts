@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { _electron as electron, expect, type Page, test } from '@playwright/test';
@@ -25,7 +25,30 @@ function makeProfile(): string {
         teams: true,
       },
       // Touch ID off so the run never waits on a prompt it cannot drive
-      appLock: { enabled: false, touchId: false, guardActions: true },
+      appLock: {
+        enabled: false,
+        touchId: false,
+        guard: { summon: true, purge: true, downloads: true, passkeys: true },
+      },
+    }),
+  );
+  // one ended row for the Downloads pane; the file itself never existed, so
+  // the row reads `missing` — still an ended row with a checkbox
+  writeFileSync(
+    join(profile, 'downloads.json'),
+    JSON.stringify({
+      downloads: [
+        {
+          id: 1,
+          serviceId: 'zalo',
+          filename: 'note.txt',
+          path: join(profile, 'note.txt'),
+          state: 'saved',
+          received: 17,
+          total: 17,
+          at: Date.now(),
+        },
+      ],
     }),
   );
   return profile;
@@ -51,6 +74,14 @@ async function armLock(win: Page) {
   await expect(win.getByTestId('lock-status')).toHaveText('Lock on.');
   await win.keyboard.press('Escape');
   await expect(win.getByTestId('settings')).toHaveCount(0);
+}
+
+/** The pane relocks whenever it unmounts, so every visit passes the gate. */
+async function openLockPane(win: Page) {
+  await win.getByTestId('settings-nav-lock').click();
+  await win.getByTestId('lock-current-passcode').fill(PASSCODE);
+  await win.getByTestId('lock-unlock').click();
+  await expect(win.getByTestId('lock-unlocked')).toBeVisible();
 }
 
 /** After a wrong attempt the backoff is armed, and it is checked *before* the
@@ -139,4 +170,68 @@ test('the sweep asks too, and its acknowledgement is not enough on its own', asy
   await expect(win.getByTestId('purge-confirm-btn')).toBeEnabled();
 
   await app.close();
+});
+
+test('a group switched off stops asking; the others still do; on again asks again', async () => {
+  const profile = makeProfile();
+  const { app, win } = await launch(profile);
+  await armLock(win);
+
+  await win.getByTestId('settings-btn').click();
+  await openLockPane(win);
+  await expect(win.getByTestId('lock-guard-rows')).toBeVisible();
+  // click, not uncheck(): change() sets `busy` before the scrypt round trip
+  // lands, so React re-renders the controlled box to its old prop value and
+  // Playwright's immediate post-click assertion would see it still checked
+  await win.getByTestId('lock-guard-downloads').click();
+  await expect(win.getByTestId('lock-guard-downloads')).not.toBeChecked();
+  await expect(win.getByTestId('lock-status')).toHaveText(
+    'No longer asking before removing download history.',
+  );
+  await expect(win.getByTestId('lock-guard-purge')).toBeChecked();
+
+  // the downloads group is off: Remove acts at once, with Undo and no card
+  await win.getByTestId('settings-nav-downloads').click();
+  const rows = win.getByTestId('download-row');
+  await expect(rows).toHaveCount(1);
+  await rows.first().getByTestId('download-select').check();
+  await win.getByTestId('downloads-remove').click();
+  await expect(win.getByTestId('credential-confirm')).toHaveCount(0);
+  await expect(rows).toHaveCount(0);
+  await expect(win.getByTestId('downloads-undo')).toContainText('1 file removed');
+  await win.getByTestId('downloads-undo').getByRole('button', { name: 'Undo' }).click();
+  await expect(rows).toHaveCount(1);
+
+  // the purge group is still on: the confirm stays dead without the credential
+  await win.getByTestId('settings-nav-services').click();
+  await win.getByTestId('purge-zalo').click();
+  await expect(win.getByTestId('purge-confirm')).toBeVisible();
+  await expect(win.getByTestId('purge-confirm-btn')).toBeDisabled();
+  await win.keyboard.press('Escape');
+  await expect(win.getByTestId('purge-confirm')).toHaveCount(0);
+
+  // back on: Remove asks again
+  await openLockPane(win);
+  await win.getByTestId('lock-guard-downloads').click();
+  await expect(win.getByTestId('lock-guard-downloads')).toBeChecked();
+  await expect(win.getByTestId('lock-status')).toHaveText(
+    'Asking before removing download history.',
+  );
+  await win.getByTestId('settings-nav-downloads').click();
+  await rows.first().getByTestId('download-select').check();
+  await win.getByTestId('downloads-remove').click();
+  await expect(win.getByTestId('credential-confirm')).toBeVisible();
+  await expect(rows).toHaveCount(1);
+
+  // both switches are in the ring, and the record on disk has the new shape only
+  await win.keyboard.press('Escape');
+  await win.getByTestId('settings-nav-diagnostics').click();
+  const diag = win.getByTestId('diag-row');
+  await expect(diag.filter({ hasText: '[lock] configured: guard downloads off' })).toHaveCount(1);
+  await expect(diag.filter({ hasText: '[lock] configured: guard downloads on' })).toHaveCount(1);
+  await app.close();
+
+  const appLock = JSON.parse(readFileSync(join(profile, 'settings.json'), 'utf8')).appLock;
+  expect(appLock.guard).toEqual({ summon: true, purge: true, downloads: true, passkeys: true });
+  expect('guardActions' in appLock).toBe(false);
 });

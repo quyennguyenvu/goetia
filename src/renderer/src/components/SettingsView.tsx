@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { guardOn } from '../../../shared/lock';
 import { comboLabel, SUMMON_COMBOS } from '../../../shared/summon';
 import type { RailPosition, Settings, ThemePref, UpdateState } from '../../../shared/types';
 import { useShell } from '../store';
@@ -652,7 +653,7 @@ export default function SettingsView() {
                 </Pane>
                 <DownloadsPane
                   landing={s.downloads.ask ? null : (s.downloads.dir ?? 'your Downloads folder')}
-                  guarded={s.appLock.guardActions && state.lockConfigured}
+                  guarded={guardOn(s.appLock, state.lockConfigured, 'downloads')}
                 />
               </div>
             )}

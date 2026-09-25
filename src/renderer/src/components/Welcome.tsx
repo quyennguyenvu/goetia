@@ -1,5 +1,6 @@
 import { Reorder } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { guardOn } from '../../../shared/lock';
 import type { ServiceId } from '../../../shared/types';
 import {
   buildDisabledPatch,
@@ -162,7 +163,7 @@ export default function Welcome() {
   // asks when the guard is on; banishing and reordering never do
   const summon = () => {
     const brought = order.filter((id) => state.settings.disabled[id] && stagedSet.has(id));
-    const guarded = state.settings.appLock.guardActions && state.lockConfigured;
+    const guarded = guardOn(state.settings.appLock, state.lockConfigured, 'summon');
     if (guarded && brought.length > 0) {
       setAskSummon(brought);
       return;

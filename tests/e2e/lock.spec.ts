@@ -199,7 +199,13 @@ test('settings:update cannot switch the lock off — lock:configure is its only 
   await win.evaluate(() => {
     (window as unknown as { goetia: { send(c: string, p: unknown): void } }).goetia.send(
       'settings:update',
-      { appLock: { enabled: false, touchId: false, guardActions: false } },
+      {
+        appLock: {
+          enabled: false,
+          touchId: false,
+          guard: { summon: false, purge: false, downloads: false, passkeys: false },
+        },
+      },
     );
   });
   await win.getByTestId('settings-nav-diagnostics').click();
@@ -212,7 +218,7 @@ test('settings:update cannot switch the lock off — lock:configure is its only 
 
   expect(JSON.parse(readFileSync(join(profile, 'settings.json'), 'utf8')).appLock).toMatchObject({
     enabled: true,
-    guardActions: true,
+    guard: { summon: true, purge: true, downloads: true, passkeys: true },
   });
   // and the next launch comes up locked
   const again = await launch(profile);

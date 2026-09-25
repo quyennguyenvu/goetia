@@ -16,7 +16,11 @@ const settings: Settings = {
   theme: 'dark',
   lastActiveId: 'zalo',
   mutedUntil: { ...DEFAULT_SETTINGS.mutedUntil, zalo: 1_800_000_000_000 },
-  appLock: { enabled: true, touchId: false, guardActions: true },
+  appLock: {
+    enabled: true,
+    touchId: false,
+    guard: { ...DEFAULT_SETTINGS.appLock.guard, downloads: false },
+  },
   downloads: { ask: true, dir: '/Users/me/Chat' },
 };
 

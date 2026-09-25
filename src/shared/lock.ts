@@ -1,4 +1,4 @@
-import type { ServiceId } from './types';
+import { GUARD_GROUPS, type GuardGroup, type GuardSettings, type ServiceId } from './types';
 
 /** Minimum passcode length. Rate limiting, not composition rules, is what
  *  makes a local secret survive guessing — so this is a floor, not a policy. */
@@ -33,11 +33,14 @@ export type LockConfigure =
   | { action: 'disable'; current: string }
   | { action: 'change'; current: string; next: string }
   | { action: 'setTouchId'; current: string; touchId: boolean }
-  | { action: 'setGuardActions'; current: string; guardActions: boolean };
+  /** One group's switch. `group` is renderer data: main checks it against
+   *  GUARD_GROUPS before the record is touched. */
+  | { action: 'setGuard'; current: string; group: GuardGroup; on: boolean };
 
 export interface LockConfigResult {
   ok: boolean;
-  error?: 'wrong' | 'too-short' | 'already-set' | 'not-set';
+  /** `invalid`: a setGuard naming no group, or a non-boolean `on` */
+  error?: 'wrong' | 'too-short' | 'already-set' | 'not-set' | 'invalid';
 }
 
 /** Which doors the lock screen may offer, and which main will accept — one
@@ -106,4 +109,38 @@ export function describeAction(a: GuardedAction): string {
     default:
       return a.kind;
   }
+}
+
+export { GUARD_GROUPS, type GuardGroup, type GuardSettings };
+
+export function isGuardGroup(v: unknown): v is GuardGroup {
+  return typeof v === 'string' && (GUARD_GROUPS as readonly string[]).includes(v);
+}
+
+/** Which switch an action answers to. Exhaustive: a new kind fails typecheck
+ *  until it is placed. */
+export function guardGroupOf(action: GuardedAction): GuardGroup {
+  switch (action.kind) {
+    case 'summon':
+      return 'summon';
+    case 'purge-one':
+    case 'purge-all':
+      return 'purge';
+    case 'downloads-remove':
+    case 'downloads-clear':
+      return 'downloads';
+    case 'passkey-forget':
+      return 'passkeys';
+  }
+}
+
+/** Whether a group asks right now — the one rule main's authorized() and the
+ *  renderer's ask-sites read. The setting alone is not enough: with no
+ *  passcode stored there is nothing to ask for. */
+export function guardOn(
+  appLock: { guard: GuardSettings },
+  configured: boolean,
+  group: GuardGroup,
+): boolean {
+  return configured && appLock.guard[group];
 }

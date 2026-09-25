@@ -159,7 +159,12 @@ app
       hasTouchId,
       biometric,
       persist: (patch) => {
-        settings.update({ appLock: { ...settings.get().appLock, ...patch } });
+        const current = settings.get().appLock;
+        // a partial guard merges into the record; spread over it, one group's
+        // switch would drop the other three
+        settings.update({
+          appLock: { ...current, ...patch, guard: { ...current.guard, ...patch.guard } },
+        });
       },
       now: Date.now,
       // the ring is evidence: who tried what at the lock, as methods and counts

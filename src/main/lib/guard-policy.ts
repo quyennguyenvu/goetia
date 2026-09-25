@@ -1,13 +1,6 @@
 import { type GuardedAction, idSet } from '../../shared/lock';
 import type { Settings } from '../../shared/types';
 
-/** Whether a guarded action needs a credential right now. One condition in
- *  one place: the setting alone is not enough, because with no passcode
- *  stored there is nothing to ask for. */
-export function actionGuarded(opts: { guardActions: boolean; configured: boolean }): boolean {
-  return opts.guardActions && opts.configured;
-}
-
 /** Row ids as a consent is bound to them: finite positive integers, at most
  *  `cap` of them, sorted and deduplicated. Null for anything else, so a
  *  malformed payload mints nothing and removes nothing. */

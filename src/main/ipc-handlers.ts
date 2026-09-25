@@ -12,7 +12,7 @@ import {
 } from 'electron';
 import { normalizeDiagFilter } from '../shared/diag-filter';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
-import { describeAction, type GuardedAction } from '../shared/lock';
+import { describeAction, type GuardedAction, guardGroupOf, guardOn } from '../shared/lock';
 import { muteExpiry } from '../shared/mute';
 import { serviceById } from '../shared/services';
 import { isRebindable } from '../shared/shortcuts';
@@ -44,12 +44,7 @@ import {
 } from './lib/diagnostics';
 import { DOWNLOAD_HISTORY_CAP, downloadsSettingLines } from './lib/download-rules';
 import { isSafeExternalUrl } from './lib/external-url';
-import {
-  actionGuarded,
-  normalizeAction,
-  normalizeRemoveIds,
-  stripAppLock,
-} from './lib/guard-policy';
+import { normalizeAction, normalizeRemoveIds, stripAppLock } from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
 import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
@@ -290,10 +285,7 @@ function replayPending(ctx: AppContext): void {
  *  caller, like every other refusal in this file — and noted in the ring,
  *  because someone asked for a guarded action without the credential. */
 function authorized(ctx: AppContext, action: GuardedAction): boolean {
-  const guarded = actionGuarded({
-    guardActions: ctx.settings.get().appLock.guardActions,
-    configured: ctx.lock.configured(),
-  });
+  const guarded = guardOn(ctx.settings.get().appLock, ctx.lock.configured(), guardGroupOf(action));
   if (!guarded) return true;
   const ok = ctx.lock.consumeConsent(action);
   const what = describeAction(action);

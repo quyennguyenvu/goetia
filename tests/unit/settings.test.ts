@@ -513,36 +513,58 @@ describe('SettingsStore', () => {
     expect(reread.lastUsedAt.discord).toBe(123_456);
   });
 
-  it('defaults the lock off with Touch ID armed for when it is turned on', () => {
+  const ALL_ON = { summon: true, purge: true, downloads: true, passkeys: true };
+
+  it('defaults the lock off with Touch ID armed and every guard group on', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     expect(new SettingsStore(dir).get().appLock).toEqual({
       enabled: false,
       touchId: true,
-      guardActions: true,
+      guard: ALL_ON,
     });
   });
 
-  it('arms the action guard by default, for when the lock is turned on', () => {
-    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
-    expect(new SettingsStore(dir).get().appLock.guardActions).toBe(true);
-  });
-
-  it('coerces a non-boolean guardActions to the default', () => {
+  it('coerces a guard block field by field and drops what it does not know', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     writeFileSync(
       join(dir, 'settings.json'),
-      JSON.stringify({ appLock: { enabled: true, touchId: true, guardActions: 'no' } }),
+      JSON.stringify({
+        appLock: {
+          enabled: true,
+          touchId: true,
+          guard: { downloads: false, purge: 'no', x: false },
+        },
+      }),
     );
-    expect(new SettingsStore(dir).get().appLock.guardActions).toBe(true);
+    // a non-boolean falls back to the default rather than coercing truthy
+    expect(new SettingsStore(dir).get().appLock.guard).toEqual({ ...ALL_ON, downloads: false });
   });
 
-  it('keeps guardActions off once a settings.json says so', () => {
+  // every install from before the groups holds one boolean, and nearly all
+  // hold `true`: a migration that lost it would drop every guard silently
+  it('seeds all four groups from a legacy guardActions: true', () => {
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+    writeFileSync(
+      join(dir, 'settings.json'),
+      JSON.stringify({ appLock: { enabled: true, touchId: true, guardActions: true } }),
+    );
+    const s = new SettingsStore(dir).get();
+    expect(s.appLock.guard).toEqual(ALL_ON);
+    expect('guardActions' in s.appLock).toBe(false);
+  });
+
+  it('keeps every group off when a legacy guardActions: false turned the guard off', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     writeFileSync(
       join(dir, 'settings.json'),
       JSON.stringify({ appLock: { enabled: true, touchId: true, guardActions: false } }),
     );
-    expect(new SettingsStore(dir).get().appLock.guardActions).toBe(false);
+    expect(new SettingsStore(dir).get().appLock.guard).toEqual({
+      summon: false,
+      purge: false,
+      downloads: false,
+      passkeys: false,
+    });
   });
 
   it('coerces a hand-mangled appLock block field by field', () => {
@@ -556,7 +578,7 @@ describe('SettingsStore', () => {
     expect(new SettingsStore(dir).get().appLock).toEqual({
       enabled: false,
       touchId: false,
-      guardActions: true,
+      guard: ALL_ON,
     });
   });
 
@@ -564,7 +586,7 @@ describe('SettingsStore', () => {
     dir = mkdtempSync(join(tmpdir(), 'goetia-'));
     writeFileSync(join(dir, 'settings.json'), JSON.stringify({ globalMuted: true }));
     const s = new SettingsStore(dir).get();
-    expect(s.appLock).toEqual({ enabled: false, touchId: true, guardActions: true });
+    expect(s.appLock).toEqual({ enabled: false, touchId: true, guard: ALL_ON });
     expect(s.globalMuted).toBe(true);
   });
 

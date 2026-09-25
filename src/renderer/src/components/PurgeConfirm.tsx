@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { guardOn } from '../../../shared/lock';
 import { purgeAllCopy, purgeLoginCopy } from '../../../shared/purge-copy';
 import { type PurgeRequest, useShell } from '../store';
 import CredentialConfirm from './CredentialConfirm';
@@ -13,8 +14,10 @@ export default function PurgeConfirm() {
   const request = useShell((s) => s.purgeConfirm);
   const [acked, setAcked] = useState(false);
   const [verified, setVerified] = useState(false);
-  const guardActions = useShell((s) => s.state?.settings.appLock.guardActions ?? false);
-  const lockConfigured = useShell((s) => s.state?.lockConfigured ?? false);
+  // main is the enforcer; this only decides when to ask
+  const guarded = useShell((s) =>
+    s.state ? guardOn(s.state.settings.appLock, s.state.lockConfigured, 'purge') : false,
+  );
 
   // a fresh request always starts unacknowledged, however the last one ended
   // biome-ignore lint/correctness/useExhaustiveDependencies: request is the trigger, not a read
@@ -40,8 +43,6 @@ export default function PurgeConfirm() {
 
   const copy = request.kind === 'all' ? purgeAllCopy(request.count) : purgeLoginCopy(request.name);
   const gated = copy.checkboxLabel !== undefined;
-  // main is the enforcer; this only decides when to ask
-  const guarded = guardActions && lockConfigured;
   const ready = (!gated || acked) && (!guarded || verified);
   const close = () => useShell.getState().setPurgeConfirm(null);
 

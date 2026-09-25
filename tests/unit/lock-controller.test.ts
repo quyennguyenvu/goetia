@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { KeyCodec } from '../../src/main/codec';
 import { LockController, LockStore } from '../../src/main/lock';
+import type { GuardGroup, GuardSettings } from '../../src/shared/types';
 
 let dir: string;
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -18,7 +19,10 @@ function build(
 ) {
   dir = mkdtempSync(join(tmpdir(), 'goetia-lockctl-'));
   const store = new LockStore(dir, codec);
-  const settings = { enabled: opts.enabled ?? true, touchId: opts.touchId ?? true };
+  const settings: { enabled: boolean; touchId: boolean; guard?: Partial<GuardSettings> } = {
+    enabled: opts.enabled ?? true,
+    touchId: opts.touchId ?? true,
+  };
   let now = 0;
   const notes: string[] = [];
   const controller = new LockController(store, {
@@ -276,9 +280,10 @@ describe('LockController notes', () => {
     await controller.configure({ action: 'enable', passcode: 'correct horse' });
     await controller.configure({ action: 'setTouchId', current: 'correct horse', touchId: false });
     await controller.configure({
-      action: 'setGuardActions',
+      action: 'setGuard',
       current: 'correct horse',
-      guardActions: false,
+      group: 'purge',
+      on: false,
     });
     await controller.configure({
       action: 'change',
@@ -291,10 +296,41 @@ describe('LockController notes', () => {
     expect(notes).toEqual([
       'configured: enabled',
       'configured: touch id off',
-      'configured: guard off',
+      'configured: guard purge off',
       'configured: passcode changed',
       'configure refused: wrong passcode',
       'configured: disabled',
     ]);
+  });
+
+  it('setGuard persists one group and refuses a stranger', async () => {
+    const { controller, settings, notes } = await armed();
+    const ok = await controller.configure({
+      action: 'setGuard',
+      current: 'correct horse',
+      group: 'downloads',
+      on: false,
+    });
+    expect(ok).toEqual({ ok: true });
+    expect(settings.guard).toEqual({ downloads: false });
+    expect(notes.at(-1)).toBe('configured: guard downloads off');
+
+    // the group name is renderer data: a record with a fixed shape must stay
+    // that shape, whatever the shell's console sends
+    const stranger = await controller.configure({
+      action: 'setGuard',
+      current: 'correct horse',
+      group: 'all' as unknown as GuardGroup,
+      on: false,
+    });
+    expect(stranger).toEqual({ ok: false, error: 'invalid' });
+    const notBoolean = await controller.configure({
+      action: 'setGuard',
+      current: 'correct horse',
+      group: 'purge',
+      on: 'yes' as unknown as boolean,
+    });
+    expect(notBoolean).toEqual({ ok: false, error: 'invalid' });
+    expect(settings.guard).toEqual({ downloads: false });
   });
 });

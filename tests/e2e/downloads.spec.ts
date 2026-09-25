@@ -36,7 +36,11 @@ function makeProfile(): { profile: string; downloads: string } {
       },
       downloads: { ask: false, dir: downloads },
       // Touch ID off so the guard test never waits on a prompt it cannot drive
-      appLock: { enabled: false, touchId: false, guardActions: true },
+      appLock: {
+        enabled: false,
+        touchId: false,
+        guard: { summon: true, purge: true, downloads: true, passkeys: true },
+      },
     }),
   );
   return { profile, downloads };

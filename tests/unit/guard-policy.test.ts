@@ -1,33 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import {
-  actionGuarded,
-  normalizeAction,
-  normalizeRemoveIds,
-  stripAppLock,
-} from '../../src/main/lib/guard-policy';
+import { normalizeAction, normalizeRemoveIds, stripAppLock } from '../../src/main/lib/guard-policy';
 import {
   INVOKE_CHANNELS,
   LOCKED_ALLOWED_CHANNELS,
   SHELL_ONLY_CHANNELS,
 } from '../../src/shared/ipc';
+import { GUARD_GROUPS, guardGroupOf, guardOn, isGuardGroup } from '../../src/shared/lock';
 import { DEFAULT_SETTINGS } from '../../src/shared/types';
-
-describe('actionGuarded', () => {
-  it('guards only when the setting is on and a passcode exists', () => {
-    expect(actionGuarded({ guardActions: true, configured: true })).toBe(true);
-  });
-
-  // no credential to ask for: the guard is absent, and the UI says so rather
-  // than degrading into something weaker
-  it('is off when the lock was never configured', () => {
-    expect(actionGuarded({ guardActions: true, configured: false })).toBe(false);
-  });
-
-  it('is off when the user turned it off', () => {
-    expect(actionGuarded({ guardActions: false, configured: true })).toBe(false);
-    expect(actionGuarded({ guardActions: false, configured: false })).toBe(false);
-  });
-});
 
 describe('lock:confirm classification', () => {
   it('is a shell-only invoke channel', () => {
@@ -90,5 +69,45 @@ describe('stripAppLock', () => {
     const { patch, carried } = stripAppLock(input);
     expect(carried).toBe(false);
     expect(patch).toBe(input);
+  });
+});
+
+describe('guardGroupOf', () => {
+  it('places every kind in its group', () => {
+    expect(guardGroupOf({ kind: 'summon' })).toBe('summon');
+    expect(guardGroupOf({ kind: 'purge-one', serviceId: 'slack' })).toBe('purge');
+    expect(guardGroupOf({ kind: 'purge-all' })).toBe('purge');
+    expect(guardGroupOf({ kind: 'downloads-remove', ids: [1] })).toBe('downloads');
+    expect(guardGroupOf({ kind: 'downloads-clear' })).toBe('downloads');
+    expect(guardGroupOf({ kind: 'passkey-forget', id: 'abc' })).toBe('passkeys');
+  });
+});
+
+describe('guardOn', () => {
+  const all = { guard: { summon: true, purge: true, downloads: true, passkeys: true } };
+
+  it('asks only when a passcode exists and the group is on', () => {
+    expect(guardOn(all, true, 'purge')).toBe(true);
+    // no credential to ask for: the guard is absent, and the UI says so rather
+    // than degrading into something weaker
+    expect(guardOn(all, false, 'purge')).toBe(false);
+  });
+
+  it('one group off leaves the other three guarded', () => {
+    const noDownloads = { guard: { ...all.guard, downloads: false } };
+    expect(guardOn(noDownloads, true, 'downloads')).toBe(false);
+    for (const g of ['summon', 'purge', 'passkeys'] as const) {
+      expect(guardOn(noDownloads, true, g)).toBe(true);
+    }
+  });
+});
+
+describe('isGuardGroup', () => {
+  it('admits the four groups and nothing else', () => {
+    for (const g of GUARD_GROUPS) expect(isGuardGroup(g)).toBe(true);
+    expect(isGuardGroup('all')).toBe(false);
+    expect(isGuardGroup('__proto__')).toBe(false);
+    expect(isGuardGroup(1)).toBe(false);
+    expect(isGuardGroup(undefined)).toBe(false);
   });
 });

@@ -3,6 +3,9 @@ import { SERVICES } from '../shared/services';
 import { SUMMON_COMBOS } from '../shared/summon';
 import {
   DEFAULT_SETTINGS,
+  GUARD_GROUPS,
+  type GuardGroup,
+  type GuardSettings,
   type QuietHoursSchedule,
   type ServiceId,
   type Settings,
@@ -79,12 +82,33 @@ function fillAutoBanish(raw: unknown): Settings['autoBanish'] {
  *  corrupt file must not decide whether the app is locked. */
 function fillAppLock(raw: unknown): Settings['appLock'] {
   const d = DEFAULT_SETTINGS.appLock;
-  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['appLock']>;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['appLock']> & {
+    guardActions?: unknown;
+  };
   return {
     enabled: typeof r.enabled === 'boolean' ? r.enabled : d.enabled,
     touchId: typeof r.touchId === 'boolean' ? r.touchId : d.touchId,
-    guardActions: typeof r.guardActions === 'boolean' ? r.guardActions : d.guardActions,
+    guard: fillGuard(r.guard, r.guardActions),
   };
+}
+
+/** The four switches, field by field. A settings.json from before the groups
+ *  holds one `guardActions` boolean: it seeds all four, so an install that
+ *  never touched the switch keeps every guard it had. */
+function fillGuard(raw: unknown, legacy: unknown): GuardSettings {
+  const d = DEFAULT_SETTINGS.appLock.guard;
+  if (raw && typeof raw === 'object') {
+    const r = raw as Partial<Record<GuardGroup, unknown>>;
+    const out = { ...d };
+    for (const g of GUARD_GROUPS) {
+      if (typeof r[g] === 'boolean') out[g] = r[g] as boolean;
+    }
+    return out;
+  }
+  if (typeof legacy === 'boolean') {
+    return { summon: legacy, purge: legacy, downloads: legacy, passkeys: legacy };
+  }
+  return { ...d };
 }
 
 /** summonHotkey-style field-by-field coercion for the downloads block. A

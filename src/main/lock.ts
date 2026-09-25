@@ -5,13 +5,14 @@ import {
   CONSENT_TTL_MS,
   describeAction,
   type GuardedAction,
+  isGuardGroup,
   type LockConfigResult,
   type LockConfigure,
   sameAction,
   type UnlockRequest,
   type UnlockResult,
 } from '../shared/lock';
-import type { ServiceId } from '../shared/types';
+import type { GuardSettings, ServiceId } from '../shared/types';
 import type { KeyCodec } from './codec';
 import { passcodeAcceptable, unlockDelay } from './lib/lock-rules';
 
@@ -112,7 +113,7 @@ export interface LockDeps {
   touchIdEnabled(): boolean;
   hasTouchId(): boolean;
   biometric(reason: string): Promise<boolean>;
-  persist(patch: { enabled?: boolean; touchId?: boolean; guardActions?: boolean }): void;
+  persist(patch: { enabled?: boolean; touchId?: boolean; guard?: Partial<GuardSettings> }): void;
   now(): number;
   /** ctx.diag.note('lock', …): methods, kinds and counts, never a secret */
   note?(line: string): void;
@@ -279,8 +280,11 @@ export class LockController {
       this.deps.note?.(`configured: touch id ${req.touchId ? 'on' : 'off'}`);
       return { ok: true };
     }
-    this.deps.persist({ guardActions: req.guardActions });
-    this.deps.note?.(`configured: guard ${req.guardActions ? 'on' : 'off'}`);
+    if (!isGuardGroup(req.group) || typeof req.on !== 'boolean') {
+      return { ok: false, error: 'invalid' };
+    }
+    this.deps.persist({ guard: { [req.group]: req.on } });
+    this.deps.note?.(`configured: guard ${req.group} ${req.on ? 'on' : 'off'}`);
     return { ok: true };
   }
 

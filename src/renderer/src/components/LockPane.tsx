@@ -1,7 +1,29 @@
 import type React from 'react';
 import { useState } from 'react';
 import { type LockConfigure, PASSCODE_MIN_LENGTH } from '../../../shared/lock';
+import { DEFAULT_SETTINGS, GUARD_GROUPS, type GuardGroup } from '../../../shared/types';
 import { useShell } from '../store';
+
+/** Settings → Lock's guard rows, in GUARD_GROUPS order. The label doubles as
+ *  the status line's object ("Asking before purging a login."). */
+const GUARD_ROWS: Record<GuardGroup, { label: string; hint: string }> = {
+  summon: {
+    label: 'Summoning a banished service',
+    hint: 'A banished service keeps its login; bringing it back reveals its conversations.',
+  },
+  purge: {
+    label: 'Purging a login',
+    hint: 'Signs you out of that service and cannot be undone.',
+  },
+  downloads: {
+    label: 'Removing download history',
+    hint: 'Erases the record of what was downloaded. Undo still covers the next few seconds.',
+  },
+  passkeys: {
+    label: 'Forgetting a passkey',
+    hint: 'Removes a sign-in credential from this Mac.',
+  },
+};
 
 const errorText = (error?: string): string => {
   if (error === 'wrong') return 'That is not your passcode.';
@@ -27,7 +49,7 @@ const errorText = (error?: string): string => {
 export default function LockPane() {
   const enabled = useShell((s) => s.state?.settings.appLock.enabled ?? false);
   const useTouchId = useShell((s) => s.state?.settings.appLock.touchId ?? true);
-  const guardActions = useShell((s) => s.state?.settings.appLock.guardActions ?? true);
+  const guard = useShell((s) => s.state?.settings.appLock.guard ?? DEFAULT_SETTINGS.appLock.guard);
   const configured = useShell((s) => s.state?.lockConfigured ?? false);
   const sensor = useShell((s) => s.state?.touchIdAvailable ?? false);
 
@@ -210,33 +232,38 @@ export default function LockPane() {
             </div>
           )}
 
-          <div
-            className="flex items-center justify-between gap-4 border-b border-border py-2"
-            data-testid="lock-guard-row"
-          >
+          <div className="flex flex-col border-b border-border py-2" data-testid="lock-guard-rows">
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-text-1">
-                Ask before summoning a service, purging a login or removing download history
-              </span>
+              <span className="text-text-1">Ask for your credential before…</span>
               <span className="text-[11px] text-text-2">
-                A banished service keeps its login, so summoning one back reveals its conversations
-                — a purge cannot be undone, and removing download history erases the record of what
-                was downloaded. This asks even while Goetia is unlocked. It does not guard services
-                already on your rail.
+                This asks even while Goetia is unlocked, and Touch ID counts here. It does not guard
+                services already on your rail.
               </span>
             </span>
-            <input
-              type="checkbox"
-              checked={guardActions}
-              data-testid="lock-guard-toggle"
-              disabled={busy}
-              onChange={(e) =>
-                change(
-                  { action: 'setGuardActions', current: verified, guardActions: e.target.checked },
-                  e.target.checked ? 'Asking before those actions.' : 'No longer asking.',
-                )
-              }
-            />
+            {GUARD_GROUPS.map((group) => (
+              <label
+                key={group}
+                className="flex items-center justify-between gap-4 py-1.5"
+                data-testid={`lock-guard-${group}-row`}
+              >
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-text-1">{GUARD_ROWS[group].label}</span>
+                  <span className="text-[11px] text-text-2">{GUARD_ROWS[group].hint}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={guard[group]}
+                  data-testid={`lock-guard-${group}`}
+                  disabled={busy}
+                  onChange={(e) =>
+                    change(
+                      { action: 'setGuard', current: verified, group, on: e.target.checked },
+                      `${e.target.checked ? 'Asking' : 'No longer asking'} before ${GUARD_ROWS[group].label.toLowerCase()}.`,
+                    )
+                  }
+                />
+              </label>
+            ))}
           </div>
 
           <div className="flex items-center justify-between gap-4 border-b border-border py-2">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { guardOn } from '../../../shared/lock';
 import type { PasskeyView } from '../../../shared/types';
 import { useShell } from '../store';
 import CredentialConfirm from './CredentialConfirm';
@@ -16,8 +17,8 @@ export default function PasskeysPane() {
   const [list, setList] = useState<PasskeyView[] | null>(null);
   const [undo, setUndo] = useState<{ id: string; rpId: string } | null>(null);
   // main enforces; this only decides when to ask — the PurgeConfirm line
-  const guarded = useShell(
-    (s) => (s.state?.settings.appLock.guardActions ?? false) && (s.state?.lockConfigured ?? false),
+  const guarded = useShell((s) =>
+    s.state ? guardOn(s.state.settings.appLock, s.state.lockConfigured, 'passkeys') : false,
   );
   const [asking, setAsking] = useState<PasskeyView | null>(null);
 

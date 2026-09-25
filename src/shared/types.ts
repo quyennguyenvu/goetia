@@ -157,6 +157,15 @@ export type ThemePref = 'system' | 'light' | 'dark';
 
 export type RailPosition = 'top' | 'left' | 'right';
 
+/** The concerns the action guard is switched by, in the Lock pane's order.
+ *  Defined here rather than in lock.ts because appLock.guard is a Settings
+ *  field and lock.ts already imports from this file. */
+export const GUARD_GROUPS = ['summon', 'purge', 'downloads', 'passkeys'] as const;
+export type GuardGroup = (typeof GUARD_GROUPS)[number];
+
+/** One switch per group — `appLock.guard`. */
+export type GuardSettings = Record<GuardGroup, boolean>;
+
 export interface Settings {
   order: ServiceId[];
   muted: Record<ServiceId, boolean>;
@@ -205,10 +214,11 @@ export interface Settings {
    *  itself lives in lock.json — never here, because ShellState broadcasts
    *  this whole object to the renderer. `touchId` is separately switchable
    *  because Touch ID accepts any finger enrolled on the Mac, which on a
-   *  shared machine is exactly the person the lock is aimed at.
-   *  `guardActions` extends the same credential to three actions an unlocked
-   *  Goetia would otherwise do for anyone — see the 2026-09-13 spec. */
-  appLock: { enabled: boolean; touchId: boolean; guardActions: boolean };
+   *  shared machine is exactly the person the lock is aimed at. `guard`
+   *  extends the same credential to four groups of actions an unlocked Goetia
+   *  would otherwise do for anyone, one switch each — `guardGroupOf` in
+   *  shared/lock.ts places an action; see the 2026-09-25 spec. */
+  appLock: { enabled: boolean; touchId: boolean; guard: GuardSettings };
   /** Where a file a service page downloads lands. `ask` shows the Save dialog
    *  every time; otherwise the file is saved silently into `dir`, or into the
    *  OS Downloads folder (app.getPath('downloads')) while `dir` is null — so
@@ -332,7 +342,11 @@ export const DEFAULT_SETTINGS: Settings = {
   lightSleep: true,
   peekSaver: false,
   shareFacebookLogin: true,
-  appLock: { enabled: false, touchId: true, guardActions: true },
+  appLock: {
+    enabled: false,
+    touchId: true,
+    guard: { summon: true, purge: true, downloads: true, passkeys: true },
+  },
   downloads: { ask: false, dir: null },
   quietHours: {
     enabled: false,
