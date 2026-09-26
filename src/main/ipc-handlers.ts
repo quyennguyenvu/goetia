@@ -283,13 +283,13 @@ function replayPending(ctx: AppContext): void {
 /** True when this action may proceed: either the guard is off, or the user
  *  has just authorized exactly this action. A refusal is silent to the
  *  caller, like every other refusal in this file — and noted in the ring,
- *  because someone asked for a guarded action without the credential. */
+ *  because someone asked for a guarded action without the credential. A
+ *  grant is not noted: the action's own line records it. */
 function authorized(ctx: AppContext, action: GuardedAction): boolean {
   const guarded = guardOn(ctx.settings.get().appLock, ctx.lock.configured(), guardGroupOf(action));
   if (!guarded) return true;
   const ok = ctx.lock.consumeConsent(action);
-  const what = describeAction(action);
-  ctx.diag.note('lock', ok ? `${what} authorized` : `${what} refused: no consent`);
+  if (!ok) ctx.diag.note('lock', `${describeAction(action)} refused: no consent`);
   return ok;
 }
 
@@ -488,7 +488,6 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     } catch {
       return { ok: false, reason: 'write-failed' };
     }
-    ctx.diag.note('app', 'settings exported');
     return { ok: true, path };
   });
   onInvoke('settings:import', { ok: false, reason: 'cancelled' }, async ({ retry }) => {
@@ -714,8 +713,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     if (n > 0) ctx.diag.note('downloads', `history cleared (${n} rows)`);
   });
   on('downloads:restore', () => {
-    const n = ctx.downloads.restore();
-    if (n > 0) ctx.diag.note('downloads', `history: restored ${n} rows`);
+    ctx.downloads.restore();
   });
   on('downloads:openDir', () => {
     ctx.downloads.openFolder();

@@ -234,7 +234,6 @@ app
       },
       // the one openPath in the app, and only ever on the directory above
       openFolder: (p) => void shell.openPath(p),
-      note: (line) => diag.note('downloads', line),
       now: Date.now,
     });
     const accelerators = () => resolveAccelerators(settings.get().shortcuts);
@@ -461,11 +460,7 @@ app
       recorder,
       // a 5s cool-down after a declined ceremony refuses the next one silently,
       // so a scripted loop cannot chain endless modal prompts
-      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), {
-        cooldownMs: 5_000,
-        // the authenticator prefixes its own tag; the ring adds it back
-        log: (line) => diag.note('passkey', line.replace(/^\[passkey\] /, '')),
-      }),
+      passkeys: new PasskeyAuthenticator(passkeyStore, electronPrompt(win), { cooldownMs: 5_000 }),
       passkeyStore,
       lock,
       identityShare,

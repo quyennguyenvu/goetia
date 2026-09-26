@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HibernationController } from '../../src/main/hibernation';
-import { PEEK_INTERVAL_MS, PEEK_STAGGER_MS } from '../../src/main/lib/peek-rules';
+import { PEEK_INTERVAL_MS, PEEK_STAGGER_MS, PEEK_TIMEOUT_MS } from '../../src/main/lib/peek-rules';
 import { DEFAULT_SETTINGS, type ServiceId, type Settings } from '../../src/shared/types';
 
 /** Two enabled services, both asleep and both due for a peek. hibernationMinutes
@@ -21,8 +21,9 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
     ServiceId,
     { hibernated: boolean; unread: { direct: number; indirect: number } }
   >();
+  const note = vi.fn();
   const ctx = {
-    diag: { note: () => {} },
+    diag: { note },
     settings: {
       get: () => settings,
       update: (patch: Partial<Settings>) => Object.assign(settings, patch),
@@ -70,7 +71,7 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
   const arrive = (id: ServiceId) => {
     ctx.state.runtime(id).unread.direct += 1;
   };
-  return { ctx, ensured, destroyed, arrive, banished, settings };
+  return { ctx, ensured, destroyed, arrive, banished, settings, note };
 }
 
 /** start() defers the first sweep by BOOT_DELAY_MS (5 s). */
@@ -353,6 +354,35 @@ describe('HibernationController auto-banish', () => {
     vi.advanceTimersByTime(BOOT);
     expect(banished).toEqual([]);
     expect(settings.lastUsedAt.instagram).toBe(0); // no seeding write
+    h.dispose();
+    vi.useRealTimers();
+  });
+});
+
+describe('HibernationController diagnostics', () => {
+  // a peek's start and its end by report are the cadence: at eight sleeping
+  // services they rotated the whole 200-line ring every two hours
+  it('a peek that ends on the report notes nothing', () => {
+    vi.useFakeTimers();
+    const { ctx, note } = harness();
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    h.noteUnreadReport('discord');
+    expect(note).not.toHaveBeenCalled();
+    h.dispose();
+    vi.useRealTimers();
+  });
+
+  it('a peek that times out notes once, with the service', () => {
+    vi.useFakeTimers();
+    const { ctx, note } = harness();
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT);
+    vi.advanceTimersByTime(PEEK_TIMEOUT_MS);
+    expect(note).toHaveBeenCalledTimes(1);
+    expect(note).toHaveBeenCalledWith('peek', 'discord peek ended: timeout', 'discord');
     h.dispose();
     vi.useRealTimers();
   });

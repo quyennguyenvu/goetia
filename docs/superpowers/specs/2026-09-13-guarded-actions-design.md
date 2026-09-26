@@ -28,7 +28,7 @@ Two holes, both named by the user:
 - **One-shot, action-bound consent minted in main** (approach A of three). Rejected: carrying the passcode in each channel payload, which sprays the secret across three payloads and has nothing to carry for a Touch ID confirm; and prompting natively inside the handler the way `identitySharePrompt` does, which is far smaller but is Touch ID or nothing — on a Mac without a sensor, or with Touch ID switched off, the guard would silently not exist. That is the trap the app lock was built to avoid.
 - **Touch ID is accepted here, unlike in the Lock pane.** The pane refuses it because reconfiguring the lock with the weaker credential lets the person the lock is aimed at turn it off. These actions do not weaken the lock; they are ordinary work being authorized, so the fast path is appropriate.
 
-Amended 2026-09-23 (`2026-09-23-download-history-design.md`): the set grew to `downloads-remove` (bound to the exact ids), `downloads-clear` and `passkey-forget` (bound to the id); every guarded action, grant and refusal is recorded in Diagnostics under a `lock` tag; and `settings:update` drops `appLock`, closing the shell-console bypass the audit found.
+Amended 2026-09-23 (`2026-09-23-download-history-design.md`): the set grew to `downloads-remove` (bound to the exact ids), `downloads-clear` and `passkey-forget` (bound to the id); every guarded action, grant and refusal is recorded in Diagnostics under a `lock` tag; and `settings:update` drops `appLock`, closing the shell-console bypass the audit found. Amended 2026-09-26 (`2026-09-26-diagnostics-unusual-only-design.md`): the grant is no longer recorded — only the refusal and the action's own line.
 
 ## What is guarded
 

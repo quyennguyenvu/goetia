@@ -61,7 +61,6 @@ export interface CeremonyInput {
 interface Deps {
   now(): number;
   keys(): KeyPair;
-  log(line: string): void;
   timeoutMs: number;
   /** Silence window after a declined/failed ceremony, per view: a new one
    *  inside it is refused WITHOUT a prompt, so a scripted loop cannot spawn an
@@ -88,7 +87,6 @@ export class PasskeyAuthenticator {
     this.deps = {
       now: Date.now,
       keys: generateKeyPair,
-      log: (line) => console.log(line),
       timeoutMs: WEBAUTHN_TIMEOUT_MS,
       cooldownMs: 0,
       ...deps,
@@ -187,7 +185,6 @@ export class PasskeyAuthenticator {
       publicKeyCose: keys.publicKeyCose,
     });
     const clientData = clientDataJSON('webauthn.create', req.challenge, origin);
-    this.deps.log(`[passkey] created rp=${req.rpId} via=${serviceId}`);
     return {
       id: passkey.id,
       clientDataJSON: toBase64Url(clientData),
@@ -199,7 +196,7 @@ export class PasskeyAuthenticator {
   }
 
   private async doGet(
-    { serviceId, origin, options, viewKey }: CeremonyInput,
+    { origin, options, viewKey }: CeremonyInput,
     isCurrent: () => boolean,
   ): Promise<WireGetResult> {
     const req = parseAssertion(options as WireGetOptions, hostOfOrigin(origin));
@@ -246,7 +243,6 @@ export class PasskeyAuthenticator {
     const clientData = clientDataJSON('webauthn.get', req.challenge, origin);
     const signature = signAssertion(pem, authData, clientData);
     this.store.touch(chosen.id, this.deps.now());
-    this.deps.log(`[passkey] asserted rp=${req.rpId} via=${serviceId}`);
     return {
       id: chosen.id,
       clientDataJSON: toBase64Url(clientData),

@@ -179,7 +179,6 @@ export class HibernationController {
   private beginPeek(id: ServiceId): void {
     const u = this.ctx.state.runtime(id).unread;
     this.ctx.views.ensure(id);
-    this.ctx.diag.note('peek', `${id} peek started`, id);
     const timer = setTimeout(() => {
       if (this.peeking?.id === id) this.endPeek(true, 'timeout');
     }, TIMEOUT_MS);
@@ -187,18 +186,18 @@ export class HibernationController {
   }
 
   /** `reason` names a peek that ran its course; an activation or an external
-   *  destroy mid-peek passes none and is not a diagnostics line. */
+   *  destroy mid-peek passes none. Only a timeout is a diagnostics line: a
+   *  start or a report is the cadence, not evidence. */
   private endPeek(destroy: boolean, reason?: 'report' | 'timeout'): void {
     if (!this.peeking) return;
     const { id, timer, before } = this.peeking;
     clearTimeout(timer);
     this.peeking = null;
     this.lastPeekEndedAt.set(id, Date.now());
-    if (reason) {
-      const line = `${id} peek ended: ${reason}`;
+    if (reason === 'timeout') {
       this.ctx.diag.note(
         'peek',
-        reason === 'timeout' ? withPage(line, this.ctx.views.pageUrl(id)) : line,
+        withPage(`${id} peek ended: timeout`, this.ctx.views.pageUrl(id)),
         id,
       );
     }

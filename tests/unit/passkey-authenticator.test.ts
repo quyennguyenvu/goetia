@@ -66,14 +66,13 @@ const stored = (userHandle: string, at: number, privateKeyPem = 'k') => ({
 
 function setup(p = prompt()) {
   const store = new PasskeyStore(dir, codec);
-  const log = vi.fn();
-  const auth = new PasskeyAuthenticator(store, p, { now: () => 1000, log });
-  return { store, auth, p, log };
+  const auth = new PasskeyAuthenticator(store, p, { now: () => 1000 });
+  return { store, auth, p };
 }
 
 describe('PasskeyAuthenticator.create', () => {
   it('confirms, mints a discoverable credential and returns a `none` attestation', async () => {
-    const { store, auth, p, log } = setup();
+    const { store, auth, p } = setup();
     const res = await auth.create(input(createOptions({ extensions: { credProps: true } })));
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -92,7 +91,6 @@ describe('PasskeyAuthenticator.create', () => {
     const ad = fromBase64Url(res.value.authenticatorData) as Uint8Array;
     expect(ad[32]).toBe(0x45); // UP | UV | AT
     expect(fromBase64Url(res.value.attestationObject)?.length).toBeGreaterThan(ad.length);
-    expect(log).toHaveBeenCalledWith('[passkey] created rp=microsoft.com via=teams');
   });
 
   it('refuses when the user cancels', async () => {
@@ -152,7 +150,7 @@ describe('PasskeyAuthenticator.get', () => {
   }
 
   it('signs an assertion the attested key verifies, and stamps lastUsedAt', async () => {
-    const { auth, store, created, p, log } = await registered();
+    const { auth, store, created, p } = await registered();
     const res = await auth.get(input(getOptions()));
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -178,7 +176,6 @@ describe('PasskeyAuthenticator.get', () => {
       ),
     ).toBe(true);
     expect(store.get(created.id)?.lastUsedAt).toBe(1000);
-    expect(log).toHaveBeenCalledWith('[passkey] asserted rp=microsoft.com via=teams');
   });
 
   it('shows the no-passkey notice and refuses when nothing matches', async () => {

@@ -289,15 +289,14 @@ test('history survives a relaunch, rows leave with Undo, and the guard asks once
   await verifyAfterFailure(win);
   await expect(rows).toHaveCount(0);
 
-  // the removals and the consent are in the ring, as counts: one removal
-  // before the lock, one after, and only the second spent a consent
+  // the removals are in the ring, as counts: one before the lock, one after.
+  // The consent the second one spent is not — a grant is not evidence
   await win.getByTestId('settings-nav-diagnostics').click();
   const diag = win.getByTestId('diag-row');
   await expect(diag.filter({ hasText: '[downloads] history: removed 1 rows' })).toHaveCount(2);
   await expect(diag.filter({ hasText: '[downloads] history cleared (2 rows)' })).toHaveCount(1);
-  await expect(diag.filter({ hasText: '[lock] downloads-remove (1 rows) authorized' })).toHaveCount(
-    1,
-  );
+  await expect(diag.filter({ hasText: 'authorized' })).toHaveCount(0);
+  await expect(diag.filter({ hasText: 'consent granted' })).toHaveCount(0);
   await expect(diag.filter({ hasText: 'note.txt' })).toHaveCount(0);
 
   await app.close();

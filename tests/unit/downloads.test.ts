@@ -85,7 +85,6 @@ function harness(
 ) {
   const files = over.files ?? new Set<string>();
   const banners: DownloadBanner[] = [];
-  const notes: string[] = [];
   const history = fakeHistory(over.initial ?? []);
   const box = { locked: false, settings: { ask: false, dir: null as string | null } };
   const deps: DownloadManagerDeps = {
@@ -104,14 +103,13 @@ function harness(
     history: history.store,
     isDirectory: (p) => p === DIR,
     openFolder: vi.fn(),
-    note: (line) => void notes.push(line),
     now: () => 1_000_000,
     ...over,
   };
   const dm = new DownloadManager(deps);
   const ses = new FakeSession();
   dm.attach('whatsapp', ses);
-  return { dm, ses, deps, banners, box, files, notes, writes: history.writes };
+  return { dm, ses, deps, banners, box, files, writes: history.writes };
 }
 
 describe('DownloadManager', () => {
@@ -507,17 +505,5 @@ describe('history at rest', () => {
     const plain = fakeHistory([], 'plain');
     const { dm } = harness({ history: plain.store });
     expect(dm.recent().storage).toBe('plain');
-  });
-
-  it('notes a cancel the user asked for, not one the lifecycle made', () => {
-    const { dm, ses, notes } = harness();
-    const a = new FakeItem('a.bin');
-    ses.fire(a);
-    dm.cancel(1);
-    expect(notes).toEqual(['cancelled by user: whatsapp']);
-    const b = new FakeItem('b.bin');
-    ses.fire(b);
-    dm.detach('whatsapp');
-    expect(notes).toHaveLength(1);
   });
 });

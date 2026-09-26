@@ -248,15 +248,14 @@ describe('LockController pending banner action', () => {
 });
 
 describe('LockController notes', () => {
-  it('records unlocks and refusals with the method and the failure count', async () => {
+  it('records refusals with the failure count, never a success', async () => {
     const { controller, notes } = await armed();
     controller.lock();
     await controller.unlock({ method: 'passcode', passcode: 'wrong' });
     await controller.unlock({ method: 'touchId' });
-    expect(notes.slice(-2)).toEqual([
-      'unlock refused: wrong passcode (1 failures)',
-      'unlocked (touch id)',
-    ]);
+    expect(controller.locked).toBe(false);
+    // the whole list: a grant creeping back in fails here
+    expect(notes).toEqual(['configured: enabled', 'unlock refused: wrong passcode (1 failures)']);
   });
 
   it('records a cancelled Touch ID and a throttled try', async () => {
@@ -265,14 +264,15 @@ describe('LockController notes', () => {
     await controller.unlock({ method: 'touchId' });
     await controller.unlock({ method: 'passcode', passcode: 'wrong' });
     await controller.unlock({ method: 'passcode', passcode: 'correct horse' });
-    expect(notes.slice(-3)).toEqual([
+    advance(60_000);
+    await controller.unlock({ method: 'passcode', passcode: 'correct horse' });
+    expect(controller.locked).toBe(false);
+    expect(notes).toEqual([
+      'configured: enabled',
       'unlock refused: touch id cancelled',
       'unlock refused: wrong passcode (1 failures)',
       'unlock throttled',
     ]);
-    advance(60_000);
-    await controller.unlock({ method: 'passcode', passcode: 'correct horse' });
-    expect(notes.at(-1)).toBe('unlocked (passcode)');
   });
 
   it('records every configuration and a refused one', async () => {

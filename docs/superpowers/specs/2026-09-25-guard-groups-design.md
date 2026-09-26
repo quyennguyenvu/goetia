@@ -2,6 +2,8 @@
 
 Date: 2026-09-25. Status: implemented 2026-09-25 (plan `docs/superpowers/plans/2026-09-25-guard-groups.md`). Scope: the app lock's action guard becomes four switches — summon, purge, download history, passkeys — in place of the one `appLock.guardActions` boolean, so a user who finds one guard too strict can turn that one off and keep the rest. Amends `2026-09-13-guarded-actions-design.md` (the consent slot and the single switch) and the guard half of `2026-09-23-download-history-design.md`; read both first. Nothing new is guarded and nothing guarded stops being recorded.
 
+**Amendment (2026-09-26, user decision — `2026-09-26-diagnostics-unusual-only-design.md`).** `authorized()` now notes only its refusal; a group that is off still has its action written by the handler's own line, which is what "still written to Diagnostics" below now rests on. The Diagnostics paragraph's "the `authorized()` lines … are unchanged" is superseded.
+
 ## Problem
 
 One switch, `Ask before summoning a service, purging a login or removing download history`, covers six actions of very different weight. Summoning a banished service reveals the conversations that were taken off the rail; a purge signs the user out for good, ten times over on the sweep. Removing a download row erases a record that Undo puts back for eight seconds, and forgetting a passkey has the same Undo. A user who reads the download prompt as too strict has one way out today: turning the whole guard off, which also drops the summon and purge guards that they never objected to. The user's request (2026-09-25): review every feature, name the ones that need the lock's credential, and let each be switched off on its own.

@@ -90,15 +90,15 @@ describe('LockController.grantConsent', () => {
     });
   });
 
-  it('records a granted and a refused consent by action, never by content', async () => {
+  it('records a refused consent by action, never by content, and no granted one', async () => {
     const { controller, notes } = await armed();
     await controller.grantConsent({ kind: 'purge-one', serviceId: 'slack' }, pass);
     await controller.grantConsent(
       { kind: 'downloads-remove', ids: [2, 1] },
       { method: 'passcode', passcode: 'wrong' },
     );
-    expect(notes.slice(-2)).toEqual([
-      'consent granted: purge-one slack (passcode)',
+    expect(notes).toEqual([
+      'configured: enabled',
       'consent refused: downloads-remove (2 rows), wrong passcode (1 failures)',
     ]);
   });

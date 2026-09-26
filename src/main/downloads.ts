@@ -72,8 +72,6 @@ export interface DownloadManagerDeps {
   isDirectory(path: string): boolean;
   /** shell.openPath — the one openPath in the app, and only ever on a directory */
   openFolder(path: string): void;
-  /** ctx.diag.note('downloads', …): counts and states, never a name */
-  note(line: string): void;
   now(): number;
 }
 
@@ -101,8 +99,6 @@ export class DownloadManager {
   private nextId = 1;
   /** the last remove or clear, kept for one Undo */
   private lastRemoved: DownloadRecord[] = [];
-  /** row ids whose Cancel the user pressed — a lifecycle cancel notes nothing */
-  private userCancelled = new Set<number>();
 
   constructor(private deps: DownloadManagerDeps) {
     for (const r of deps.history.load()) this.records.set(r.id, r);
@@ -203,7 +199,6 @@ export class DownloadManager {
     const record = this.records.get(f.id);
     if (state === 'cancelled') {
       this.records.delete(f.id); // a cancelled file gets no row, as it gets no banner
-      if (this.userCancelled.delete(f.id)) this.deps.note(`cancelled by user: ${id}`);
     } else if (record) {
       record.state = state === 'completed' ? 'saved' : 'failed';
       record.path = path;
@@ -245,7 +240,6 @@ export class DownloadManager {
   cancel(id: number): boolean {
     for (const [item, f] of this.inflight) {
       if (f.id === id) {
-        this.userCancelled.add(id);
         item.cancel();
         return true;
       }

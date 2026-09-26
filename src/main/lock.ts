@@ -115,11 +115,10 @@ export interface LockDeps {
   biometric(reason: string): Promise<boolean>;
   persist(patch: { enabled?: boolean; touchId?: boolean; guard?: Partial<GuardSettings> }): void;
   now(): number;
-  /** ctx.diag.note('lock', …): methods, kinds and counts, never a secret */
+  /** ctx.diag.note('lock', …): refusals and configurations only — a success
+   *  is not evidence. Kinds and counts, never a secret. */
   note?(line: string): void;
 }
-
-const method = (req: UnlockRequest): string => (req.method === 'touchId' ? 'touch id' : 'passcode');
 
 /** The ceremony. Owns whether the app is locked, the consecutive-failure
  *  backoff, and the one parked banner click. Electron-free by construction:
@@ -163,7 +162,6 @@ export class LockController {
     const result = await this.check(req);
     if (result.ok) {
       this.open();
-      this.deps.note?.(`unlocked (${method(req)})`);
     } else {
       const why = this.failure(result);
       if (result.reason === 'throttled') this.deps.note?.('unlock throttled');
@@ -206,7 +204,6 @@ export class LockController {
     const what = describeAction(action);
     if (result.ok) {
       this.consent = { action, at: this.deps.now() };
-      this.deps.note?.(`consent granted: ${what} (${method(credential)})`);
     } else {
       const why = this.failure(result);
       if (result.reason === 'throttled') this.deps.note?.(`consent throttled: ${what}`);
