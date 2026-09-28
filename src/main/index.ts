@@ -238,15 +238,24 @@ app
     });
     const accelerators = () => resolveAccelerators(settings.get().shortcuts);
     const recorder = new ShortcutRecorder({ resolved: accelerators, platform: process.platform });
+    // settings are deep-frozen and replaced on write, so the shortcuts object's
+    // identity says whether the interceptor's resolved table is still current
+    let resolvedFrom = settings.get().shortcuts;
+    let resolvedTable = Object.freeze(resolveAccelerators(resolvedFrom));
+    const interceptorAccelerators = () => {
+      const from = settings.get().shortcuts;
+      if (from !== resolvedFrom) {
+        resolvedFrom = from;
+        resolvedTable = Object.freeze(resolveAccelerators(from));
+      }
+      return resolvedTable;
+    };
     const views = new ServiceViewManager(
       win,
       {
-        onLoading: (id, loading) => {
-          state.setRuntime(id, { loading });
-          if (!loading) {
-            waking.end(id, 'load-finished');
-            resilience?.noteRecovered(id);
-          }
+        onLoadFinished: (id) => {
+          waking.end(id, 'load-finished');
+          resilience?.noteRecovered(id);
         },
         onNavigate: (id, kind) => {
           // the page's JS context is being replaced, taking the notification
@@ -271,7 +280,7 @@ app
         // ctx is assembled below; a key event cannot arrive before it exists
         onShellCommand: (command) => runShellCommand(ctx, command),
         note: (tag, line, id) => diag.note(tag, line, id),
-        accelerators,
+        accelerators: interceptorAccelerators,
       },
       () => settings.get().railPosition,
       (id) => {
@@ -538,6 +547,7 @@ app
       resilience?.dispose();
       identityShare.dispose();
       downloads.dispose();
+      recents.flush();
       diag.flush();
       // last: commits any deferred write (zoom) before the process goes
       settings.dispose();

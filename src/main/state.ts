@@ -15,7 +15,6 @@ const defaultRuntime = (): ServiceRuntime => ({
   hibernated: false,
   crashed: false,
   stale: false,
-  loading: false,
   waking: false,
   wakeKind: null,
 });

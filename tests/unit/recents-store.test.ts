@@ -119,4 +119,45 @@ describe('RecentsStore', () => {
     expect(store.rows()).toEqual([]);
     expect(store.storage()).toBe('sealed');
   });
+
+  it('keeps the file as is when the top row is re-reported with only a newer time', () => {
+    const store = new RecentsStore(dir, codec);
+    store.upsert(sighting('Minh Anh', 1));
+    const before = file();
+    store.upsert(sighting('Minh Anh', 2));
+    expect(file()).toBe(before);
+    expect(store.rows()[0]?.at).toBe(2);
+  });
+
+  it('flush writes the deferred time, and a fresh store reads it back', () => {
+    const store = new RecentsStore(dir, codec);
+    store.upsert(sighting('Minh Anh', 1));
+    store.upsert(sighting('Minh Anh', 2));
+    store.flush();
+    expect(new RecentsStore(dir, codec).rows()[0]?.at).toBe(2);
+  });
+
+  it('flush writes nothing when nothing is deferred', () => {
+    const store = new RecentsStore(dir, codec);
+    store.flush();
+    expect(() => file()).toThrow();
+  });
+
+  it('still writes at once when another conversation takes the top', () => {
+    const store = new RecentsStore(dir, codec);
+    store.upsert(sighting('Minh Anh', 1));
+    store.upsert(sighting('Minh Anh', 2));
+    store.upsert(sighting('Nhóm Sale', 3));
+    expect(new RecentsStore(dir, codec).rows().map((r) => [r.label, r.at])).toEqual([
+      ['Nhóm Sale', 3],
+      ['Minh Anh', 2],
+    ]);
+  });
+
+  it('still writes at once when the top row moved to a new url', () => {
+    const store = new RecentsStore(dir, codec);
+    store.upsert(sighting('Minh Anh', 1));
+    store.upsert({ ...sighting('Minh Anh', 2), url: 'https://web.whatsapp.com/#x' });
+    expect(new RecentsStore(dir, codec).rows()[0]?.url).toBe('https://web.whatsapp.com/#x');
+  });
 });

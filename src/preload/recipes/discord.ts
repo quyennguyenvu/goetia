@@ -177,7 +177,10 @@ const discord: Recipe = {
     return visiblyPresent(doc, doc.querySelector('[data-list-id="guildsnav"]'));
   },
   count(doc) {
-    const badges = [...doc.querySelectorAll('[class*="lowerBadge_"] [class*="numberBadge_"]')]
+    // every lowerBadge sits in the guild rail (live check 2026-09-28); scoping
+    // the substring selector spares a sweep of the whole page every tick
+    const root = doc.querySelector('[data-list-id="guildsnav"]') ?? doc;
+    const badges = [...root.querySelectorAll('[class*="lowerBadge_"] [class*="numberBadge_"]')]
       .map((el) => Number.parseInt(el.textContent ?? '', 10))
       .filter((n) => Number.isFinite(n));
     const direct =

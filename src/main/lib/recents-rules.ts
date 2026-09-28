@@ -118,6 +118,17 @@ export function upsertRecent(
   return [entry, ...rows.filter((r) => conversationKey(r) !== key)].slice(0, RECENTS_CAP);
 }
 
+/** The same row, only seen later: nothing a reader of the list would notice. */
+export function sameButAt(a: RecentEntry, b: RecentEntry): boolean {
+  return (
+    a.id === b.id &&
+    a.serviceId === b.serviceId &&
+    a.label === b.label &&
+    a.conversation === b.conversation &&
+    a.url === b.url
+  );
+}
+
 /** Rows from disk: a known service, a non-empty string label, a string url,
  *  a finite `at`, a safe-integer id seen once; RECENTS_CAP newest kept. */
 export function restoreRecents(raw: unknown, known: ReadonlySet<string>): RecentEntry[] {

@@ -67,8 +67,12 @@ export const useShell = create<ShellStore>((set) => ({
 export function connectShell(
   apply: (commit: () => void, s: ShellState) => void = (commit) => commit(),
 ): () => void {
-  return window.goetia.onState((s) => {
+  const off = window.goetia.onState((s) => {
     document.documentElement.dataset.theme = s.theme;
     apply(() => useShell.getState().setState(s), s);
   });
+  // listening now: ask for the state, since main's first broadcast may have
+  // arrived before this subscription existed
+  window.goetia.send('shell:ready', {});
+  return off;
 }

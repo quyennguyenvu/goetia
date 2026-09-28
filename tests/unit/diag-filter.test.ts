@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compileDiagFilter,
   DIAG_QUERY_MAX,
   DIAG_TAGS,
+  type DiagFilter,
   describeDiagFilter,
   diagFilterNarrows,
   EMPTY_DIAG_FILTER,
@@ -115,5 +117,22 @@ describe('describeDiagFilter', () => {
     );
     expect(describeDiagFilter({ tags: ['app'], query: '' }, 2, 3)).toBe('tag=app · 2 of 3 lines');
     expect(describeDiagFilter({ tags: [], query: 'nope' }, 0, 2)).toBe('"nope" · 0 of 2 lines');
+  });
+});
+
+describe('compileDiagFilter', () => {
+  const filters: DiagFilter[] = [
+    EMPTY_DIAG_FILTER,
+    { tags: ['nav'], query: '' },
+    { tags: [], query: '  ZALO ' },
+    { tags: ['recipe', 'app'], query: 'stale' },
+    { tags: [], query: '[nav] zalo' },
+    { tags: ['app'], query: '   ' },
+  ];
+  it('agrees with matchesDiagFilter on every entry and filter', () => {
+    for (const f of filters) {
+      const test = compileDiagFilter(f);
+      for (const e of [nav, stale, started]) expect(test(e)).toBe(matchesDiagFilter(e, f));
+    }
   });
 });

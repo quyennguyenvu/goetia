@@ -20,6 +20,20 @@ const press = (over: Partial<KeyInput>): KeyInput => ({
 });
 
 describe('shellCommandFor', () => {
+  it('answers the same on repeat and follows a rebinding at once', () => {
+    const down = press({ key: 'g', code: 'KeyG', meta: true, shift: true });
+    expect(shellCommandFor(down, 'darwin')).toEqual({ kind: 'home' });
+    expect(shellCommandFor(down, 'darwin')).toEqual({ kind: 'home' });
+    const rebound = { ...ACCELERATORS, home: 'CmdOrCtrl+Shift+J' };
+    expect(shellCommandFor(down, 'darwin', rebound)).toBeNull();
+    expect(shellCommandFor({ ...down, key: 'j', code: 'KeyJ' }, 'darwin', rebound)).toEqual({
+      kind: 'home',
+    });
+    expect(shellCommandFor({ ...down, meta: false, control: true }, 'linux')).toEqual({
+      kind: 'home',
+    });
+  });
+
   // ⇧G, not ⇧H: a left-hand chord, because the right hand is on the mouse
   it('maps the Home chord under Cmd on darwin and Ctrl elsewhere', () => {
     const g = { key: 'G', code: 'KeyG', shift: true };

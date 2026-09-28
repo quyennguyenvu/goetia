@@ -101,6 +101,14 @@ describe('ready()', () => {
     expect(recipes.whatsapp.ready?.(load('blank'))).toBe(false);
   });
 
+  // the live DOM keeps every lowerBadge in the guild rail (checked 2026-09-28)
+  it('discord counts rail badges only, and the whole page before the rail mounts', () => {
+    const doc = load('discord');
+    expect(recipes.discord.count(doc)).toEqual({ direct: 3, indirect: 1 });
+    doc.querySelector('[data-list-id="guildsnav"]')?.removeAttribute('data-list-id');
+    expect(recipes.discord.count(doc)).toEqual({ direct: 43, indirect: 1 });
+  });
+
   it('discord is ready once the guild nav mounts', () => {
     expect(recipes.discord.ready?.(load('discord'))).toBe(true);
     expect(recipes.discord.ready?.(load('blank'))).toBe(false);

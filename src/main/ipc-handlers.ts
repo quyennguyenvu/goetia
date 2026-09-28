@@ -239,7 +239,6 @@ export function applyDisabledChange(ctx: AppContext, before: Settings): void {
         crashed: false,
         stale: false,
         hibernated: false,
-        loading: false,
         waking: false,
         wakeKind: null,
       });
@@ -567,6 +566,8 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     ctx.noteUnreadReport(serviceId);
   });
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
+  // the same broadcast every state change sends, redacted while locked
+  on('shell:ready', () => ctx.broadcast());
   on('notification:fired', (n) => router.handle(n));
   on('conversation:active', ({ serviceId, conversation, url, title }) => {
     // the preload's focus gate runs in a world the page shares, so the

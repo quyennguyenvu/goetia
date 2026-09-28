@@ -3,6 +3,7 @@ import {
   activateService,
   openActivityEntry,
   performBannerAction,
+  rememberSurface,
   setHomeOpen,
   setOverlayOpen,
 } from '../../src/main/activate';
@@ -407,5 +408,43 @@ describe('openActivityEntry', () => {
     openActivityEntry(ctx, entry({ clickId: 3 }));
     expect(views.activate).not.toHaveBeenCalled();
     expect(views.openInPage).not.toHaveBeenCalled();
+  });
+});
+
+describe('rememberSurface', () => {
+  const recorded = (activeId: MainState['activeId'], homeOpen: boolean) => {
+    const state = new MainState();
+    state.activeId = activeId;
+    state.homeOpen = homeOpen;
+    const { ctx, update } = makeCtx(state);
+    const settings = { ...DEFAULT_SETTINGS, lastActiveId: 'discord' as const, lastHomeOpen: true };
+    (ctx.settings as unknown as { get: () => typeof settings }).get = () => settings;
+    return { ctx, update };
+  };
+
+  // Home commits and banish sweeps call this with the surface unchanged
+  it('writes nothing when the recorded surface already matches', () => {
+    const { ctx, update } = recorded('discord', true);
+    rememberSurface(ctx);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('writes when either half of the surface moved', () => {
+    const moved = recorded('telegram', true);
+    rememberSurface(moved.ctx);
+    expect(moved.update).toHaveBeenCalledWith({ lastActiveId: 'telegram', lastHomeOpen: true });
+    const left = recorded('discord', false);
+    rememberSurface(left.ctx);
+    expect(left.update).toHaveBeenCalledWith({ lastActiveId: 'discord', lastHomeOpen: false });
+  });
+
+  it('always writes a usage stamp, even on the same surface', () => {
+    const { ctx, update } = recorded('discord', true);
+    rememberSurface(ctx, 'discord');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastUsedAt: expect.objectContaining({ discord: expect.any(Number) }),
+      }),
+    );
   });
 });

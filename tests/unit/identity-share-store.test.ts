@@ -115,6 +115,34 @@ describe('seed', () => {
     await share.seed('tiktok');
     expect(jars.tiktok.cookies.map((c) => c.name)).not.toContain('tracker');
   });
+
+  it('issues every cookie write before the first one lands', async () => {
+    let pending = 0;
+    let peak = 0;
+    const jar = jars.tiktok;
+    const set = jar.set.bind(jar);
+    jar.set = async (details) => {
+      pending++;
+      peak = Math.max(peak, pending);
+      await new Promise((r) => setTimeout(r, 0));
+      pending--;
+      return set(details);
+    };
+    await expect(build().seed('tiktok')).resolves.toBe(true);
+    expect(peak).toBe(2);
+    expect(jars.tiktok.cookies.map((c) => c.name).sort()).toEqual(['c_user', 'xs']);
+  });
+
+  it('still sets the rest when one cookie is refused', async () => {
+    const jar = jars.tiktok;
+    const set = jar.set.bind(jar);
+    jar.set = (details) => {
+      if (details.name === 'xs') throw new Error('refused');
+      return set(details);
+    };
+    await expect(build().seed('tiktok')).resolves.toBe(true);
+    expect(jars.tiktok.cookies.map((c) => c.name)).toEqual(['c_user']);
+  });
 });
 
 // Local user verification before a credential crosses partitions. Not a

@@ -13,10 +13,15 @@ import type { RecentEntry } from './lib/recents-rules';
  *  only overlay recorded. A service activation also resets the unused clock
  *  auto-banish reads, in the same write. */
 export function rememberSurface(ctx: AppContext, usedId?: ServiceId): void {
+  const s = ctx.settings.get();
+  // Home commits and banish sweeps land here with the surface unchanged
+  if (!usedId && s.lastActiveId === ctx.state.activeId && s.lastHomeOpen === ctx.state.homeOpen) {
+    return;
+  }
   ctx.settings.update({
     lastActiveId: ctx.state.activeId,
     lastHomeOpen: ctx.state.homeOpen,
-    ...(usedId ? { lastUsedAt: { ...ctx.settings.get().lastUsedAt, [usedId]: Date.now() } } : {}),
+    ...(usedId ? { lastUsedAt: { ...s.lastUsedAt, [usedId]: Date.now() } } : {}),
   });
 }
 

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  compileDiagFilter,
   DIAG_TAGS,
   type DiagFilter,
   diagFilterNarrows,
-  matchesDiagFilter,
 } from '../../../shared/diag-filter';
 import type { DiagEntry, DiagTag } from '../../../shared/types';
 import { useShell } from '../store';
@@ -43,16 +43,14 @@ export default function DiagnosticsPane() {
   }, [copied]);
 
   const filter = useMemo<DiagFilter>(() => ({ tags, query }), [tags, query]);
-  const shown = useMemo(
-    () => (entries ?? []).filter((e) => matchesDiagFilter(e, filter)),
-    [entries, filter],
-  );
+  const shown = useMemo(() => (entries ?? []).filter(compileDiagFilter(filter)), [entries, filter]);
   // chips only for tags the ring holds, so a chip alone never empties the list
   const present = useMemo(
     () => DIAG_TAGS.filter((t) => entries?.some((e) => e.tag === t)),
     [entries],
   );
   const narrows = diagFilterNarrows(filter);
+  const byId = new Map(services?.map((s) => [s.id, s] as const));
 
   const toggleTag = (t: DiagTag) =>
     setTags((prev) =>
@@ -145,7 +143,7 @@ export default function DiagnosticsPane() {
           ) : (
             <ul className="pb-2">
               {shown.map((e) => {
-                const svc = e.serviceId ? services?.find((s) => s.id === e.serviceId) : undefined;
+                const svc = e.serviceId ? byId.get(e.serviceId) : undefined;
                 return (
                   <li
                     key={`${e.at}-${e.tag}-${e.line}`}

@@ -131,9 +131,9 @@ export default function DownloadsPane({
   useEffect(() => {
     if (!rows) return;
     setSelected((prev) => {
-      const next = new Set(
-        [...prev].filter((id) => rows.some((r) => r.id === id && selectable(r))),
-      );
+      if (prev.size === 0) return prev;
+      const keep = new Set(rows.filter(selectable).map((r) => r.id));
+      const next = new Set([...prev].filter((id) => keep.has(id)));
       return next.size === prev.size ? prev : next;
     });
   }, [rows]);
@@ -197,8 +197,8 @@ export default function DownloadsPane({
 
   if (data === null || rows === null) return null;
   const now = Date.now();
-  const serviceName = (r: DownloadView) =>
-    services?.find((s) => s.id === r.serviceId)?.name ?? r.serviceId;
+  const byId = new Map(services?.map((s) => [s.id, s] as const));
+  const serviceName = (r: DownloadView) => byId.get(r.serviceId)?.name ?? r.serviceId;
   const q = normalizeDownloadQuery(query);
   const shown = rows.filter((r) => matchesDownloadQuery(r, serviceName(r), q));
   const narrows = q !== '' && shown.length !== rows.length;
@@ -358,7 +358,7 @@ export default function DownloadsPane({
           ) : (
             <ul className="pb-1">
               {shown.map((r) => {
-                const svc = services?.find((s) => s.id === r.serviceId);
+                const svc = byId.get(r.serviceId);
                 const service = svc?.name ?? r.serviceId;
                 return (
                   <li

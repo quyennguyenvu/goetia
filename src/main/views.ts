@@ -76,7 +76,8 @@ function debugCalls(message: string): void {
 }
 
 export interface ViewHooks {
-  onLoading(id: ServiceId, loading: boolean): void;
+  /** did-finish-load: the main frame's document is up */
+  onLoadFinished(id: ServiceId): void;
   /** Main-frame, cross-document navigation started (initial load, reload,
    *  redirect) — never same-document SPA routing or subframe loads, which
    *  also spin the tab spinner (did-start-loading) but must not re-cover
@@ -394,6 +395,7 @@ export class ServiceViewManager {
       Menu.buildFromTemplate(template).popup({ window: this.win });
     });
     wc.on('before-input-event', (e, input) => {
+      if (input.type !== 'keyDown') return; // the matcher ignores the rest anyway
       // Goetia's chords win over the page. The page gets a key before the
       // menu and may swallow it (Discord bound the old ⌘⇧H), so a shell chord is
       // taken here — preventDefault also drops the menu accelerator, so the
@@ -435,12 +437,11 @@ export class ServiceViewManager {
     wc.on('will-redirect', (e, url, _inPlace, isMainFrame) =>
       containNavigation(e, url, isMainFrame),
     );
-    wc.on('did-start-loading', () => this.hooks.onLoading(id, true));
     wc.on('did-finish-load', () => {
       // re-assert: restarts, hibernation wakes, reloads and purges all
       // land here, and the persisted level must survive every one of them
       wc.setZoomLevel(this.zoomLevel(id));
-      this.hooks.onLoading(id, false);
+      this.hooks.onLoadFinished(id);
     });
     wc.on('did-start-navigation', ({ isMainFrame, isSameDocument }) => {
       if (!isMainFrame || isSameDocument) return;

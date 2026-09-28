@@ -111,6 +111,10 @@ export interface RendererToMain {
   };
   'updates:check': Record<string, never>;
   'updates:openDownload': Record<string, never>;
+  /** the shell is subscribed to shell:state: main answers with a broadcast.
+   *  The one sent on the shell's did-finish-load can land before the
+   *  renderer listens, and nothing else was bound to follow it. */
+  'shell:ready': Record<string, never>;
 }
 
 /** main -> shell renderer, via webContents.send */
@@ -184,6 +188,7 @@ export const R2M_CHANNELS = [
   'service:readyTimeout',
   'updates:check',
   'updates:openDownload',
+  'shell:ready',
 ] as const satisfies readonly (keyof RendererToMain)[];
 
 /** renderer -> main round-trips, via ipcRenderer.invoke. `payload` is what
@@ -342,15 +347,18 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'diagnostics:report',
   'settings:export',
   'settings:import',
+  'shell:ready',
 ]);
 
 /** The only shell channels served while the app is locked: the two that
- *  unlock it, plus the Windows taskbar overlay, which carries a count and no
- *  content. Every other shell-only channel is refused until unlock. Service
+ *  unlock it, the Windows taskbar overlay, which carries a count and no
+ *  content, and shell:ready, whose reply is the broadcast a locked app
+ *  already sends (pins redacted). Every other shell-only channel is refused until unlock. Service
  *  channels are untouched — recipes keep counting behind the lock screen, and
  *  refusing service:ready would strand a wake cover forever. */
 export const LOCKED_ALLOWED_CHANNELS = new Set<keyof RendererToMain | keyof RendererInvoke>([
   'lock:unlock',
   'lock:configure',
   'badge:overlay',
+  'shell:ready',
 ]);

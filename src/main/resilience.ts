@@ -61,7 +61,7 @@ export class ResilienceManager {
   onLoadFailed(id: ServiceId, detail?: string): void {
     this.clearDwell(id);
     this.ctx.diag.note('view', `${id} load failed${detail ? `: ${detail}` : ''}`, id);
-    this.ctx.state.setRuntime(id, { crashed: true, loading: false });
+    this.ctx.state.setRuntime(id, { crashed: true });
     // Chromium paints its own error page inside the view; hide it so the
     // shell's Retry placeholder is visible instead.
     if (this.ctx.state.activeId === id) this.ctx.views.hideActive();

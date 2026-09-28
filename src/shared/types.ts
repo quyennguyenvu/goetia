@@ -375,7 +375,6 @@ export interface ServiceRuntime {
   hibernated: boolean;
   crashed: boolean;
   stale: boolean; // recipe failed; counts may be outdated
-  loading: boolean;
   waking: boolean; // loading screen covers this service
   wakeKind: LoadKind | null; // which load the cover names; read only while waking
 }

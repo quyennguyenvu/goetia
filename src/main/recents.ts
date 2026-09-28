@@ -2,7 +2,7 @@ import Conf from 'conf';
 import { SERVICES } from '../shared/services';
 import type { RecentsStorage, ServiceId } from '../shared/types';
 import type { KeyCodec } from './codec';
-import { type RecentEntry, restoreRecents, upsertRecent } from './lib/recents-rules';
+import { type RecentEntry, restoreRecents, sameButAt, upsertRecent } from './lib/recents-rules';
 
 /** On disk: one of the two keys, or neither on a fresh profile. `sealed` is
  *  the codec's output over JSON.stringify({ recents }); `recents` is the
@@ -22,6 +22,8 @@ export class RecentsStore {
   private entries: RecentEntry[] = [];
   private unreadable = false;
   private nextId = 1;
+  /** memory holds a newer `at` than the file; see upsert */
+  private deferred = false;
 
   constructor(
     cwd: string,
@@ -70,9 +72,20 @@ export class RecentsStore {
    *  overwrite what could not be read. */
   upsert(sighting: Omit<RecentEntry, 'id'>): boolean {
     if (this.unreadable) return false;
+    const top = this.entries[0];
     this.entries = upsertRecent(this.entries, sighting, () => this.nextId++);
-    this.write();
+    // a title's unread count moving re-reports the chat already on top: only
+    // its `at` changed, and the file already sorts it first, so the sealed
+    // rewrite waits for the next real change or flush() at quit
+    const head = this.entries[0];
+    if (top && head && sameButAt(top, head)) this.deferred = true;
+    else this.write();
     return true;
+  }
+
+  /** Commit a deferred `at` before the process goes. */
+  flush(): void {
+    if (this.deferred && !this.unreadable) this.write();
   }
 
   /** A purge wipes the session these labels came from. */
@@ -84,6 +97,7 @@ export class RecentsStore {
   }
 
   private write(): void {
+    this.deferred = false;
     // assigning the store is one atomic write, same as SettingsStore
     this.conf.store = this.codec
       ? { sealed: this.codec.encrypt(JSON.stringify({ recents: this.entries })) }

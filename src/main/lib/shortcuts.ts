@@ -96,6 +96,23 @@ function parse(accelerator: string, platform: string): Chord {
   return chord;
 }
 
+/** Parsed chords by platform + accelerator: the matcher runs on every key in
+ *  every service page, and the strings are a small set (the table, the ⌘1…9
+ *  row, the user's rebinds). The clear keeps it bounded all the same. */
+const parsed = new Map<string, Chord>();
+const PARSED_MAX = 256;
+
+function chordFor(accelerator: string, platform: string): Chord {
+  const key = `${platform}\n${accelerator}`;
+  let chord = parsed.get(key);
+  if (!chord) {
+    if (parsed.size >= PARSED_MAX) parsed.clear();
+    chord = parse(accelerator, platform);
+    parsed.set(key, chord);
+  }
+  return chord;
+}
+
 function matches(input: KeyInput, chord: Chord): boolean {
   if (
     input.control !== chord.control ||
@@ -136,12 +153,13 @@ export function shellCommandFor(
 ): ShellCommand | null {
   if (input.type !== 'keyDown') return null;
   for (const [accs, command] of fixedTable(accelerators)) {
-    for (const a of accs) if (matches(input, parse(a, platform))) return command;
+    for (const a of accs) if (matches(input, chordFor(a, platform))) return command;
   }
-  if (matches(input, parse(devtoolsAccelerator(platform), platform))) return { kind: 'devtools' };
+  if (matches(input, chordFor(devtoolsAccelerator(platform), platform)))
+    return { kind: 'devtools' };
   for (let index = 0; index < MAX_SERVICE_ACCELERATORS; index++) {
     const a = serviceAccelerator(index);
-    if (a && matches(input, parse(a, platform))) return { kind: 'service', index };
+    if (a && matches(input, chordFor(a, platform))) return { kind: 'service', index };
   }
   return null;
 }

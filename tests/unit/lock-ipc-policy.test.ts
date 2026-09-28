@@ -30,6 +30,13 @@ describe('channelAllowedWhileLocked', () => {
     expect(channelAllowedWhileLocked('badge:overlay')).toBe(true);
   });
 
+  // a locked launch still needs its first state; the reply is the broadcast
+  // main already sends while locked, pins redacted
+  it('serves the shell state request, shell frame only', () => {
+    expect(SHELL_ONLY_CHANNELS.has('shell:ready')).toBe(true);
+    expect(channelAllowedWhileLocked('shell:ready')).toBe(true);
+  });
+
   // the leaks a lock on opening a service would not have closed
   it('refuses every channel that serves conversation content', () => {
     for (const channel of [

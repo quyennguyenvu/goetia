@@ -8,6 +8,7 @@ import {
   recentLabel,
   recentRows,
   restoreRecents,
+  sameButAt,
   sanitizeReport,
   upsertRecent,
 } from '../../src/main/lib/recents-rules';
@@ -213,5 +214,25 @@ describe('recentRows', () => {
     expect(view[0]).toEqual({ id: 2, serviceId: 'whatsapp', title: 'chat 2', at: 2 });
     expect('url' in view[0]).toBe(false);
     expect(recentRows(rows, null)).toHaveLength(3);
+  });
+});
+
+describe('sameButAt', () => {
+  const row: RecentEntry = {
+    id: 1,
+    serviceId: 'slack',
+    label: 'general',
+    url: 'https://app.slack.com/client/T/C',
+    at: 1,
+  };
+  it('is true when only the time differs', () => {
+    expect(sameButAt(row, { ...row, at: 2 })).toBe(true);
+  });
+  it('is false when anything a reader sees differs', () => {
+    expect(sameButAt(row, { ...row, url: 'https://app.slack.com/client/T/D' })).toBe(false);
+    expect(sameButAt(row, { ...row, label: 'random' })).toBe(false);
+    expect(sameButAt(row, { ...row, id: 2 })).toBe(false);
+    expect(sameButAt(row, { ...row, conversation: 'general' })).toBe(false);
+    expect(sameButAt({ ...row, serviceId: 'discord' }, row)).toBe(false);
   });
 });

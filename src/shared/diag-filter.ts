@@ -57,10 +57,16 @@ function haystack(e: DiagEntry): string {
   return `[${e.tag}]${e.serviceId ? ` ${e.serviceId}` : ''} ${e.line}`.toLowerCase();
 }
 
-export function matchesDiagFilter(entry: DiagEntry, filter: DiagFilter): boolean {
-  if (filter.tags.length > 0 && !filter.tags.includes(entry.tag)) return false;
+/** The filter as one predicate, the query folded once rather than per row. */
+export function compileDiagFilter(filter: DiagFilter): (entry: DiagEntry) => boolean {
+  const tags = filter.tags.length > 0 ? new Set<DiagTag>(filter.tags) : null;
   const q = filter.query.trim().toLowerCase();
-  return q === '' || haystack(entry).includes(q);
+  return (entry) =>
+    (tags === null || tags.has(entry.tag)) && (q === '' || haystack(entry).includes(q));
+}
+
+export function matchesDiagFilter(entry: DiagEntry, filter: DiagFilter): boolean {
+  return compileDiagFilter(filter)(entry);
 }
 
 /** true when the filter can drop a row — what decides the `Filtered:` line

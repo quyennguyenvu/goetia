@@ -115,15 +115,10 @@ export class IdentityShare {
       // is exactly what the marker exists for
       this.mark(target);
       const share = from.filter((c) => isFacebookCookieDomain(c.domain ?? ''));
-      for (const c of share) {
-        // one rejected cookie must not abort the set — a partial session still
-        // beats a full password prompt, and Facebook re-issues what it needs
-        try {
-          await dest.set(cookieSetDetails(c));
-        } catch {
-          /* ignore */
-        }
-      }
+      // independent writes, issued together: the popup sits blank until they
+      // land. One rejected cookie must not abort the set — a partial session
+      // still beats a full password prompt, and Facebook re-issues what it needs
+      await Promise.allSettled(share.map(async (c) => dest.set(cookieSetDetails(c))));
       debugIdentity(`seeded ${share.length} cookie(s) into ${target}`);
       return true;
     } finally {
@@ -163,14 +158,9 @@ export class IdentityShare {
         isFacebookCookieDomain(c.domain ?? ''),
       );
     const cookies = await mine();
-    for (const c of cookies) {
-      try {
-        await jar.remove(removalUrl(c), c.name);
-      } catch {
-        // one stuck cookie must not strand the rest; the check below is what
-        // decides whether this counted
-      }
-    }
+    // one stuck cookie must not strand the rest; the check below is what
+    // decides whether this counted
+    await Promise.allSettled(cookies.map(async (c) => jar.remove(removalUrl(c), c.name)));
     // Verify, never assume. The whole "present only while the popup is open"
     // promise rests on this removal actually happening, and cookies.remove
     // reports a url that matches nothing by doing nothing at all — no throw.

@@ -1,10 +1,10 @@
 import {
+  compileDiagFilter,
   type DiagFilter,
   describeDiagFilter,
   diagFilterNarrows,
   EMPTY_DIAG_FILTER,
   isDiagTag,
-  matchesDiagFilter,
 } from '../../shared/diag-filter';
 import { SERVICES } from '../../shared/services';
 import type { Counts, DiagEntry, DiagTag, ServiceId, Settings } from '../../shared/types';
@@ -228,7 +228,7 @@ export class Diagnostics {
    *  the two can never disagree on which rows match. The empty filter is
    *  today's whole report, byte for byte. */
   report(header: ReportHeader, filter: DiagFilter = EMPTY_DIAG_FILTER): string {
-    const rows = this.entries.filter((e) => matchesDiagFilter(e, filter));
+    const rows = this.entries.filter(compileDiagFilter(filter));
     const filtered = diagFilterNarrows(filter)
       ? describeDiagFilter(filter, rows.length, this.entries.length)
       : undefined;
