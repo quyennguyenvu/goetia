@@ -141,6 +141,10 @@ export interface ServiceMeta {
    *  exists (recipes.test.ts enforces it); a name that matches no row is a
    *  no-op, never a wrong thread. */
   bannerTitleNamesConversation?: boolean;
+  /** The site opens links as `window.open()` and assigns the URL afterwards
+   *  (zalo), so the preload answers a blank open with a stand-in handle that
+   *  sends the URL to the OS browser (preload/lib/blank-open-shim.ts). */
+  opensLinksBlank?: boolean;
 }
 
 export interface QuietHoursSchedule {

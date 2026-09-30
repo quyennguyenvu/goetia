@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron';
 import type { OpenLane, OpenRequest } from '../shared/ipc';
 import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
+import { installBlankOpenShim } from './lib/blank-open-shim';
 import { openConversationInPage } from './lib/conversation-open';
 import { installNotificationShim } from './lib/notification-shim';
 import { offChatLinkUrl } from './lib/off-chat-link';
@@ -27,6 +28,13 @@ const REPLAY_SETTLE_MS = 300;
 
 if (!inSubcontext) {
   if (serviceById(serviceId).keepRendered) installVisibilitySpoof(window);
+  // the same validated, throttled channel as an off-chat link click: a page
+  // gains nothing window.open(url) did not already give it
+  if (serviceById(serviceId).opensLinksBlank) {
+    installBlankOpenShim(window, (url) =>
+      ipcRenderer.send('service:openExternal', { serviceId, url }),
+    );
+  }
 
   // every service: passkeys are Goetia's own software authenticator in main;
   // the flag is off when main has no keyring to keep a key under

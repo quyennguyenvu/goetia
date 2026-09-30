@@ -101,6 +101,7 @@ export const SERVICES: ServiceMeta[] = [
     keepRendered: true,
     waitForReady: true,
     bannerTitleNamesConversation: true,
+    opensLinksBlank: true,
   },
 ];
 
