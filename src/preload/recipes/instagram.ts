@@ -16,6 +16,13 @@ import type { Recipe } from './types';
  *  unread and back to /direct/inbox/ once read. */
 const THREAD_LIST = 'main [role="navigation"]';
 
+/** The bell drawn in a row only while its thread is muted
+ *  (IGDThreadListItemOffMsysAddOnEndMuted, bundle of 2026-08-14): its label
+ *  is localized, the icon's path is not. */
+const MUTED_ICON = 'svg path[d^="M15.209 18.294"], svg[aria-label="Muted"]';
+
+const isMuted = (row: Element): boolean => row.querySelector(MUTED_ICON) !== null;
+
 /** Conversation rows: top-level buttons in the thread list carrying at least
  *  a name and a preview/presence line. Drops "Your note" and the compose
  *  button (one text each) and any control nested inside a row. */
@@ -167,7 +174,7 @@ const instagram: Recipe = {
     }
     let direct = 0;
     for (const row of rows) {
-      if (isUnreadRow(row, win)) direct++;
+      if (isUnreadRow(row, win) && !isMuted(row)) direct++;
     }
     return { direct, indirect: 0 };
   },
@@ -181,7 +188,7 @@ const instagram: Recipe = {
     const win = doc.defaultView;
     if (!win) return null;
     for (const row of threadRows(doc)) {
-      if (!isUnreadRow(row, win)) continue;
+      if (!isUnreadRow(row, win) || isMuted(row)) continue;
       const texts = rowTexts(row);
       if (texts.length === 0) return null;
       return { title: texts[0], body: texts[1] ?? '' };

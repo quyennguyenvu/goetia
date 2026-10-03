@@ -12,18 +12,19 @@ export interface WhatsAppChat {
   isAutoMuted?: boolean;
 }
 
-/** Mirrors ferdium-recipes/whatsapp: unread from the page's own chat DB,
- *  muted chats count as indirect. */
+/** Unread from the page's own chat DB, after ferdium-recipes/whatsapp — except
+ *  that a muted chat is not counted at all, where ferdium made it indirect.
+ *  Muted is any non-zero muteExpiration, WhatsApp's own rule
+ *  (WAWebMuteGetters.getIsMuted); a timed mute writes 0 back when it ends. */
 export function countWhatsAppChats(chats: WhatsAppChat[]): Counts {
   let direct = 0;
-  let indirect = 0;
   for (const chat of chats) {
     const unread = chat.unreadCount ?? 0;
     if (unread <= 0 || chat.archive) continue;
-    if ((chat.muteExpiration ?? 0) !== 0 || chat.isAutoMuted) indirect += unread;
-    else direct += unread;
+    if ((chat.muteExpiration ?? 0) !== 0 || chat.isAutoMuted) continue;
+    direct += unread;
   }
-  return { direct, indirect };
+  return { direct, indirect: 0 };
 }
 
 let db: IDBDatabase | null = null;

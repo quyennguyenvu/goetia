@@ -145,7 +145,7 @@ describe('waitForReady flag', () => {
 });
 
 describe('countWhatsAppChats', () => {
-  it('splits unread into direct and muted-indirect, skips archived', () => {
+  it('counts unread as direct, skips muted and archived', () => {
     expect(
       countWhatsAppChats([
         { unreadCount: 2 },
@@ -155,7 +155,7 @@ describe('countWhatsAppChats', () => {
         { unreadCount: 0 },
         {},
       ]),
-    ).toEqual({ direct: 2, indirect: 4 });
+    ).toEqual({ direct: 2, indirect: 0 });
   });
 });
 

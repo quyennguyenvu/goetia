@@ -23,6 +23,9 @@ const BADGE = '[data-tid="unread-count"], [class*="unreadCount"]';
 /** Teams describes a row through aria-labelledby tokens naming hidden support
  *  texts ("Unread message", "Badged chat") */
 const UNREAD_TOKENS = ['chat_list_unread_text', 'simple_collab_voiceover_badged_chat'];
+/** a chat the user muted (the rail's worker bundle, read 2026-10-03; the
+ *  second is the older chat list's spelling) */
+const MUTED_TOKENS = ['simple_collab_voiceover_muted_string', 'chat-muted-support-text'];
 
 const flat = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -31,10 +34,12 @@ function badgeCount(row: Element): number {
   return m ? Number.parseInt(m[0], 10) : 0;
 }
 
-function isUnread(row: Element): boolean {
+const hasToken = (row: Element, wanted: string[]): boolean => {
   const tokens = (row.getAttribute('aria-labelledby') ?? '').split(/\s+/);
-  return UNREAD_TOKENS.some((t) => tokens.includes(t));
-}
+  return wanted.some((t) => tokens.includes(t));
+};
+
+const isUnread = (row: Element): boolean => hasToken(row, UNREAD_TOKENS);
 
 /** The open chat, from the pane header. */
 export function teamsConversation(doc: Document): string | null {
@@ -74,14 +79,20 @@ const teams: Recipe = {
     const list = doc.querySelector(LIST) ?? doc;
     let direct = 0;
     let indirect = 0;
+    let mutedUnread = false;
     for (const row of list.querySelectorAll(ROW)) {
       const n = badgeCount(row);
-      if (n > 0) direct += n;
-      else if (isUnread(row)) indirect++;
+      if (n === 0 && !isUnread(row)) continue;
+      if (hasToken(row, MUTED_TOKENS)) mutedUnread = true;
+      else if (n > 0) direct += n;
+      else indirect++;
     }
     // the list virtualizes: unread chats scrolled out of view leave no row, and
-    // the title carries the total Teams itself believes in
-    if (direct === 0 && indirect === 0) return { direct: unreadFromTitle(doc.title), indirect: 0 };
+    // the title carries the total Teams itself believes in — a total that may
+    // well hold the muted chat on screen, so it is not trusted then
+    if (direct === 0 && indirect === 0 && !mutedUnread) {
+      return { direct: unreadFromTitle(doc.title), indirect: 0 };
+    }
     return { direct, indirect };
   },
 };

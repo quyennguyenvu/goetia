@@ -1,0 +1,24 @@
+<title>(3) Chat | Microsoft Teams</title>
+<!-- live tree shape (see teams-chat.html). A muted chat's row adds
+     simple_collab_voiceover_muted_string to its aria-labelledby tokens (eM in
+     the rail's worker bundle, read 2026-10-03); this one is unread with a
+     badge. The second row is an unmuted unread chat. -->
+<div role="tree" data-tid="simple-collab-dnd-rail" aria-label="Teams">
+  <div role="treeitem" data-conversation-folder="true" data-item-type="chats" aria-level="1" aria-expanded="true">
+    <div role="group">
+      <div role="treeitem" id="muted" data-testid="list-item" data-item-type="chat" aria-level="2"
+        aria-labelledby=" chat_list_unread_text chat-group-support-text title-chat-list-item_19:m@thread.v2 message-preview-chat-list-item_19:m@thread.v2 simple_collab_voiceover_muted_string time-chat-list-item_19:m@thread.v2 ">
+        <span id="title-chat-list-item_19:m@thread.v2" role="text">Release train</span>
+        <span data-tid="unread-count">2</span>
+      </div>
+      <div role="treeitem" id="unmuted" data-testid="list-item" data-item-type="chat" aria-level="2"
+        aria-labelledby=" chat_list_unread_text one-on-one-chat-support-text title-chat-list-item_19:b@thread.v2 message-preview-chat-list-item_19:b@thread.v2 ">
+        <span id="title-chat-list-item_19:b@thread.v2" role="text">Nguyen Pham</span>
+      </div>
+    </div>
+  </div>
+</div>
+<span data-testid="simple-collab-aria-support-texts">
+  <div id="chat_list_unread_text" aria-hidden="true"><span dir="auto">Unread message</span></div>
+  <div id="simple_collab_voiceover_muted_string" aria-hidden="true"><span dir="auto">Muted</span></div>
+</span>

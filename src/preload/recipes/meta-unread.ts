@@ -41,8 +41,21 @@ export function isUnreadRow(row: Element, win: Window & typeof globalThis): bool
   return false;
 }
 
-/** Count conversations whose row shows an unread marker. No thread links
- *  (logged out, selector rot) falls back to the "(n)" title badge. */
+/** The bell facebook draws in a thread row only while the thread is muted
+ *  (MWThreadAddOnSecondary), path read from the live DOM 2026-10-03. It has
+ *  no label and shares its grey, size and slot with the pinned and paused
+ *  icons, so its shape is the one handle; a redrawn bell reads as not muted.
+ *  React's own isMuted prop was tried first and is not reachable from the
+ *  row's node on the live page. */
+const MUTED_BELL = 'svg path[d^="m459.33 1076.878"]';
+
+export function isMutedRow(row: Element): boolean {
+  return row.querySelector(MUTED_BELL) !== null;
+}
+
+/** Count conversations whose row shows an unread marker, muted ones aside.
+ *  No thread links (logged out, selector rot) falls back to the "(n)" title
+ *  badge. */
 export function countUnreadRows(
   doc: Document,
   linkSelector: string,
@@ -55,7 +68,8 @@ export function countUnreadRows(
   }
   let direct = 0;
   for (const link of links) {
-    if (isUnreadRow(rowFor(link), win)) direct++;
+    const row = rowFor(link);
+    if (isUnreadRow(row, win) && !isMutedRow(row)) direct++;
   }
   return { direct, indirect: 0 };
 }
@@ -74,9 +88,9 @@ export function watchRows(
   return rowFor(link).parentElement;
 }
 
-/** Build a banner from the first unread row — for Meta sites that never
- *  notify in-page (they delegate to browser push, which Electron doesn't
- *  support). Spans read [sender, preview, ·, time]. */
+/** Build a banner from the first unread row that is not muted — for Meta
+ *  sites that never notify in-page (they delegate to browser push, which
+ *  Electron doesn't support). Spans read [sender, preview, ·, time]. */
 export function synthFromRows(
   doc: Document,
   linkSelector: string,
@@ -86,7 +100,7 @@ export function synthFromRows(
   if (!win) return null;
   for (const link of doc.querySelectorAll(linkSelector)) {
     const row = rowFor(link);
-    if (!isUnreadRow(row, win)) continue;
+    if (!isUnreadRow(row, win) || isMutedRow(row)) continue;
     const texts = rowTexts(row);
     if (texts.length === 0) return null;
     return {
