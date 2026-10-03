@@ -1,5 +1,6 @@
 import type React from 'react';
 import { badgeLabel } from '../../../shared/badges';
+import { callsOffTooltip, isCallsOff } from '../../../shared/calls-off';
 import { muteLabel } from '../../../shared/mute';
 import type { ServiceMeta, ServiceRuntime } from '../../../shared/types';
 
@@ -39,6 +40,9 @@ export default function ServiceTile({
   const logo = logos[`../assets/logos/${service.id}.svg`];
   const showBadge = runtime.unread.direct > 0;
   const waking = runtime.waking && !runtime.crashed;
+  // read at render: the watcher's re-check just after a timed block ends
+  // broadcasts the cleared state, so no interval is needed
+  const callsOff = isCallsOff(runtime.callsOffUntil, Date.now());
   // "Molten Squircle": ember-toned tiles; the active one floods with the warm
   // gradient so it stays unmistakable on dark graphite.
   const stateClasses = active
@@ -99,6 +103,42 @@ export default function ServiceTile({
           >
             <path d="M18 13.5V11a6 6 0 1 0-12 0v2.5c0 1.2-.7 2.2-1.6 3-.4.4-.1 1 .4 1h14.4c.5 0 .8-.6.4-1-.9-.8-1.6-1.8-1.6-3Z" />
             <line x1="4" y1="3.5" x2="20" y2="20.5" />
+          </svg>
+        </span>
+      )}
+      {/* inside the corner, not hanging off it: off the corner it would
+          crowd the previous tile's unread badge in the top rail */}
+      {callsOff && (
+        <span
+          data-testid="calls-off-mark"
+          className="absolute left-px top-px flex h-3 w-3 items-center justify-center rounded-full border border-border bg-bg-2 text-text-2"
+          title={callsOffTooltip(runtime.callsOffUntil, new Date())}
+        >
+          {/* filled handset, slash cut out in the disc colour: a stroked
+              phone at this size reads as "%" */}
+          <svg width="8" height="8" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+            />
+            <line
+              x1="3"
+              y1="3"
+              x2="21"
+              y2="21"
+              className="stroke-bg-2"
+              strokeWidth="5"
+              strokeLinecap="round"
+            />
+            <line
+              x1="3"
+              y1="3"
+              x2="21"
+              y2="21"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
           </svg>
         </span>
       )}

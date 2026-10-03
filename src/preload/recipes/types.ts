@@ -80,4 +80,14 @@ export interface Recipe {
    *  service otherwise starts on `url` (2026-08-13 decision). The runner
    *  navigates once per document; the site's own redirect brings the user back. */
   loginUrl?(doc: Document): string | null;
+  /** facebook's account-level "Incoming call sounds" switch,
+   *  `call_blocked_until` (seconds; -1 = off until turned back on, 0 = on),
+   *  read through the page's own modules — while it is non-zero the page
+   *  drops every ring. null when it cannot be read; must settle. Declared
+   *  together with allowCalls and mirrored by ServiceMeta.callsSetting
+   *  (recipes.test.ts). */
+  callsBlocked?(doc: Document): Promise<number | null>;
+  /** Turn incoming calls back on and return a fresh read. Main calls it only
+   *  from the tile menu's Turn On Incoming Calls. */
+  allowCalls?(doc: Document): Promise<number | null>;
 }

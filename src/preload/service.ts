@@ -108,13 +108,19 @@ if (!inSubcontext) {
     true,
   );
 
-  // Main reads the open conversation's name and canonical URL through
-  // executeJavaScript at pin time. Frozen and non-enumerable: the page cannot
-  // swap it, and all it does is read the page's own DOM through the recipe.
+  // Main reads the open conversation (pin time) and facebook's calls-off
+  // switch through executeJavaScript. Frozen and non-enumerable: the page
+  // cannot swap it, and every entry only runs the recipe's own hooks.
   Object.defineProperty(window, '__goetia', {
     value: Object.freeze({
       conversation: (): string | null => recipe?.conversation?.(document) ?? null,
       conversationUrl: (): string | null => recipe?.conversationUrl?.(document) ?? null,
+      // facebook's calls-off switch: main asks on a timer and calls
+      // allowCalls only from the tile menu's Turn On
+      callsBlocked: (): Promise<number | null> =>
+        recipe?.callsBlocked?.(document) ?? Promise.resolve(null),
+      allowCalls: (): Promise<number | null> =>
+        recipe?.allowCalls?.(document) ?? Promise.resolve(null),
     }),
     enumerable: false,
     writable: false,

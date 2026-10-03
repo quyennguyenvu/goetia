@@ -51,6 +51,20 @@ describe('tileMenuItems', () => {
     expect(mute?.type === 'item' && mute.label).toBe('Unmute');
   });
 
+  it('offers Turn On Incoming Calls only while calls are off and the page is live', () => {
+    const items = tileMenuItems({ muted: false, live: true, callsOff: true });
+    expect(actions(items)).toEqual(['reload', 'mute', 'allow-calls', '—', 'banish']);
+    const item = items.find((i) => i.type === 'item' && i.action === 'allow-calls');
+    expect(item?.type === 'item' && item.label).toBe('Turn On Incoming Calls');
+    // hibernated: no page to run the write in — the tile click wakes it first
+    expect(actions(tileMenuItems({ muted: false, live: false, callsOff: true }))).not.toContain(
+      'allow-calls',
+    );
+    expect(actions(tileMenuItems({ muted: false, live: true, callsOff: false }))).not.toContain(
+      'allow-calls',
+    );
+  });
+
   it('disables reload for a service with no live view', () => {
     // hibernated: nothing to reload — the tile click is what wakes it
     const [reload] = tileMenuItems({ muted: false, live: false });

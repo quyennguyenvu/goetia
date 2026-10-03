@@ -521,3 +521,18 @@ describe('openDiscordThread', () => {
     back.mockRestore();
   });
 });
+
+describe('callsBlocked / allowCalls hook pair', () => {
+  it('a recipe declaring one declares the other, and ServiceMeta.callsSetting mirrors them', () => {
+    for (const s of SERVICES) {
+      const r = recipes[s.id];
+      expect(r.callsBlocked !== undefined, s.id).toBe(r.allowCalls !== undefined);
+      expect(Boolean(s.callsSetting), s.id).toBe(r.callsBlocked !== undefined);
+    }
+    expect(SERVICES.filter((s) => s.callsSetting).map((s) => s.id)).toEqual(['messenger']);
+  });
+
+  it('messenger reads unknown on a page without facebook’s registry', async () => {
+    expect(await recipes.messenger.callsBlocked?.(load('blank'))).toBeNull();
+  });
+});

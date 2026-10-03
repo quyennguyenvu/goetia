@@ -1,4 +1,5 @@
 import type { Counts } from '../../shared/types';
+import { allowFacebookCalls, readCallBlockedUntil } from './facebook-calls';
 import { conversationFromRows, countUnreadRows, synthFromRows, watchRows } from './meta-unread';
 import { visiblyPresent } from './ready';
 import type { Recipe } from './types';
@@ -59,6 +60,16 @@ const messenger: Recipe = {
   // Electron doesn't support (no FCM)
   synthNotification(doc) {
     return synthFromRows(doc, THREAD_LINK, rowFor);
+  },
+  // facebook's "Incoming call sounds" switch: while it is off the page drops
+  // every ring, and both places facebook offers it are hidden in Goetia
+  callsBlocked(doc) {
+    const win = doc.defaultView;
+    return win ? readCallBlockedUntil(win) : Promise.resolve(null);
+  },
+  allowCalls(doc) {
+    const win = doc.defaultView;
+    return win ? allowFacebookCalls(win) : Promise.resolve(null);
   },
 };
 export default messenger;

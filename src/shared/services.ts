@@ -28,6 +28,7 @@ export const SERVICES: ServiceMeta[] = [
     color: '#0084FF',
     waitForReady: true,
     chatPaths: ['/messages', '/messenger_media'],
+    callsSetting: true,
   },
   // the v2 client routes in the hash (#/chat, #/calendar, …), so the chat
   // route belongs in the URL: snapping back from #/calendar is then a

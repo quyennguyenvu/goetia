@@ -145,6 +145,11 @@ export interface ServiceMeta {
    *  (zalo), so the preload answers a blank open with a stand-in handle that
    *  sends the URL to the OS browser (preload/lib/blank-open-shim.ts). */
   opensLinksBlank?: boolean;
+  /** The recipe reads facebook's account-level calls-off switch
+   *  (callsBlocked/allowCalls), so main watches it and the tile shows it
+   *  (calls-setting.ts). Set solely where both hooks exist
+   *  (recipes.test.ts enforces it). */
+  callsSetting?: boolean;
 }
 
 export interface QuietHoursSchedule {
@@ -381,6 +386,9 @@ export interface ServiceRuntime {
   stale: boolean; // recipe failed; counts may be outdated
   waking: boolean; // loading screen covers this service
   wakeKind: LoadKind | null; // which load the cover names; read only while waking
+  /** facebook's calls-off switch (shared/calls-off.ts): 0 = not known off,
+   *  -1 = off until turned back on, else epoch ms it is off until */
+  callsOffUntil: number;
 }
 
 export interface ShellState {

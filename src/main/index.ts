@@ -17,6 +17,7 @@ import { resolveAccelerators } from '../shared/shortcuts';
 import { wakeCaption } from '../shared/wake-caption';
 import { applyLocked } from './activate';
 import { applyBadges } from './badges';
+import { CallsSettingWatcher } from './calls-setting';
 import { safeStorageCodec } from './codec';
 import { runShellCommand } from './commands';
 import { DownloadHistoryStore } from './download-history';
@@ -65,6 +66,7 @@ app.setName('Goetia');
 const userDataArg = process.argv.find((a) => a.startsWith('--goetia-user-data='));
 if (userDataArg) app.setPath('userData', userDataArg.slice('--goetia-user-data='.length));
 const e2eUpdate = process.argv.includes('--goetia-e2e-update');
+const e2eCallsOff = process.argv.includes('--goetia-e2e-calls-off');
 // Windows toasts are dropped without an explicit AppUserModelID matching the installer's appId
 if (process.platform === 'win32') app.setAppUserModelId('com.quyennguyenvu.goetia');
 app.userAgentFallback = chromeUserAgent(app.userAgentFallback);
@@ -250,6 +252,14 @@ app
       }
       return resolvedTable;
     };
+    // asks the Messenger page for facebook's calls-off switch; views is
+    // assigned below, and nothing asks before a page reports ready
+    const callsSetting = new CallsSettingWatcher({
+      exec: (id, hook) => views.runPageHook(id, hook),
+      publish: (id, callsOffUntil) => state.setRuntime(id, { callsOffUntil }),
+      note: (id, line) => diag.note('recipe', line, id),
+      now: Date.now,
+    });
     const views = new ServiceViewManager(
       win,
       {
@@ -271,6 +281,7 @@ app
           waking.end(id, 'load-failed');
           resilience?.onLoadFailed(id, detail);
         },
+        onDestroyed: (id) => callsSetting.stop(id),
         onPinMessage: (id, text, href, title, conversation) => {
           if (pins.pin({ serviceId: id, text, href, title, conversation, at: Date.now() })) {
             broadcast();
@@ -476,6 +487,7 @@ app
       diag,
       startedAt,
       muteTimer,
+      callsSetting,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
         hibernation.noteActivated(id),
@@ -542,6 +554,7 @@ app
       updates.dispose();
       quiet.dispose();
       muteTimer.dispose();
+      callsSetting.dispose();
       summon.dispose();
       hibernation.dispose();
       resilience?.dispose();
@@ -608,6 +621,11 @@ app
       setTimeout(() => {
         state.setUpdate({ status: 'available', latest: '99.0.0', announce: '99.0.0' });
       }, 800);
+    }
+    // separate flag, like the update toast: a calls-off mark must not
+    // perturb the other e2e specs
+    if (e2eCallsOff) {
+      setTimeout(() => state.setRuntime('messenger', { callsOffUntil: -1 }), 800);
     }
   })
   .catch((err) => {

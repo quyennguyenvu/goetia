@@ -20,6 +20,7 @@ import { PIN_CAP } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { Accelerators } from '../shared/shortcuts';
 import type { DiagTag, LoadKind, RailPosition, ServiceId } from '../shared/types';
+import type { CallsHook } from './calls-setting';
 import type { DownloadManager } from './downloads';
 import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
@@ -89,6 +90,8 @@ export interface ViewHooks {
    *  error code and name — for the Diagnostics line */
   onCrashed(id: ServiceId, detail: string): void;
   onLoadFailed(id: ServiceId, detail: string): void;
+  /** destroy() ran — hibernation, banish, purge or quit took the view */
+  onDestroyed(id: ServiceId): void;
   /** "Pin Message" from the page's context menu or the Pin Selection
    *  shortcut — captured here in main, so the service preload needs no
    *  channel for it. `title` is document.title, the conversation's best
@@ -659,6 +662,15 @@ export class ServiceViewManager {
    *  only way in. The selection is read with executeJavaScript rather than a
    *  preload channel: no new service-side IPC, and the text is treated as
    *  page content downstream either way. */
+  /** A window.__goetia hook's answer from the live page — main asks, the
+   *  page never pushes. Null with no live view; rejects while the page is
+   *  mid-navigation. `hook` is a fixed name, never page data. */
+  runPageHook(id: ServiceId, hook: CallsHook): Promise<unknown> | null {
+    const wc = this.views.get(id)?.webContents;
+    if (!wc || wc.isDestroyed()) return null;
+    return wc.executeJavaScript(`globalThis.__goetia?.${hook}?.() ?? null`, true);
+  }
+
   async pinSelection(id: ServiceId): Promise<void> {
     const wc = this.views.get(id)?.webContents;
     if (!wc || wc.isDestroyed() || this.hooks.pinsFull()) return;
@@ -834,6 +846,7 @@ export class ServiceViewManager {
     view.webContents.close();
     this.views.delete(id);
     if (this.activeId === id) this.activeId = null;
+    this.hooks.onDestroyed(id);
   }
 
   /** End every call this service has open. A call outlives a service switch —

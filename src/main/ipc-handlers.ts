@@ -10,6 +10,7 @@ import {
   Menu,
   shell,
 } from 'electron';
+import { isCallsOff } from '../shared/calls-off';
 import { normalizeDiagFilter } from '../shared/diag-filter';
 import type { InvokePayload, RendererInvoke, RendererToMain } from '../shared/ipc';
 import { describeAction, type GuardedAction, guardGroupOf, guardOn } from '../shared/lock';
@@ -28,6 +29,7 @@ import {
   setOverlayOpen,
 } from './activate';
 import { applyOverlay } from './badges';
+import type { CallsSettingWatcher } from './calls-setting';
 import type { DownloadManager } from './downloads';
 import { globalMuteMenuTemplate } from './global-mute-menu';
 import type { IdentityShare } from './identity-share';
@@ -106,6 +108,8 @@ export interface AppContext {
   startedAt: number;
   /** flips a timed mute back when it expires; re-armed by setServiceMuted */
   muteTimer: MuteTimerController;
+  /** facebook's calls-off switch on the Messenger tile; see calls-setting.ts */
+  callsSetting: CallsSettingWatcher;
   broadcast(): void;
   /** resets the hibernation idle clock; late-bound in index.ts */
   noteActivated(id: import('../shared/types').ServiceId): void;
@@ -413,7 +417,11 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   const onInvoke = registerInvoke(ctx);
   on('service:activate', ({ serviceId }) => activateService(ctx, serviceId));
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
-  on('service:ready', ({ serviceId }) => ctx.waking.end(serviceId, 'recipe-ready'));
+  on('service:ready', ({ serviceId }) => {
+    ctx.waking.end(serviceId, 'recipe-ready');
+    // only a ready chat is asked: a login or checkpoint page is never touched
+    if (serviceById(serviceId).callsSetting) ctx.callsSetting.noteReady(serviceId);
+  });
   on('service:setMuted', ({ serviceId, muted, until }) =>
     setServiceMuted(ctx, serviceId, muted, validUntil(until)),
   );
@@ -424,6 +432,8 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     const run: Record<TileMenuAction, () => void> = {
       reload: () => ctx.views.refresh(serviceId),
       mute: () => setServiceMuted(ctx, serviceId, false),
+      // the only caller of the write: the user's own click
+      'allow-calls': () => void ctx.callsSetting.turnOn(serviceId),
       banish: () => ctx.banishServices([serviceId]),
     };
     const items = tileMenuItems({
@@ -431,6 +441,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       live: ctx.views.has(serviceId),
       mutedUntil: s.mutedUntil[serviceId],
       now: new Date(),
+      callsOff: isCallsOff(ctx.state.runtime(serviceId).callsOffUntil, Date.now()),
     });
     Menu.buildFromTemplate(
       items.map((item) => {
