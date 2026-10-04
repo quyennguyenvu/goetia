@@ -24,6 +24,11 @@ import type { CallsHook } from './calls-setting';
 import type { DownloadManager } from './downloads';
 import type { IdentityShare } from './identity-share';
 import { CALL_ORIGINS, isBlankCallPopup, isCallPopup } from './lib/call-policy';
+import {
+  CALL_RETRY_DELAY_MS,
+  callLoadFailureAction,
+  callLoadFailureLine,
+} from './lib/call-window-rules';
 import { resolveClickPoint } from './lib/click-point';
 import { clientHintHeaders } from './lib/client-hints';
 import { buildContextMenuTemplate, type ContextMenuItem } from './lib/context-menu';
@@ -561,9 +566,33 @@ export class ServiceViewManager {
       this.callWindows.set(id, open);
     }
     open.add(call);
+    // a failed load would leave Electron's blank error document on screen,
+    // so it is retried once and then the window closes; the ring gets the
+    // code either way (lib/call-window-rules.ts)
+    let attempts = 0;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const load = (): void => {
+      attempts++;
+      // did-fail-load below is the handler; the promise only mirrors it
+      call.loadURL(url).catch(() => {});
+    };
     call.on('closed', () => {
       debugCalls(`call window closed (${id})`);
+      if (retry) clearTimeout(retry);
       this.callWindows.get(id)?.delete(call);
+    });
+    call.webContents.on('did-fail-load', (_e, code, desc, failedUrl, isMainFrame) => {
+      const action = callLoadFailureAction({ isMainFrame, code, attempt: attempts });
+      if (action === 'ignore') return;
+      this.hooks.note('view', withPage(callLoadFailureLine(id, code, desc, action), failedUrl), id);
+      if (action === 'close') {
+        if (!call.isDestroyed()) call.close();
+        return;
+      }
+      retry = setTimeout(() => {
+        retry = null;
+        if (!call.isDestroyed()) load();
+      }, CALL_RETRY_DELAY_MS);
     });
     // a call window is not a browser: no further popups, and every
     // navigation must stay a call URL or at least on the service's own hosts
@@ -600,7 +629,7 @@ export class ServiceViewManager {
         debugCalls(`call window GONE reason=${d.reason} exit=${d.exitCode}`),
       );
     }
-    call.loadURL(url);
+    load();
   }
 
   /** Map a template descriptor to a native item. Only `open-link` reaches the

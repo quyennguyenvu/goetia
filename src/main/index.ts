@@ -67,6 +67,46 @@ const userDataArg = process.argv.find((a) => a.startsWith('--goetia-user-data=')
 if (userDataArg) app.setPath('userData', userDataArg.slice('--goetia-user-data='.length));
 const e2eUpdate = process.argv.includes('--goetia-e2e-update');
 const e2eCallsOff = process.argv.includes('--goetia-e2e-calls-off');
+// one Goetia per profile: a second instance (the dev build beside the packaged
+// app, a double launch) opens the same partition databases, which Chromium
+// locks per process, and both break (2026-10-04). The refusal cannot wait for
+// ready — Electron never emits it in an instance that lost the lock, even if
+// a retry wins it (probed 2026-10-04) — so it quits here, once the line is
+// out. A holder that is itself quitting answers the probe with SHUTDOWN and
+// Chromium hands the lock over, which is what keeps a dev hot-restart alive.
+if (!app.requestSingleInstanceLock()) {
+  process.stderr.write('[app] another Goetia is already running on this profile; quitting\n', () =>
+    app.quit(),
+  );
+}
+// Calls diagnosis (GOETIA_DEBUG_CALLS, like debugCalls in views.ts): every
+// window and webContents this process creates and what it loads. The blank
+// "Goetia" window of 2026-10-04 came through none of the handlers that log,
+// so this is what names the next one.
+if (process.env.GOETIA_DEBUG_CALLS) {
+  const say = (line: string): void => console.error(`[calls-debug] ${line}`);
+  app.on('web-contents-created', (_e, wc) => {
+    const tag = `webContents ${wc.id} (${wc.getType()})`;
+    say(`${tag} created url="${wc.getURL()}"`);
+    wc.on('did-start-navigation', ({ url, isMainFrame }) => {
+      if (isMainFrame) say(`${tag} navigating "${url}"`);
+    });
+    wc.on('did-fail-load', (_ev, code, desc, url, isMainFrame) => {
+      if (isMainFrame) say(`${tag} FAILED ${code} ${desc} "${url}"`);
+    });
+    wc.on('page-title-updated', (_ev, title) => say(`${tag} title "${title}"`));
+    wc.on('devtools-opened', () => say(`${tag} devtools opened`));
+    wc.on('destroyed', () => say(`${tag} destroyed`));
+  });
+  app.on('browser-window-created', (_e, win) => {
+    const b = win.getBounds();
+    say(
+      `window ${win.id} created wc=${win.webContents.id} title="${win.getTitle()}" ${b.width}x${b.height}@${b.x},${b.y} visible=${win.isVisible()} parent=${win.getParentWindow()?.id ?? 'none'}`,
+    );
+    win.on('show', () => say(`window ${win.id} shown`));
+    win.on('closed', () => say(`window ${win.id} closed`));
+  });
+}
 // Windows toasts are dropped without an explicit AppUserModelID matching the installer's appId
 if (process.platform === 'win32') app.setAppUserModelId('com.quyennguyenvu.goetia');
 app.userAgentFallback = chromeUserAgent(app.userAgentFallback);
@@ -103,6 +143,9 @@ function createWindow(): BrowserWindow {
 app
   .whenReady()
   .then(() => {
+    // nothing below may run without the lock: every store here writes into the profile
+    if (!app.hasSingleInstanceLock()) return;
+
     // dev runs the stock Electron binary — hand the dock our real icon
     // (the packaged app gets icon + name from its bundle)
     if (!app.isPackaged && process.platform === 'darwin') {
@@ -174,6 +217,20 @@ app
     });
     const state = new MainState();
     const win = createWindow();
+    // the Dock click: reopen the shell when it is away, never steal focus from
+    // a visible one — and only ever the shell. getAllWindows() lists the newest
+    // window first, and after a call that is the hidden inert guest: showing
+    // [0] put a blank white "Goetia" window on screen (2026-10-03/04)
+    app.on('activate', () => {
+      if (!win.isDestroyed() && !win.isVisible()) win.show();
+    });
+    // the refused launch's whole effect: bring this window back
+    app.on('second-instance', () => {
+      if (win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      if (!win.isVisible()) win.show();
+      win.focus();
+    });
 
     const sharePrompt = identitySharePrompt(win);
     const identityShare = new IdentityShare(
@@ -635,9 +692,3 @@ app
 
 // Tray app: closing the window hides it; quit only via tray menu / Cmd+Q.
 app.on('window-all-closed', () => {});
-
-app.on('activate', () => {
-  // reopen from dock when hidden; never steal focus from a visible window
-  const win = BrowserWindow.getAllWindows()[0];
-  if (win && !win.isVisible()) win.show();
-});
