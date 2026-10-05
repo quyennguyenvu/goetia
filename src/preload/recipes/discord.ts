@@ -171,6 +171,13 @@ const discord: Recipe = {
     [data-list-item-id="guildsnav___app-download-button"] {
       display: none !important;
     }
+    /* a coach mark anchored to a row hidden above (the Nitro tab's "sweet
+       deal" popover, live 2026-10-05) is positioned off the row's zero rect:
+       the page origin plus the popover's 14px spacing. Nothing real anchors
+       there, so the position is the orphan's fingerprint. */
+    [id^="popout_"][style*="left: 14px; top: 0px"] {
+      display: none !important;
+    }
   `,
   // the guild nav (stable data-list-id) mounts only after discord's splash
   ready(doc) {
