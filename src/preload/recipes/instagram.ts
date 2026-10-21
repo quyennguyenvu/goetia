@@ -98,21 +98,18 @@ const instagram: Recipe = {
   // Login flows (/accounts/login) never reach a chat path, so they are
   // never snapped back.
   chatPaths: ['/direct'],
-  // chat only: off-chat in-page links (thread-header avatar/username →
-  // profile, @mentions, shared posts) get pointer-events:none instead of
-  // a jarring navigate-then-snapback; chatPaths stays the containment for
-  // anything that still routes. Gated on the DM surface (the nav's own
-  // /direct/ link counts, so an empty inbox is covered) so login and
-  // challenge pages keep every link live. The nav rail itself is hidden
-  // by hideChrome below — it has no stable selector.
+  // chat only: off-chat links (thread-header avatar/username → profile,
+  // @mentions, shared posts) stay live — the preload sends them to the OS
+  // browser — and chatPaths contains anything that routes without a link.
+  // The rules below are gated on the DM surface (the nav's own /direct/
+  // link counts, so an empty inbox is covered) so login and challenge pages
+  // are untouched. The nav rail itself is hidden by hideChrome below — it
+  // has no stable selector.
   // .x132t2bv is Meta's StyleX atomic class for the rail-clearing padding
   // (one class = one declaration, hash derived from it, so it survives
   // rebuilds better than component classes — verified live 2026-08-11);
   // the structural reclaim in hideChrome is the fallback if it rotates.
   css: `
-    body:has(a[href^='/direct/']) a[href^='/']:not([href^='/direct']) {
-      pointer-events: none !important;
-    }
     /* instagram pins html to overflow-y:scroll — an empty track beside the
        inbox forever. The DM surface fills the view; only its panes scroll. */
     html:has(a[href^='/direct/']), body:has(a[href^='/direct/']) {

@@ -179,6 +179,16 @@ describe('chatPaths mirror', () => {
   });
 });
 
+describe('recipe css', () => {
+  // an inert link leaves the preload's off-chat interceptor no anchor to find,
+  // so the click goes nowhere (Messenger's View profile, 2026-10-21)
+  it('never sets pointer-events: none', () => {
+    for (const [id, recipe] of Object.entries(recipes)) {
+      expect(recipe.css ?? '', id).not.toMatch(/pointer-events\s*:\s*none/);
+    }
+  });
+});
+
 describe('slack thread URL', () => {
   const THREAD =
     'https://app.slack.com/client/T0GCQ370X/C1755B8LV/thread/C1755B8LV-1788402687.118899';
