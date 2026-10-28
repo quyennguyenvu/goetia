@@ -138,6 +138,15 @@ test('reorder: a rail drag reorders without activating the tile it dragged', asy
   // Zalo was dragged, not clicked: activation must not have followed it
   await expect(win.locator(active)).toHaveAttribute('aria-label', 'Messenger');
 
+  // the lift's shadow must settle back to invisible: Motion cannot animate a
+  // drop-shadow to `none`, so without ReorderTile's resting shadow the dragged
+  // tile kept its lift until reload
+  const liftFilter = () =>
+    win
+      .locator('[data-testid="service-tile"][aria-label="Zalo"]')
+      .evaluate((el) => getComputedStyle(el.parentElement as Element).filter);
+  await expect.poll(liftFilter).toMatch(/rgba\(0, 0, 0, 0\)/);
+
   await app.close();
 });
 

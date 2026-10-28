@@ -5,6 +5,7 @@ import type { PinView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
 import Portal from './Portal';
 import RailReorderPrompt from './RailReorderPrompt';
+import ReorderTile from './ReorderTile';
 import ServiceTile from './ServiceTile';
 import { updatePending } from './update-rules';
 import { useTileReorder } from './useTileReorder';
@@ -180,19 +181,10 @@ export default function Rail() {
             const svc = byId.get(id);
             if (!svc) return null;
             return (
-              <Reorder.Item
+              <ReorderTile
                 key={id}
                 value={id}
-                as="div"
                 className="relative flex-none"
-                // drop-shadow, not boxShadow: this wrapper is a rectangle and the
-                // tile inside it is a squircle, so a box-shadow would halo the
-                // wrapper's corners. drop-shadow follows the rendered alpha.
-                whileDrag={{
-                  scale: 1.1,
-                  zIndex: 10,
-                  filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.45))',
-                }}
                 {...reorder.itemProps}
               >
                 <ServiceTile
@@ -210,7 +202,7 @@ export default function Rail() {
                     window.goetia.send('service:tileMenu', { serviceId: svc.id });
                   }}
                 />
-              </Reorder.Item>
+              </ReorderTile>
             );
           })}
         </Reorder.Group>

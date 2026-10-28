@@ -300,6 +300,14 @@ test('home: reordering summoned tiles is staged until the confirm applies it', a
   const confirm = win.getByRole('button', { name: 'Apply new order' });
   await expect(confirm).toBeEnabled();
   expect(await railOrder()).toEqual(['Messenger', 'Zalo']);
+  // the lift's shadow settles back to invisible (ReorderTile)
+  await expect
+    .poll(() =>
+      summoned
+        .getByRole('button', { name: 'Zalo' })
+        .evaluate((el) => getComputedStyle(el.parentElement as Element).filter),
+    )
+    .toMatch(/rgba\(0, 0, 0, 0\)/);
 
   await confirm.click();
 

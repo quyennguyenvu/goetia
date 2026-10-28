@@ -16,6 +16,7 @@ import {
   welcomeSections,
 } from '../../../shared/welcome';
 import { useShell } from '../store';
+import ReorderTile from './ReorderTile';
 import SummonConfirm from './SummonConfirm';
 import HomeHero from './welcome/HomeHero';
 import PickTile from './welcome/PickTile';
@@ -203,19 +204,10 @@ export default function Welcome() {
   const summonedTiles = (
     <Reorder.Group as="div" axis="x" values={staged} onReorder={setStaged} className="flex gap-2">
       {pick(sections.summoned).map((svc) => (
-        <Reorder.Item
+        <ReorderTile
           key={svc.id}
           value={svc.id}
-          as="div"
           className="relative w-[76px] flex-none"
-          // drop-shadow, not boxShadow: this wrapper is a rectangle and the
-          // tile inside it is a squircle, so a box-shadow would halo the
-          // wrapper's corners. drop-shadow follows the rendered alpha.
-          whileDrag={{
-            scale: 1.1,
-            zIndex: 10,
-            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.45))',
-          }}
           onPointerDown={() => {
             didDrag.current = false;
           }}
@@ -238,7 +230,7 @@ export default function Welcome() {
               banishOne(svc.id);
             }}
           />
-        </Reorder.Item>
+        </ReorderTile>
       ))}
     </Reorder.Group>
   );
