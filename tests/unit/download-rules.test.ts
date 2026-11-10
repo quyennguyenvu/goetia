@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   ASK_URL_CAP,
+  announceVia,
   bannerFor,
   burstExceeded,
   DOWNLOAD_BURST_CAP,
@@ -176,6 +177,25 @@ describe('bannerFor', () => {
   });
   it('is silent on cancel', () => {
     expect(bannerFor('cancelled', 'photo.jpg', 'WhatsApp')).toBeNull();
+  });
+});
+
+describe('announceVia', () => {
+  const front = { visible: true, minimized: false, focused: true, locked: false };
+
+  it('toasts only while the window is in front and unlocked', () => {
+    expect(announceVia(front)).toBe('toast');
+  });
+
+  it('banners when the window is hidden, minimized or behind another app', () => {
+    expect(announceVia({ ...front, visible: false })).toBe('banner');
+    expect(announceVia({ ...front, minimized: true })).toBe('banner');
+    expect(announceVia({ ...front, focused: false })).toBe('banner');
+  });
+
+  // a filename must never be drawn over the lock screen
+  it('banners while locked, even in front', () => {
+    expect(announceVia({ ...front, locked: true })).toBe('banner');
   });
 });
 

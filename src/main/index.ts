@@ -14,6 +14,7 @@ import {
 import { aggregateBadges, type BadgeSummary } from '../shared/badges';
 import { SERVICES, serviceById } from '../shared/services';
 import { resolveAccelerators } from '../shared/shortcuts';
+import { revealLabel } from '../shared/toast';
 import { wakeCaption } from '../shared/wake-caption';
 import { applyLocked } from './activate';
 import { applyBadges } from './badges';
@@ -34,6 +35,7 @@ import { ActivityLog } from './lib/activity-log';
 import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
 import { Diagnostics } from './lib/diagnostics';
+import { viewBounds } from './lib/layout';
 import { resolveIcons } from './lib/notification-icons';
 import { audioMuted } from './lib/notification-rules';
 import { anyOverlayOpen } from './lib/overlay-rules';
@@ -56,6 +58,7 @@ import { SettingsStore } from './settings';
 import { ShortcutRecorder } from './shortcut-recorder';
 import { MainState } from './state';
 import { SummonHotkey } from './summon-hotkey';
+import { ToastLayer } from './toast-layer';
 import { createTray } from './tray';
 import { UpdateChecker } from './updates';
 import { ServiceViewManager } from './views';
@@ -67,6 +70,8 @@ const userDataArg = process.argv.find((a) => a.startsWith('--goetia-user-data=')
 if (userDataArg) app.setPath('userData', userDataArg.slice('--goetia-user-data='.length));
 const e2eUpdate = process.argv.includes('--goetia-e2e-update');
 const e2eCallsOff = process.argv.includes('--goetia-e2e-calls-off');
+// focus cannot be driven under Playwright; never consulted outside e2e
+const e2eInFront = process.argv.includes('--goetia-e2e') && process.env.GOETIA_E2E_IN_FRONT === '1';
 // one Goetia per profile: a second instance (the dev build beside the packaged
 // app, a double launch) opens the same partition databases, which Chromium
 // locks per process, and both break (2026-10-04). The refusal cannot wait for
@@ -251,6 +256,22 @@ app
     };
 
     const overlay = new LoadingOverlay(win, effectiveTheme());
+    const toastLayer = new ToastLayer({
+      win,
+      theme: effectiveTheme,
+      color: (id) => serviceById(id).color,
+      contentBounds: () => {
+        const [w, h] = win.getContentSize();
+        return viewBounds(w, h, settings.get().railPosition);
+      },
+      // views is assembled below; a toast cannot be clicked before it exists
+      restoreFocus: () => {
+        if (win.isDestroyed()) return;
+        if (anyOverlayOpen(state)) win.webContents.focus();
+        else views.focusActive();
+      },
+      note: (line) => diag.note('downloads', line),
+    });
     const waking = new WakingTracker(state);
     const activity = new ActivityLog();
     let resilience: ResilienceManager | null = null;
@@ -273,6 +294,27 @@ app
         n.on('failed', (_e, err) => diag.note('downloads', `banner: ${err}`));
         n.show();
       },
+      inFront: () => {
+        if (win.isDestroyed()) return { visible: false, minimized: false, focused: false };
+        if (e2eInFront) return { visible: true, minimized: false, focused: true };
+        return {
+          visible: win.isVisible(),
+          minimized: win.isMinimized(),
+          focused: win.isFocused(),
+        };
+      },
+      toast: (t, unavailable) =>
+        toastLayer.show(
+          { serviceId: t.serviceId, small: t.small, main: t.main, action: t.action },
+          {
+            // the row id never leaves main: the page can only say "reveal"
+            action: () => {
+              if (t.rowId !== null) downloads.toastAction(t.rowId);
+            },
+            unavailable,
+          },
+        ),
+      revealLabel: revealLabel(process.platform),
       reveal: (path) => shell.showItemInFolder(path),
       dockFinished: (path) => app.dock?.downloadFinished(path),
       setProgress: (fraction) => {
@@ -364,7 +406,18 @@ app
       identityShare,
       downloads,
       () => state.switcherOpen || state.settingsOpen || state.homeOpen,
-      overlay,
+      // the toast layer rides the cover's two seams: it re-centres when the
+      // content rect moves and goes back on top when a view is re-stacked
+      {
+        setBounds: (b) => {
+          overlay.setBounds(b);
+          toastLayer.layout();
+        },
+        raise: () => {
+          overlay.raise();
+          toastLayer.raise();
+        },
+      },
     );
 
     const updates = new UpdateChecker({
@@ -441,6 +494,7 @@ app
         caption: wakeCaption(rt.wakeKind, serviceById(state.activeId).name),
       });
       overlay.show();
+      toastLayer.raise(); // the cover just re-added itself on top
     };
 
     let tray: ReturnType<typeof createTray> | null = null;
@@ -521,6 +575,9 @@ app
 
     // a check can land while the app sits in the tray; the toast waits
     win.on('show', () => updates.flushAnnounce());
+    // a toast nobody can see is the banner's job (hide hands an unshown one back)
+    win.on('hide', () => toastLayer.hide());
+    win.on('minimize', () => toastLayer.hide());
 
     let hibernation: HibernationController;
     const ctx: AppContext = {
@@ -587,6 +644,8 @@ app
       syncLocked: () => {
         if (lock.locked) recorder.cancel(); // a recording cannot outlive the pane
         if (!applyLocked(ctx, lock.locked)) return;
+        // a filename must never sit over the lock screen
+        if (lock.locked) toastLayer.hide();
         // both menus bake their disabled state in at build time
         buildAppMenu(ctx);
         tray?.refresh();
@@ -617,6 +676,7 @@ app
       resilience?.dispose();
       identityShare.dispose();
       downloads.dispose();
+      toastLayer.dispose();
       recents.flush();
       diag.flush();
       // last: commits any deferred write (zoom) before the process goes

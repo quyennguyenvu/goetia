@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { matchesDownloadQuery, normalizeDownloadQuery } from '../../../shared/download-filter';
 import { extensionChip, formatBytes, formatProgress } from '../../../shared/format';
 import type { GuardedAction } from '../../../shared/lock';
+import { revealLabel } from '../../../shared/toast';
 import type { DownloadStorage, DownloadView } from '../../../shared/types';
 import { useShell } from '../store';
 import CredentialConfirm from './CredentialConfirm';
@@ -13,7 +14,7 @@ import { ToastDrain, useToastTimer } from './toast-timer';
 /** while a row is downloading the pane re-fetches this often; never otherwise */
 const POLL_MS = 1000;
 const isMac = navigator.platform.startsWith('Mac');
-export const REVEAL_LABEL = isMac ? 'Show in Finder' : 'Show in folder';
+export const REVEAL_LABEL = revealLabel(isMac ? 'darwin' : 'other');
 
 /** whole percent, or null while Chromium does not know the total */
 export function percent(r: { received: number; total: number }): number | null {

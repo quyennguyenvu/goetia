@@ -7,6 +7,7 @@ import {
   type DownloadItemLike,
   DownloadManager,
   type DownloadManagerDeps,
+  type DownloadToast,
 } from '../../src/main/downloads';
 import {
   DOWNLOAD_BURST_CAP,
@@ -95,6 +96,10 @@ function harness(
     icons: new Map([['whatsapp', '/icons/whatsapp.png']]),
     exists: (p) => p === DIR || files.has(p),
     notify: (b) => void banners.push(b),
+    // out of view by default, so the banner tests below exercise the banner
+    inFront: () => ({ visible: false, minimized: false, focused: false }),
+    toast: vi.fn(),
+    revealLabel: 'Show in Finder',
     reveal: vi.fn(),
     dockFinished: vi.fn(),
     setProgress: vi.fn(),
@@ -270,6 +275,136 @@ describe('DownloadManager', () => {
     expect(item.cancelled).toBe(true);
     expect(deps.setProgress).toHaveBeenLastCalledWith(-1);
     expect(ses.listenerCount('will-download')).toBe(0);
+  });
+});
+
+describe('toast or banner', () => {
+  const inFront = () => ({ visible: true, minimized: false, focused: true });
+  const toastSpy = () => vi.fn<(t: DownloadToast, unavailable: () => void) => void>();
+
+  it('toasts instead of bannering while the window is in front', () => {
+    const toast = toastSpy();
+    const { ses, deps, banners, files } = harness({ inFront, toast });
+    const item = new FakeItem('photo.jpg');
+    ses.fire(item);
+    files.add(join(DIR, 'photo.jpg'));
+    item.finish('completed');
+    expect(banners).toHaveLength(0);
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast.mock.calls[0][0]).toEqual({
+      rowId: 1,
+      serviceId: 'whatsapp',
+      small: 'Saved from WhatsApp',
+      main: 'photo.jpg',
+      action: 'Show in Finder',
+    });
+    // the bounce is not the banner's: it rides either announcement
+    expect(deps.dockFinished).toHaveBeenCalledWith(join(DIR, 'photo.jpg'));
+  });
+
+  it('names the file as saved on disk', () => {
+    const toast = toastSpy();
+    const { ses } = harness({ inFront, toast, files: new Set([join(DIR, 'photo.jpg')]) });
+    const item = new FakeItem('photo.jpg');
+    ses.fire(item);
+    item.finish('completed');
+    expect(toast.mock.calls[0][0].main).toBe('photo (1).jpg');
+  });
+
+  it('a failed download toasts with nothing to reveal', () => {
+    const toast = toastSpy();
+    const { ses, banners } = harness({ inFront, toast });
+    const item = new FakeItem('a.pdf');
+    ses.fire(item);
+    item.finish('interrupted');
+    expect(banners).toHaveLength(0);
+    expect(toast.mock.calls[0][0]).toEqual({
+      rowId: null,
+      serviceId: 'whatsapp',
+      small: 'WhatsApp',
+      main: 'Could not save a.pdf',
+      action: null,
+    });
+  });
+
+  it('a cancelled download announces nothing either way', () => {
+    const toast = toastSpy();
+    const { ses, banners } = harness({ inFront, toast });
+    const item = new FakeItem('a.pdf');
+    ses.fire(item);
+    item.finish('cancelled');
+    expect(toast).not.toHaveBeenCalled();
+    expect(banners).toHaveLength(0);
+  });
+
+  it('banners when the window is not in front', () => {
+    const toast = toastSpy();
+    const { ses, banners } = harness({
+      inFront: () => ({ visible: true, minimized: false, focused: false }),
+      toast,
+    });
+    const item = new FakeItem('photo.jpg');
+    ses.fire(item);
+    item.finish('completed');
+    expect(toast).not.toHaveBeenCalled();
+    expect(banners[0]).toMatchObject({ title: 'photo.jpg', body: 'Saved from WhatsApp' });
+  });
+
+  it('banners, redacted, while locked even in front', () => {
+    const toast = toastSpy();
+    const { ses, banners, box } = harness({ inFront, toast });
+    const item = new FakeItem('secret.pdf');
+    ses.fire(item);
+    box.locked = true;
+    item.finish('completed');
+    expect(toast).not.toHaveBeenCalled();
+    expect(banners[0]).toMatchObject({ title: 'WhatsApp', body: '' });
+  });
+
+  it('falls back to the banner when the layer cannot show the toast', () => {
+    const toast = toastSpy().mockImplementation((_t, unavailable) => unavailable());
+    const { ses, banners } = harness({ inFront, toast });
+    const item = new FakeItem('photo.jpg');
+    ses.fire(item);
+    item.finish('completed');
+    expect(banners).toHaveLength(1);
+    expect(banners[0]).toMatchObject({ title: 'photo.jpg', body: 'Saved from WhatsApp' });
+  });
+
+  it('the fallback redacts if the lock engaged in between', () => {
+    let fallback = () => {};
+    const toast = toastSpy().mockImplementation((_t, unavailable) => {
+      fallback = unavailable;
+    });
+    const { ses, banners, box } = harness({ inFront, toast });
+    const item = new FakeItem('secret.pdf');
+    ses.fire(item);
+    item.finish('completed');
+    box.locked = true;
+    fallback();
+    expect(banners[0]).toMatchObject({ title: 'WhatsApp', body: '' });
+  });
+
+  it("the toast's action reveals, opens the pane once the file is gone, and is inert while locked", () => {
+    const { dm, ses, deps, files, box } = harness({ inFront, toast: toastSpy() });
+    const item = new FakeItem('photo.jpg');
+    ses.fire(item);
+    files.add(join(DIR, 'photo.jpg'));
+    item.finish('completed');
+
+    dm.toastAction(1);
+    expect(deps.reveal).toHaveBeenCalledWith(join(DIR, 'photo.jpg'));
+    expect(deps.openDownloads).not.toHaveBeenCalled();
+
+    files.delete(join(DIR, 'photo.jpg'));
+    dm.toastAction(1);
+    expect(deps.reveal).toHaveBeenCalledTimes(1);
+    expect(deps.openDownloads).toHaveBeenCalledTimes(1);
+
+    box.locked = true;
+    dm.toastAction(1);
+    expect(deps.reveal).toHaveBeenCalledTimes(1);
+    expect(deps.openDownloads).toHaveBeenCalledTimes(1);
   });
 });
 

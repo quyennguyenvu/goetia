@@ -9,7 +9,11 @@ import {
   test,
 } from '@playwright/test';
 
-const isShell = (p: Page) => p.url().startsWith('file://') && !p.url().includes('loading.html');
+const isShell = (p: Page) =>
+  p.url().startsWith('file://') &&
+  !p.url().includes('loading.html') &&
+  !p.url().includes('toast.html');
+const isToast = (p: Page) => p.url().includes('toast.html');
 
 /** zalo alone summoned (its logged-out page is a stable, real document);
  *  downloads pointed at a folder inside the profile so nothing touches the
@@ -85,9 +89,10 @@ async function chord(app: ElectronApplication, key: string): Promise<void> {
 
 const PASSCODE = 'correct horse';
 
-async function launch(profile: string) {
+async function launch(profile: string, env: Record<string, string> = {}) {
   const app = await electron.launch({
     args: ['out/main/index.js', '--goetia-e2e', `--goetia-user-data=${profile}`],
+    env: { ...(process.env as Record<string, string>), ...env },
   });
   const win =
     app.windows().find(isShell) ?? (await app.waitForEvent('window', { predicate: isShell }));
@@ -116,6 +121,31 @@ const trigger = (app: ElectronApplication) =>
     if (!wc) throw new Error('no service view');
     return wc.executeJavaScript(js);
   }, BLOB_DOWNLOAD);
+
+/** the toast layer's view is attached to the window and visible — the DOM
+ *  alone cannot say so, since a hidden view still has a rendered page */
+const toastVisible = (app: ElectronApplication) =>
+  app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().some((w) =>
+      w.contentView.children.some((v) => {
+        const wc = (v as unknown as { webContents?: { getURL(): string } }).webContents;
+        return (wc?.getURL().includes('toast.html') ?? false) && v.getVisible();
+      }),
+    ),
+  );
+
+/** e2e must not open Finder: record what the reveal was asked for instead */
+const stubReveal = (app: ElectronApplication) =>
+  app.evaluate(({ shell }) => {
+    const g = globalThis as unknown as { __revealed: string[] };
+    g.__revealed = [];
+    shell.showItemInFolder = (p: string) => {
+      g.__revealed.push(p);
+    };
+  });
+
+const revealed = (app: ElectronApplication) =>
+  app.evaluate(() => (globalThis as unknown as { __revealed: string[] }).__revealed);
 
 async function openPane(win: Page) {
   await win.getByTestId('settings-btn').click();
@@ -202,6 +232,47 @@ test('a page download lands in the configured folder and de-duplicates', async (
     ask: false,
     dir: null,
   });
+
+  await app.close();
+});
+
+test('in front, a download raises the toast; a newer one replaces it; the action reveals and the body dismisses', async () => {
+  const { profile, downloads } = makeProfile();
+  // focus cannot be relied on under Playwright; the switch only exists under --goetia-e2e
+  const { app } = await launch(profile, { GOETIA_E2E_IN_FRONT: '1' });
+  await waitForService(app);
+  await stubReveal(app);
+
+  // the layer is created by the first toast, never before
+  expect(app.windows().some(isToast)).toBe(false);
+
+  await trigger(app);
+  await expect.poll(() => app.windows().some(isToast), { timeout: 15_000 }).toBe(true);
+  const toast = app.windows().find(isToast) as Page;
+  const card = toast.getByTestId('download-toast');
+  const action = toast.getByTestId('download-toast-action');
+  await expect(card).toContainText('note.txt');
+  await expect(card).toContainText('Saved from Zalo');
+  await expect(action).toHaveText(
+    process.platform === 'darwin' ? 'Show in Finder' : 'Show in folder',
+  );
+  await expect.poll(() => toastVisible(app)).toBe(true);
+
+  // one slot, newest wins, named by the file on disk
+  await trigger(app);
+  await expect(card).toContainText('note (1).txt');
+
+  await action.click();
+  await expect.poll(() => toastVisible(app)).toBe(false);
+  expect(await revealed(app)).toEqual([join(downloads, 'note (1).txt')]);
+
+  // the body dismisses and reveals nothing
+  await trigger(app);
+  await expect(card).toContainText('note (2).txt');
+  await expect.poll(() => toastVisible(app)).toBe(true);
+  await card.click({ position: { x: 80, y: 20 } });
+  await expect.poll(() => toastVisible(app)).toBe(false);
+  expect(await revealed(app)).toHaveLength(1);
 
   await app.close();
 });

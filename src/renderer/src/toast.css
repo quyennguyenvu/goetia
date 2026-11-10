@@ -1,0 +1,105 @@
+/* The layer is exactly this page: TOAST_INSET above the card, TOAST_GUTTER
+   beside and below it for the shadow (lib/toast-layer-rules.ts). */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+body {
+  box-sizing: border-box;
+  padding: 12px 16px 16px;
+}
+/* PinToast's card, at a fixed height so main can size the layer */
+.toast {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  height: 64px;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-1);
+  color: var(--text-1);
+  /* tighter than PinToast's: the shadow has to fit the 16px margin */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: default;
+}
+.toast[hidden],
+.action[hidden] {
+  display: none;
+}
+/* it arrives from the rail above, where the shell's toasts rise from below */
+.toast-drop {
+  animation: toast-drop 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes toast-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.chip {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: #fff;
+}
+.chip .glyph {
+  width: 16px;
+  height: 16px;
+}
+.lines {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.small,
+.main {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.small {
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 16px;
+}
+.main {
+  line-height: 20px;
+}
+.action {
+  flex: none;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.action:hover {
+  background: var(--bg-2);
+}
+.drain {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+}

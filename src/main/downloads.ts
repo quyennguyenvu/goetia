@@ -3,6 +3,7 @@ import type { DownloadStorage, DownloadView, ServiceId, Settings } from '../shar
 import type { DownloadHistoryLike } from './download-history';
 import {
   ASK_URL_CAP,
+  announceVia,
   bannerFor,
   DOWNLOAD_BURST_WINDOW_MS,
   DOWNLOAD_HISTORY_CAP,
@@ -45,6 +46,16 @@ export interface DownloadBanner {
   onClick: () => void;
 }
 
+/** The in-app announcement. `rowId` is the history row the action reveals;
+ *  null (with a null `action`) when there is nothing to reveal. */
+export interface DownloadToast {
+  rowId: number | null;
+  serviceId: ServiceId;
+  small: string;
+  main: string;
+  action: string | null;
+}
+
 /** Every Electron touch is injected, so the class is testable without a
  *  runtime and index.ts stays the only place that knows the real APIs. */
 export interface DownloadManagerDeps {
@@ -57,6 +68,13 @@ export interface DownloadManagerDeps {
   exists(path: string): boolean;
   /** shows a silent native banner; the click runs `onClick` */
   notify(banner: DownloadBanner): void;
+  /** the shell window right now; all false once it is destroyed */
+  inFront(): { visible: boolean; minimized: boolean; focused: boolean };
+  /** the in-app toast on its own layer above the service page; `unavailable`
+   *  runs if the layer cannot show it, and is the banner */
+  toast(t: DownloadToast, unavailable: () => void): void;
+  /** `revealLabel(process.platform)` — the toast action's words */
+  revealLabel: string;
   /** shell.showItemInFolder — the only file action Goetia ever takes */
   reveal(path: string): void;
   /** app.dock.downloadFinished on macOS, a no-op elsewhere */
@@ -83,8 +101,9 @@ interface Inflight {
 }
 
 /** One will-download listener per service partition; the decision is
- *  decideSave, the completion is a banner of its own (never the message
- *  router: no activity log, no mute gating, always silent). */
+ *  decideSave, the completion is an announcement of its own — a toast in
+ *  front, a banner otherwise (never the message router: no activity log, no
+ *  mute gating, always silent). */
 export class DownloadManager {
   private listeners = new Map<ServiceId, { ses: DownloadSessionLike; fn: WillDownload }>();
   private inflight = new Map<DownloadItemLike, Inflight>();
@@ -208,23 +227,43 @@ export class DownloadManager {
       this.persist();
     }
     const name = this.deps.serviceName(id);
-    const banner = bannerFor(state, item.getFilename(), name);
+    // named by the file on disk, as the history row is: a de-duplicated save
+    // is `note (1).txt`, not the `note.txt` the page asked for
+    const banner = bannerFor(state, record?.filename ?? item.getFilename(), name);
     if (!banner) return;
     if (state === 'completed') this.deps.dockFinished(path);
-    const shown = this.deps.locked() ? redactBanner(name) : banner;
-    const icon = this.deps.icons.get(id);
-    this.deps.notify({
-      ...shown,
-      ...(icon ? { icon } : {}),
-      onClick: () => {
-        // re-checked at click time: a banner clicked hours later must not be
-        // a way to reveal a file past a lock that has since engaged
-        if (state === 'completed' && !this.deps.locked()) {
-          if (this.deps.exists(path)) this.deps.reveal(path);
-          else this.deps.openDownloads(); // the row there reads "moved or deleted since"
-        } else this.deps.showWindow();
+    const showBanner = () => {
+      // read here, not above: the toast's fallback can run after a lock engaged
+      const shown = this.deps.locked() ? redactBanner(name) : banner;
+      const icon = this.deps.icons.get(id);
+      this.deps.notify({
+        ...shown,
+        ...(icon ? { icon } : {}),
+        onClick: () => {
+          // re-checked at click time: a banner clicked hours later must not be
+          // a way to reveal a file past a lock that has since engaged
+          if (state === 'completed' && !this.deps.locked()) {
+            if (this.deps.exists(path)) this.deps.reveal(path);
+            else this.deps.openDownloads(); // the row there reads "moved or deleted since"
+          } else this.deps.showWindow();
+        },
+      });
+    };
+    if (announceVia({ ...this.deps.inFront(), locked: this.deps.locked() }) === 'banner') {
+      showBanner();
+      return;
+    }
+    const rowId = state === 'completed' && record ? record.id : null;
+    this.deps.toast(
+      {
+        rowId,
+        serviceId: id,
+        small: banner.body,
+        main: banner.title,
+        action: rowId !== null ? this.deps.revealLabel : null,
       },
-    });
+      showBanner,
+    );
   }
 
   /** Settings → Downloads, in flight first then newest; `missing` decided
@@ -312,6 +351,13 @@ export class DownloadManager {
     if (r?.state !== 'saved' || this.deps.locked() || !this.deps.exists(r.path)) return false;
     this.deps.reveal(r.path);
     return true;
+  }
+
+  /** The toast's action: the reveal, or the pane once the file has gone —
+   *  the banner click's rule. Inert while locked. */
+  toastAction(id: number): void {
+    if (this.deps.locked()) return;
+    if (!this.reveal(id)) this.deps.openDownloads();
   }
 
   private pushProgress(): void {

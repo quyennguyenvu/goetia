@@ -122,6 +122,15 @@ export interface MainToRenderer {
   'shell:state': ShellState;
   /** main -> loading overlay page */
   'loading:state': { theme: 'light' | 'dark'; caption: string };
+  /** main -> toast layer page, posted with the port the page answers on */
+  'toast:show': {
+    theme: 'light' | 'dark';
+    serviceId: ServiceId;
+    color: string;
+    small: string;
+    main: string;
+    action: string | null;
+  };
 }
 
 /** Everything main knows about a thread to open on a live view; each field is

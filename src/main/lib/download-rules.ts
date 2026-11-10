@@ -93,6 +93,19 @@ export function bannerFor(
   }
 }
 
+export type Announce = 'toast' | 'banner';
+
+/** An in-app toast can only be seen while the shell window is in front, and
+ *  must never be drawn over the lock screen; everything else is the banner. */
+export function announceVia(w: {
+  visible: boolean;
+  minimized: boolean;
+  focused: boolean;
+  locked: boolean;
+}): Announce {
+  return w.visible && !w.minimized && w.focused && !w.locked ? 'toast' : 'banner';
+}
+
 /** For BrowserWindow.setProgressBar: -1 clears, 0..1 is the aggregate, and
  *  any value above 1 renders indeterminate — used when a total is unknown. */
 export function progressFraction(items: readonly { received: number; total: number }[]): number {
