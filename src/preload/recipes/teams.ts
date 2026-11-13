@@ -1,6 +1,7 @@
 import type { Counts } from '../../shared/types';
 import { nameMatches } from '../lib/conversation-open';
 import { visiblyPresent } from './ready';
+import { flat } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -26,8 +27,6 @@ const UNREAD_TOKENS = ['chat_list_unread_text', 'simple_collab_voiceover_badged_
 /** a chat the user muted (the rail's worker bundle, read 2026-10-03; the
  *  second is the older chat list's spelling) */
 const MUTED_TOKENS = ['simple_collab_voiceover_muted_string', 'chat-muted-support-text'];
-
-const flat = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
 
 function badgeCount(row: Element): number {
   const m = row.querySelector(BADGE)?.textContent?.match(/\d+/); // "9+" → 9

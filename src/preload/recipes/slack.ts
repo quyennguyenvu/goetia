@@ -1,4 +1,5 @@
 import { visiblyPresent } from './ready';
+import { sleep } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -88,7 +89,7 @@ export async function openSlackThread(
   if (!row) return false;
   const selected = row.getAttribute('data-qa-channel-sidebar-channel-is-selected') === 'true';
   if (!selected) row.click();
-  const settle = opts.settle ?? (() => new Promise<void>((r) => setTimeout(r, SLACK_SETTLE_MS)));
+  const settle = opts.settle ?? sleep(SLACK_SETTLE_MS);
   const maxWaits = opts.maxWaits ?? SLACK_MAX_WAITS;
   let root = rootInPane(doc, t.channel, t.ts);
   for (let i = 0; !root && i < maxWaits; i++) {

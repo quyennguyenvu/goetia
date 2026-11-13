@@ -3,6 +3,7 @@ import type { Counts } from '../../shared/types';
 import { nameMatches } from '../lib/conversation-open';
 import { textWithEmoji } from './emoji-text';
 import { visiblyPresent } from './ready';
+import { press, walkPages } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -123,18 +124,12 @@ function clickRow(doc: Document, name: string): boolean {
       row.querySelector('[data-testid="cell-frame-title"] span[title]') ??
       row.querySelector('span[dir="auto"][title]');
     if (!span || !whatsAppNameMatches(span.getAttribute('title')?.trim() ?? '', name)) continue;
-    for (const type of ['mousedown', 'mouseup', 'click']) {
-      span.dispatchEvent(
-        new MouseEvent(type, { bubbles: true, cancelable: true, view: doc.defaultView }),
-      );
-    }
+    press(doc, span);
     return true;
   }
   return false;
 }
 
-/** How long a scrolled page is given to render before its rows are read. */
-const SCROLL_SETTLE_MS = 60;
 /** Pages of the chat list walked before a name is declared gone — ~8 rows a
  *  page, so several hundred chats; bounded so a miss costs seconds, not a hang. */
 const SCROLL_MAX_PAGES = 80;
@@ -153,19 +148,13 @@ export async function openWhatsAppConversation(
   if (clickRow(doc, name)) return true;
   const pane = doc.querySelector('#pane-side') as HTMLElement | null;
   if (!pane || pane.clientHeight <= 0) return false;
-  const settle = opts.settle ?? (() => new Promise<void>((r) => setTimeout(r, SCROLL_SETTLE_MS)));
-  const maxPages = opts.maxPages ?? SCROLL_MAX_PAGES;
-  const start = pane.scrollTop;
-  pane.scrollTop = 0;
-  for (let page = 0; page < maxPages; page++) {
-    await settle();
-    if (clickRow(doc, name)) return true;
-    const before = pane.scrollTop;
-    pane.scrollTop = before + pane.clientHeight;
-    if (pane.scrollTop === before) break; // the bottom
-  }
-  pane.scrollTop = start;
-  return false;
+  const found = await walkPages(
+    pane,
+    () => clickRow(doc, name),
+    opts.maxPages ?? SCROLL_MAX_PAGES,
+    opts.settle,
+  );
+  return found === true;
 }
 
 const whatsapp: Recipe = {

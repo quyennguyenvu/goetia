@@ -190,6 +190,18 @@ export class ServiceViewManager {
     return wc && !wc.isDestroyed() ? wc.getURL() : null;
   }
 
+  /** A call window is open or a download is running: destroy() would end
+   *  the one and cancel the other, so the sleep sweep leaves the view alone. */
+  busy(id: ServiceId): boolean {
+    return (this.callWindows.get(id)?.size ?? 0) > 0 || this.downloads.hasInflight(id);
+  }
+
+  /** True while the view's main frame has neither finished nor failed a load. */
+  loadingMainFrame(id: ServiceId): boolean {
+    const wc = this.views.get(id)?.webContents;
+    return !!wc && !wc.isDestroyed() && wc.isLoadingMainFrame();
+  }
+
   /** The service whose view owns this webContents id, or null. */
   serviceIdForWebContentsId(wcId: number): ServiceId | null {
     for (const [id, view] of this.views) {
@@ -266,7 +278,7 @@ export class ServiceViewManager {
     return ses;
   }
 
-  private create(id: ServiceId): WebContentsView {
+  private create(id: ServiceId, kind: LoadKind = 'wake'): WebContentsView {
     const svc = serviceById(id);
     this.configureSession(id);
     const view = new WebContentsView({
@@ -352,7 +364,7 @@ export class ServiceViewManager {
     wc.on('did-create-window', (child, { url }) => {
       child.excludedFromShownWindowsMenu = true;
       child.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
-        if (isSafeExternalUrl(popupUrl)) shell.openExternal(popupUrl);
+        if (isSafeExternalUrl(popupUrl)) this.openExternalThrottled(id, popupUrl);
         return { action: 'deny' };
       });
       if (isIdentityPopup(url)) {
@@ -373,7 +385,7 @@ export class ServiceViewManager {
           this.openCallWindow(id, navUrl);
           return;
         }
-        if (isSafeExternalUrl(navUrl)) shell.openExternal(navUrl);
+        if (isSafeExternalUrl(navUrl)) this.openExternalThrottled(id, navUrl);
         if (!child.isDestroyed()) child.close();
       };
       child.webContents.on('will-navigate', (e, navUrl) => guardGuestNav(e, navUrl));
@@ -464,7 +476,7 @@ export class ServiceViewManager {
         this.hooks.onLoadFailed(id, withPage(`${code} ${desc}`, url));
       }
     });
-    this.load(id, wc, 'wake', svc.url);
+    this.load(id, wc, kind, svc.url);
     this.views.set(id, view);
     // real bounds even while hidden: pages get desktop-class layout and
     // keep-alive click coordinates from getBoundingClientRect stay valid
@@ -474,7 +486,9 @@ export class ServiceViewManager {
   }
 
   /** Open a URL in the OS browser, at most once per second per service, so a
-   *  page that scripts a window.open loop cannot spray the browser with tabs. */
+   *  page that scripts a window.open loop cannot spray the browser with tabs —
+   *  the view's own popups and those of every window it spawned (sign-in,
+   *  call, contained) alike. */
   private openExternalThrottled(id: ServiceId, url: string): void {
     const now = Date.now();
     if (now - (this.lastExternalAt.get(id) ?? 0) < 1_000) return;
@@ -524,7 +538,7 @@ export class ServiceViewManager {
       if (this.containedWindows.get(id) === win) this.containedWindows.delete(id);
     });
     win.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
-      if (isSafeExternalUrl(popupUrl)) shell.openExternal(popupUrl);
+      if (isSafeExternalUrl(popupUrl)) this.openExternalThrottled(id, popupUrl);
       return { action: 'deny' };
     });
     // did-navigate, not will-navigate: the redirect chain must be allowed to
@@ -597,14 +611,14 @@ export class ServiceViewManager {
     // a call window is not a browser: no further popups, and every
     // navigation must stay a call URL or at least on the service's own hosts
     call.webContents.setWindowOpenHandler(({ url: popupUrl }) => {
-      if (isSafeExternalUrl(popupUrl)) shell.openExternal(popupUrl);
+      if (isSafeExternalUrl(popupUrl)) this.openExternalThrottled(id, popupUrl);
       return { action: 'deny' };
     });
     call.webContents.on('will-navigate', (e, navUrl) => {
       debugCalls(`call window nav on ${id}: "${navUrl}"`);
       if (isCallPopup(id, navUrl) || isNavigationAllowed(id, navUrl)) return;
       e.preventDefault();
-      if (isSafeExternalUrl(navUrl)) shell.openExternal(navUrl);
+      if (isSafeExternalUrl(navUrl)) this.openExternalThrottled(id, navUrl);
       if (!call.isDestroyed()) call.close();
     });
     // Diagnostic-only: never attached unless the flag is on. console-message
@@ -757,6 +771,12 @@ export class ServiceViewManager {
     if (view) toggleDetachedDevTools(view.webContents);
   }
 
+  closeDevTools(): void {
+    for (const view of this.views.values()) {
+      if (!view.webContents.isDestroyed()) view.webContents.closeDevTools();
+    }
+  }
+
   trustedClick(id: ServiceId, x: unknown, y: unknown): void {
     const view = this.views.get(id);
     if (!view) return;
@@ -814,16 +834,17 @@ export class ServiceViewManager {
     if (wc && !wc.isDestroyed()) wc.setZoomLevel(this.zoomLevel(id));
   }
 
-  /** Create the view (starts loading, recipes, notifications) without showing it. */
-  ensure(id: ServiceId): void {
-    if (!this.views.has(id)) this.create(id);
+  /** Create the view (starts loading, recipes, notifications) without showing
+   *  it. `kind` names the first load for the cover, when it is not a wake. */
+  ensure(id: ServiceId, kind?: LoadKind): void {
+    if (!this.views.has(id)) this.create(id, kind);
   }
 
   /** `show: false` resolves activation without presenting: the view is
    *  created and z-ordered but stays hidden and unfocused, so a shell
    *  surface (settings, switcher, home) is never buried by it. */
-  activate(id: ServiceId, { show = true }: { show?: boolean } = {}): void {
-    const view = this.views.get(id) ?? this.create(id);
+  activate(id: ServiceId, { show = true, kind }: { show?: boolean; kind?: LoadKind } = {}): void {
+    const view = this.views.get(id) ?? this.create(id, kind);
     for (const [otherId, v] of this.views) {
       if (otherId !== id) v.setVisible(false);
     }
@@ -1011,14 +1032,6 @@ export class ServiceViewManager {
     this.lastRefreshAt.set(id, now);
     if (this.activeId === id) this.activate(id);
     this.load(id, view.webContents, 'reload', serviceById(id).url);
-  }
-
-  /** Post-purge reset: land a live view back on the chat URL. Not the ⌘R
-   *  path, so no reload-guard — and no ensure: a hibernated service must not
-   *  wake just to show a login page. */
-  loadServiceUrl(id: ServiceId): void {
-    const wc = this.views.get(id)?.webContents;
-    if (wc && !wc.isDestroyed()) this.load(id, wc, 'purge', serviceById(id).url);
   }
 
   /** Banner click, lane B: land the (possibly just-woken) view on the

@@ -1,4 +1,5 @@
 import { visiblyPresent } from './ready';
+import { sleep } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -119,7 +120,7 @@ export async function openDiscordThread(
   const guild = item?.guild ?? t?.guild ?? '';
   const id = item?.id ?? t?.thread ?? '';
   if (showing(here, guild, id)) return true;
-  const settle = opts.settle ?? (() => new Promise<void>((r) => setTimeout(r, DISCORD_SETTLE_MS)));
+  const settle = opts.settle ?? sleep(DISCORD_SETTLE_MS);
   const maxWaits = opts.maxWaits ?? DISCORD_MAX_WAITS;
   if (item) {
     const row = sidebarItem(doc, item.id);

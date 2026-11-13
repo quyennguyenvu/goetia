@@ -1,6 +1,7 @@
 import type { Counts } from '../../shared/types';
 import { nameMatches } from '../lib/conversation-open';
 import { textWithEmoji } from './emoji-text';
+import { press } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -130,11 +131,7 @@ const tiktok: Recipe = {
     for (const row of doc.querySelectorAll(ROW)) {
       const nickname = row.querySelector(ROW_NAME);
       if (!nickname || !nameMatches(textWithEmoji(nickname), name)) continue;
-      for (const type of ['mousedown', 'mouseup', 'click']) {
-        nickname.dispatchEvent(
-          new MouseEvent(type, { bubbles: true, cancelable: true, view: doc.defaultView }),
-        );
-      }
+      press(doc, nickname);
       return true;
     }
     return false;

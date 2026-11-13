@@ -107,11 +107,6 @@ export interface SeedSyncInput {
   appIds?: Partial<Record<ServiceId, string>>;
 }
 
-export interface SeedJarInput {
-  sourceHasSession: boolean;
-  targetHasSession: boolean;
-}
-
 /** Rules 1-4: everything decidable without reading a cookie jar. This is what
  *  decides whether the popup's load is interrupted at all, so it has to answer
  *  before the first await (see views.ts seedIdentityPopup). */
@@ -126,10 +121,4 @@ export function maySeed({
   const wanted = appIds[target];
   if (!wanted || facebookAppId(popupUrl) !== wanted) return false;
   return IDENTITY_SOURCE !== null && target !== IDENTITY_SOURCE;
-}
-
-/** All six rules. Rule 6 leaves Instagram's own Log-in-with-Facebook cookies
- *  alone and makes a deliberate second-account login permanently sticky. */
-export function shouldSeed(input: SeedSyncInput & SeedJarInput): boolean {
-  return maySeed(input) && input.sourceHasSession && !input.targetHasSession;
 }

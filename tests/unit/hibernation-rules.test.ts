@@ -6,6 +6,7 @@ const base = {
   active: false,
   hibernated: false,
   neverHibernate: false,
+  busy: false,
   lastActiveAt: 0,
   lastBannerAt: 0,
 };
@@ -22,6 +23,9 @@ describe('shouldHibernate', () => {
   });
   it('never an already-hibernated service', () => {
     expect(shouldHibernate({ ...base, hibernated: true }, 99 * MIN, 30)).toBe(false);
+  });
+  it('never a service with a call or a download in progress', () => {
+    expect(shouldHibernate({ ...base, busy: true }, 99 * MIN, 30)).toBe(false);
   });
   it('never an excluded service', () => {
     expect(shouldHibernate({ ...base, neverHibernate: true }, 99 * MIN, 30)).toBe(false);

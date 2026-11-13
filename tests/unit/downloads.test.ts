@@ -257,7 +257,7 @@ describe('DownloadManager', () => {
     const late = new FakeItem('late.bin');
     ses.fire(late);
     expect(late.savePath).toBe('');
-    expect(dm.inflightCount()).toBe(0);
+    expect(dm.hasInflight('whatsapp')).toBe(false);
   });
 
   it('attaches one listener per service however often attach is called', () => {

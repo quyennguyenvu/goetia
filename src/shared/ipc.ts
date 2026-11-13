@@ -109,6 +109,10 @@ export interface RendererToMain {
     url: string;
     title: string;
   };
+  /** Settings → Shortcuts went away with a recording pending (another
+   *  section was picked): main drops it, or it would swallow every key until
+   *  its timeout. Shell-only. */
+  'shortcuts:cancel': Record<string, never>;
   'updates:check': Record<string, never>;
   'updates:openDownload': Record<string, never>;
   /** the shell is subscribed to shell:state: main answers with a broadcast.
@@ -135,7 +139,11 @@ export interface MainToRenderer {
 
 /** Everything main knows about a thread to open on a live view; each field is
  *  one lane, tried in the preload in the order replay → name → same → url →
- *  anchor → load (see openConversationInPage). */
+ *  anchor → load (see openConversationInPage). Sent to the service preload as
+ *  `notification:openConversation` via webContents.postMessage, with a
+ *  MessagePort the preload answers on with `{ lane, url }` (url =
+ *  location.href once the chain settled), so main learns whether the open
+ *  landed instead of firing blind — a main-created port, no new channel. */
 export interface OpenRequest {
   /** the shim registry id of the banner — the site's own onclick */
   clickId?: number;
@@ -152,14 +160,6 @@ export interface OpenRequest {
  *  `miss`: every lane the request carried reported a miss and the page was
  *  left where it was. */
 export type OpenLane = 'replay' | 'name' | 'same' | 'url' | 'anchor' | 'load' | 'miss';
-
-/** main -> service view preload, via webContents.postMessage: the request
- *  travels with a MessagePort the preload answers on with `{ lane, url }`
- *  (url = location.href once the chain settled), so main learns whether the
- *  open landed instead of firing blind — main-created port, no new channel. */
-export interface MainToService {
-  'notification:openConversation': OpenRequest;
-}
 
 export const R2M_CHANNELS = [
   'service:activate',
@@ -195,6 +195,7 @@ export const R2M_CHANNELS = [
   'service:ready',
   'conversation:active',
   'service:readyTimeout',
+  'shortcuts:cancel',
   'updates:check',
   'updates:openDownload',
   'shell:ready',
@@ -352,6 +353,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'downloads:restore',
   'downloads:openDir',
   'shortcuts:record',
+  'shortcuts:cancel',
   'diagnostics:recent',
   'diagnostics:report',
   'settings:export',
@@ -359,15 +361,16 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'shell:ready',
 ]);
 
-/** The only shell channels served while the app is locked: the two that
- *  unlock it, the Windows taskbar overlay, which carries a count and no
- *  content, and shell:ready, whose reply is the broadcast a locked app
- *  already sends (pins redacted). Every other shell-only channel is refused until unlock. Service
- *  channels are untouched — recipes keep counting behind the lock screen, and
- *  refusing service:ready would strand a wake cover forever. */
+/** The only shell channels served while the app is locked: the one that
+ *  unlocks it, the Windows taskbar overlay, which carries a count and no
+ *  content, and shell:ready, whose reply is the broadcast a locked app already
+ *  sends (pins redacted). Every other shell-only channel is refused until
+ *  unlock — lock:configure included: only the Lock pane sends it, and Settings
+ *  closes when the app locks. Service channels are untouched — recipes keep
+ *  counting behind the lock screen, and refusing service:ready would strand a
+ *  wake cover forever. */
 export const LOCKED_ALLOWED_CHANNELS = new Set<keyof RendererToMain | keyof RendererInvoke>([
   'lock:unlock',
-  'lock:configure',
   'badge:overlay',
   'shell:ready',
 ]);

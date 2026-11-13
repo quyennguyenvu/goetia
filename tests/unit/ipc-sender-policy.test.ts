@@ -331,6 +331,20 @@ describe('ipcSenderAllowed', () => {
     ).toBe(false);
   });
 
+  // 2026-11-13 audit: leaving the Shortcuts pane left the recording pending,
+  // swallowing every key for 10s — the pane cancels it on the way out
+  it('takes shortcuts:cancel from the shell only', () => {
+    const from = (fromShell: boolean) =>
+      ipcSenderAllowed({
+        channel: 'shortcuts:cancel',
+        fromShell,
+        senderServiceId: fromShell ? null : 'zalo',
+        payloadServiceId: fromShell ? undefined : 'zalo',
+      });
+    expect(from(true)).toBe(true);
+    expect(from(false)).toBe(false);
+  });
+
   it('refuses shortcuts:record from a service frame', () => {
     expect(
       ipcSenderAllowed({

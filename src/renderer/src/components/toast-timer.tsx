@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { TOAST_MS } from './toast-rules';
 
-/** The toasts' clock for a transient line that is not a toast card: `TOAST_MS`
- *  from the moment `token` last changed, then `onExpire`; while the surface is
- *  hovered or focused the remainder is banked, as PurgeToast and PinToast do
- *  inline. `token` is the thing shown — a fresh object per showing, so a repeat
- *  restarts the clock — and null while nothing is. */
+/** The one clock every toast and transient line runs on: `TOAST_MS` from the
+ *  moment `token` last changed, then `onExpire`; while the surface is hovered
+ *  or focused the remainder is banked. `token` is the thing shown — a fresh
+ *  object per showing, so a repeat restarts the clock — and null while
+ *  nothing is. */
 export function useToastTimer<E extends HTMLElement = HTMLElement>(
   token: object | null,
   onExpire: () => void,

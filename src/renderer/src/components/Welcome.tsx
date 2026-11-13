@@ -85,13 +85,15 @@ export default function Welcome() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      const s = useShell.getState().state;
+      // the key belongs to whatever is layered on top (⌘K, Settings, the lock)
+      if (!s || s.settingsOpen || s.switcherOpen || s.locked) return;
       // first rung: an active filter is what Escape clears, before leaving
       if (queryRef.current) {
         setQuery('');
         return;
       }
-      const s = useShell.getState().state;
-      if (!s?.homeOpen || s.settingsOpen || s.switcherOpen) return;
+      if (!s.homeOpen) return;
       if (s.services.every((svc) => s.settings.disabled[svc.id])) return;
       window.goetia.send('home:setOpen', { open: false });
     };

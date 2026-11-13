@@ -150,8 +150,9 @@ export class DownloadManager {
     if (excess > 0) this.askUrls.splice(0, excess);
   }
 
-  inflightCount(): number {
-    return this.inflight.size;
+  hasInflight(id: ServiceId): boolean {
+    for (const f of this.inflight.values()) if (f.serviceId === id) return true;
+    return false;
   }
 
   handle(id: ServiceId, item: DownloadItemLike): void {

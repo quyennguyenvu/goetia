@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { PIN_NOTE_MAX } from '../../../../shared/pins';
 import type { PinView, ServiceId, ServiceMeta } from '../../../../shared/types';
 import { useShell } from '../../store';
+import { chordLabel } from '../chord-label';
 import { pinRemovedMessage } from '../toast-rules';
 import ServiceBand from './ServiceBand';
 
@@ -35,6 +36,7 @@ export default function PinnedBand({ pins, services, disabled, unreadable }: Pro
   const liveKey = liveIds.join(',');
   const [draft, setDraft] = useState<number[] | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
+  const shortcuts = useShell((s) => s.state?.settings.shortcuts) ?? {};
   const shown = draft ?? liveIds;
   const byId = new Map(pins.map((p) => [p.id, p]));
   const svcById = new Map(services.map((s) => [s.id, s]));
@@ -80,7 +82,8 @@ export default function PinnedBand({ pins, services, disabled, unreadable }: Pro
   } else if (pins.length === 0) {
     notice = (
       <p className="text-xs text-text-2 opacity-70">
-        Nothing pinned — right-click a message in any service, or select text and press ⌘/Ctrl ⇧ S.
+        Nothing pinned — right-click a message in any service, or select text and press{' '}
+        {chordLabel(shortcuts, 'pinSelection')}.
       </p>
     );
   }

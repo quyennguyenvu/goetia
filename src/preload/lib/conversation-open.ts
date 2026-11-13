@@ -1,5 +1,6 @@
 import type { OpenLane, OpenRequest } from '../../shared/ipc';
-import { nameKey } from '../../shared/name-key';
+
+export { nameMatches } from '../../shared/name-key';
 
 export type Point = { x: number; y: number };
 
@@ -92,16 +93,4 @@ export function urlKey(u: string, base: string): string | null {
   } catch {
     return null;
   }
-}
-
-/** A pin's conversation label may have been clamped to PIN_CONVERSATION_MAX
- *  with an ellipsis; the live name never is, so a clamped label matches on
- *  its prefix. Emoji compare by glyph, not presentation: a banner title is
- *  the site's rendering of the name (WhatsApp qualifies "❤" to "❤️" before it
- *  titles a banner) while the row keeps the raw text. */
-export function nameMatches(candidate: string, pinned: string): boolean {
-  const c = nameKey(candidate);
-  const p = nameKey(pinned);
-  if (c === p) return true;
-  return p.endsWith('…') && p.length > 1 && c.startsWith(p.slice(0, -1));
 }

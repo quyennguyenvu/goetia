@@ -1,6 +1,7 @@
 import { session } from 'electron';
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
+import { anyOverlayOpen } from './lib/overlay-rules';
 
 /** Local wipe only: clears the persist:<id> partition on this device and
  *  lands the view on the login page. The server session is NOT revoked —
@@ -13,22 +14,30 @@ import type { AppContext } from './ipc-handlers';
  *  because `checkboxChecked` only comes back with the button press. Both
  *  channels are shell-only, so only the trusted shell frame reaches these. */
 export async function purgeService(ctx: AppContext, id: ServiceId): Promise<void> {
-  // before the wipe, and unconditionally: the confirm promises the call ends,
-  // and both a call window and a sign-in popup run in this very partition
-  ctx.views.closeCallWindows(id);
-  ctx.views.closeIdentityWindows(id);
-  // a contained SSO/login window runs in this very partition too
-  ctx.views.closeContainedWindow(id);
+  // The page comes down before the wipe: a live one can write its login
+  // straight back (an unload handler, a token refresh landing late).
+  // destroy() also ends the call, the sign-in popup and the contained window
+  // — the confirm promises the call ends, and all three run in this partition.
+  const live = ctx.views.has(id);
+  if (live) {
+    ctx.views.destroy(id);
+    ctx.noteDestroyed(id); // free a peek that was mid-flight on this view
+    ctx.waking.end(id, 'destroyed');
+  }
   await session.fromPartition(`persist:${id}`).clearStorageData();
   // the wipe already removed any lent Facebook cookies, so all that is left is
   // the bookkeeping: drop the marker and cancel the grace timer, or the next
   // boot sweeps a jar that has nothing in it
   ctx.identityShare.forget(id);
-  // a no-op when the service has no view, which is what makes this one unit
-  // serve live, hibernated and unbound services alike
-  ctx.views.loadServiceUrl(id);
-  // a live view re-reports zero from its login page on its own, but a
-  // hibernated one would keep showing a badge for mail it can no longer open
+  // back on the login page — but a service that was asleep (or only peeking)
+  // must not wake just to show one
+  if (live && !ctx.state.runtime(id).hibernated && !ctx.settings.get().disabled[id]) {
+    if (ctx.state.activeId === id) {
+      ctx.views.activate(id, { show: !anyOverlayOpen(ctx.state), kind: 'purge' });
+    } else ctx.views.ensure(id, 'purge');
+  }
+  // a hibernated service would otherwise keep showing a badge for mail it can
+  // no longer open
   ctx.state.setRuntime(id, { unread: { direct: 0, indirect: 0 }, stale: false });
   ctx.activity.clear(id);
   ctx.recents.clear(id);

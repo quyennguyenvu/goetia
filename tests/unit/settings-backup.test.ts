@@ -6,6 +6,7 @@ import {
   BACKUP_VERSION,
   backupFileName,
   buildBackup,
+  keepLocalFolder,
   parseBackup,
 } from '../../src/main/lib/settings-backup';
 import { DEFAULT_SETTINGS, type Settings } from '../../src/shared/types';
@@ -113,6 +114,16 @@ describe('parseBackup', () => {
       }),
     );
     expect(r).toEqual({ ok: true, patch: { launchAtLogin: true, order: ['zalo', 'slack'] } });
+  });
+
+  // 2026-11-13 audit: the import wrote `dir: null` over the folder chosen here
+  it("keeps this machine's download folder when a backup carries the switch", () => {
+    const here = { ask: false, dir: '/Volumes/Data/Inbox' };
+    expect(
+      keepLocalFolder({ downloads: { ask: true, dir: null }, lightSleep: false }, here),
+    ).toEqual({ downloads: { ask: true, dir: '/Volumes/Data/Inbox' }, lightSleep: false });
+    const untouched = { lightSleep: false };
+    expect(keepLocalFolder(untouched, here)).toBe(untouched);
   });
 
   it('never lets a folder path in through downloads', () => {

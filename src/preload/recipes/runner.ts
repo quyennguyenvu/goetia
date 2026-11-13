@@ -232,7 +232,8 @@ export function startRecipe(
         }),
       ]);
       const rose = last !== null && counts.direct > last.direct;
-      if (!last || counts.direct !== last.direct || counts.indirect !== last.indirect) {
+      // a recovery reports even an unchanged count: main clears stale on it alone
+      if (!last || stale || counts.direct !== last.direct || counts.indirect !== last.indirect) {
         last = counts;
         report(counts);
       }
@@ -250,8 +251,12 @@ export function startRecipe(
         waiting.length = Math.min(waiting.length, WAITING_BANNERS_MAX);
         if (!announced) announceWaiting();
       } else if (rose && reportNotification && recipe.synthNotification && !doc.hasFocus()) {
-        const n = recipe.synthNotification(doc);
-        if (n) reportNotification(n);
+        try {
+          const n = recipe.synthNotification(doc);
+          if (n) reportNotification(n);
+        } catch {
+          // a banner that cannot be built must not read as a stale count
+        }
       }
     } catch (err) {
       if (!stale) {

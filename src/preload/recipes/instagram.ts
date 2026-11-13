@@ -2,6 +2,7 @@ import type { Counts } from '../../shared/types';
 import { nameMatches } from '../lib/conversation-open';
 import { isUnreadRow, rowTexts } from './meta-unread';
 import { visiblyPresent } from './ready';
+import { press } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -34,17 +35,6 @@ function threadRows(doc: Document): Element[] {
       !row.parentElement?.closest('[role="button"]') &&
       row.querySelectorAll('span[dir="auto"]').length >= 2,
   );
-}
-
-/** Replay a press on the row's name span; the handler may sit on any wrapper
- *  between it and the row, and a bubbling event crosses all of them. */
-function pressRow(doc: Document, row: Element): void {
-  const target = row.querySelector('span[dir="auto"]') ?? row;
-  for (const type of ['mousedown', 'mouseup', 'click']) {
-    target.dispatchEvent(
-      new MouseEvent(type, { bubbles: true, cancelable: true, view: doc.defaultView }),
-    );
-  }
 }
 
 /** The rail is position:fixed, so hiding it leaves its reserved width as a
@@ -158,7 +148,7 @@ const instagram: Recipe = {
   openConversation(doc, name) {
     for (const row of threadRows(doc)) {
       if (!nameMatches(rowTexts(row)[0] ?? '', name)) continue;
-      pressRow(doc, row);
+      press(doc, row.querySelector('span[dir="auto"]') ?? row); // the name span
       return true;
     }
     return false;

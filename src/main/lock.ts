@@ -132,6 +132,9 @@ export class LockController {
   /** The one action the user has just authorized. Single slot, single use:
    *  this is "yes, do that", not a standing permission. */
   private consent: { action: GuardedAction; at: number } | null = null;
+  /** passcode checks run one at a time: guesses sent together must each see
+   *  the backoff the one before them earned */
+  private checking: Promise<unknown> = Promise.resolve();
 
   constructor(
     private store: LockStore,
@@ -170,8 +173,9 @@ export class LockController {
     return result;
   }
 
-  /** Verify a credential and move nothing. Shared by the lock screen and the
-   *  action confirms, so guessing through either costs the same backoff. */
+  /** Verify a credential and move nothing. Shared by the lock screen, the
+   *  action confirms and the Lock pane, so guessing through any of them costs
+   *  the same backoff. */
   private async check(req: UnlockRequest): Promise<UnlockResult> {
     if (req.method === 'touchId') {
       if (!this.deps.touchIdEnabled() || !this.deps.hasTouchId()) {
@@ -183,14 +187,21 @@ export class LockController {
       }
       return { ok: true, waitMs: 0 };
     }
+    const run = this.checking.then(() => this.checkPasscode(req.passcode));
+    this.checking = run.catch(() => {});
+    return run;
+  }
+
+  private async checkPasscode(passcode: string): Promise<UnlockResult> {
     const waitMs = Math.max(0, this.blockedUntil - this.deps.now());
     if (waitMs > 0) return { ok: false, waitMs, reason: 'throttled' };
     if (!this.store.readable()) return { ok: false, waitMs: 0, reason: 'unreadable' };
-    if (!(await this.store.verify(req.passcode))) {
+    if (!(await this.store.verify(passcode))) {
       this.failures += 1;
       this.blockedUntil = this.deps.now() + unlockDelay(this.failures);
       return { ok: false, waitMs: 0, reason: 'wrong' };
     }
+    this.failures = 0; // the streak is consecutive wrong passcodes, wherever entered
     return { ok: true, waitMs: 0 };
   }
 
@@ -252,10 +263,13 @@ export class LockController {
     if (!this.store.has()) return { ok: false, error: 'not-set' };
     // every configuration is authorized by the passcode, never by Touch ID:
     // the credential a second enrolled finger defeats must not be able to
-    // widen or remove the lock it guards
-    if (!this.store.readable() || !(await this.store.verify(req.current))) {
-      this.deps.note?.('configure refused: wrong passcode');
-      return { ok: false, error: 'wrong' };
+    // widen or remove the lock it guards. Through check(), so a guess here
+    // costs the lock screen's backoff
+    const checked = await this.check({ method: 'passcode', passcode: req.current });
+    if (!checked.ok) {
+      const throttled = checked.reason === 'throttled';
+      this.deps.note?.(throttled ? 'configure throttled' : 'configure refused: wrong passcode');
+      return { ok: false, error: throttled ? 'throttled' : 'wrong' };
     }
     if (req.action === 'verify') return { ok: true };
     if (req.action === 'disable') {

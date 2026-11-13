@@ -3,9 +3,11 @@ import { join } from 'node:path';
 import {
   app,
   BrowserWindow,
+  dialog,
   Notification,
   nativeImage,
   nativeTheme,
+  net,
   powerMonitor,
   safeStorage,
   session,
@@ -36,7 +38,7 @@ import { ActivityLog } from './lib/activity-log';
 import { DEAD_SWEEP_MS, isDeadBanner } from './lib/banner-clear-rules';
 import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
-import { Diagnostics } from './lib/diagnostics';
+import { Diagnostics, withPage } from './lib/diagnostics';
 import { viewBounds } from './lib/layout';
 import { resolveIcons } from './lib/notification-icons';
 import { audioMuted } from './lib/notification-rules';
@@ -274,7 +276,13 @@ app
       },
       note: (line) => diag.note('downloads', line),
     });
-    const waking = new WakingTracker(state);
+    // views is assembled below; a wake cannot time out before it exists. A
+    // load still pending when the cover gives up leaves no other trace: no
+    // failure, no ready poll (WhatsApp, 2026-11-13)
+    const waking = new WakingTracker(state, undefined, (id) => {
+      if (!views.loadingMainFrame(id)) return;
+      diag.note('view', withPage(`${id} still loading after 10s`, views.pageUrl(id)), id);
+    });
     // banners a previous run left behind have no handler in this process, so
     // a click on one could only bring the window forward
     if (process.platform === 'darwin') Notification.removeAll();
@@ -389,6 +397,7 @@ app
           activity.forgetReplay(id);
           // and the new document's first count is a zero that means nothing
           banners.noteZero(id, { kind: 'navigated' });
+          resilience?.noteNavigated(id);
           if (kind) waking.begin(id, kind);
         },
         onCrashed: (id, detail) => {
@@ -656,6 +665,7 @@ app
       },
       quietNow: () => quiet.quietNow(),
       onBattery: () => powerMonitor.onBatteryPower,
+      online: () => net.isOnline(),
       quietScheduleChanged: () => {
         quiet.rearm();
         quietSideEffects();
@@ -665,7 +675,6 @@ app
         broadcast();
       },
       syncLocked: () => {
-        if (lock.locked) recorder.cancel(); // a recording cannot outlive the pane
         if (!applyLocked(ctx, lock.locked)) return;
         // a filename must never sit over the lock screen
         if (lock.locked) toastLayer.hide();
@@ -783,6 +792,12 @@ app
   })
   .catch((err) => {
     console.error('startup failed:', err);
+    // a packaged app has no console: without this the icon bounces and is gone.
+    // Never reset the file instead — default settings would start unlocked.
+    dialog.showErrorBox(
+      'Goetia could not start',
+      `${err instanceof Error ? err.message : String(err)}\n\nIf a settings file was edited by hand, check settings.json and lock.json in:\n${app.getPath('userData')}`,
+    );
     app.quit();
   });
 

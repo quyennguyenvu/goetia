@@ -135,3 +135,13 @@ export function parseBackup(
   if (Object.keys(patch).length === 0) return { ok: false, reason: 'empty' };
   return { ok: true, patch: patch as Partial<Settings> };
 }
+
+/** A folder path is this machine's: an imported downloads block carries only
+ *  the Ask switch, so the folder already chosen here stays where it is. */
+export function keepLocalFolder(
+  patch: Partial<Settings>,
+  current: Settings['downloads'],
+): Partial<Settings> {
+  if (!patch.downloads) return patch;
+  return { ...patch, downloads: { ...patch.downloads, dir: current.dir } };
+}

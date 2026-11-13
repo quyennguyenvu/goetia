@@ -1,4 +1,4 @@
-import { nameKey } from '../../shared/name-key';
+import { nameMatches } from '../../shared/name-key';
 import type { ServiceMeta } from '../../shared/types';
 import { type ActivityEntry, openHref } from './activity-log';
 import { validatedConversationUrl } from './notification-click';
@@ -63,13 +63,14 @@ export function zeroStep(
 }
 
 /** Whether a banner's entry belongs to the conversation now on screen. Exact
- *  by design: a wrong match removes a banner for a chat nobody has read. */
+ *  by design: a wrong match removes a banner for a chat nobody has read — a
+ *  prefix counts only for a label the Recent row clipped with an ellipsis. */
 export function matchesSighting(
   entry: ActivityEntry,
   sighting: { label: string; url: string },
   serviceUrl: string,
 ): boolean {
-  if (entry.conversation !== '' && nameKey(entry.conversation) === nameKey(sighting.label)) {
+  if (entry.conversation !== '' && nameMatches(entry.conversation, sighting.label)) {
     return true;
   }
   const href = openHref(entry);

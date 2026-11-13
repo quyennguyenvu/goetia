@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   activateService,
+  applyLocked,
   openActivityEntry,
   performBannerAction,
   rememberSurface,
@@ -15,17 +16,24 @@ import { DEFAULT_SETTINGS } from '../../src/shared/types';
 // activate.ts imports AppContext as a type only, so pulling it in here does not
 // load electron — a partial ctx with a real MainState is enough.
 function makeCtx(state: MainState) {
-  const views = { activate: vi.fn(), hideActive: vi.fn(), showActive: vi.fn() };
+  const views = {
+    activate: vi.fn(),
+    hideActive: vi.fn(),
+    showActive: vi.fn(),
+    closeDevTools: vi.fn(),
+  };
   const update = vi.fn();
+  const shell = { closeDevTools: vi.fn(), focus: vi.fn() };
   const ctx = {
     state,
     views,
+    win: { isDestroyed: () => false, webContents: shell },
     settings: { update, get: () => DEFAULT_SETTINGS },
     noteActivated: vi.fn(),
     recorder: { cancel: vi.fn() },
   } as unknown as AppContext;
   const recorder = (ctx as unknown as { recorder: { cancel: ReturnType<typeof vi.fn> } }).recorder;
-  return { ctx, views, update, recorder };
+  return { ctx, views, update, recorder, shell };
 }
 
 describe('activateService', () => {
@@ -44,7 +52,15 @@ describe('activateService', () => {
     const state = new MainState();
     const { ctx, views } = makeCtx(state);
     activateService(ctx, 'telegram');
-    expect(views.activate).toHaveBeenCalledWith('telegram');
+    expect(views.activate).toHaveBeenCalledWith('telegram', { show: true });
+  });
+
+  it('never puts a failed page on screen: the shell has the Retry', () => {
+    const state = new MainState();
+    state.setRuntime('telegram', { crashed: true });
+    const { ctx, views } = makeCtx(state);
+    activateService(ctx, 'telegram');
+    expect(views.activate).toHaveBeenCalledWith('telegram', { show: false });
   });
 
   it('leaves home when a service is activated', () => {
@@ -164,7 +180,7 @@ describe('performBannerAction', () => {
   it('activates then hands a dead view the conversation URL', async () => {
     const { ctx, views } = makeBannerCtx();
     await performBannerAction(ctx, 'telegram', { kind: 'navigate', url: 'https://t.example/1' });
-    expect(views.activate).toHaveBeenCalledWith('telegram');
+    expect(views.activate).toHaveBeenCalledWith('telegram', { show: true });
     expect(views.openConversation).toHaveBeenCalledWith('telegram', 'https://t.example/1');
   });
 
@@ -177,7 +193,7 @@ describe('performBannerAction', () => {
       url: 'https://t.example/#123',
       conversation: 'Mai',
     });
-    expect(views.activate).toHaveBeenCalledWith('telegram');
+    expect(views.activate).toHaveBeenCalledWith('telegram', { show: true });
     expect(views.openInPage).toHaveBeenCalledWith('telegram', {
       clickId: 7,
       href: '#123',
@@ -272,6 +288,17 @@ describe('setOverlayOpen', () => {
     expect(views.showActive).toHaveBeenCalled();
   });
 
+  it('leaves a failed view hidden when the last surface closes', () => {
+    const state = new MainState();
+    state.activeId = 'discord';
+    state.settingsOpen = true;
+    state.setRuntime('discord', { crashed: true });
+    const { ctx, views } = makeCtx(state);
+    setOverlayOpen(ctx, 'settingsOpen', false);
+    expect(views.showActive).not.toHaveBeenCalled();
+    expect(views.hideActive).toHaveBeenCalled();
+  });
+
   it('leaves the view hidden when settings closes over an open home', () => {
     const state = new MainState();
     state.activeId = 'discord';
@@ -306,6 +333,42 @@ describe('setOverlayOpen', () => {
 
 // a banner in Notification Center is clicked hours after it fired: the entry
 // is what the log holds NOW, never the payload the banner was built from
+describe('applyLocked', () => {
+  // 2026-11-13 audit: Settings stayed mounted under the lock screen, and its
+  // Lock pane kept the verified passcode for whoever unlocked with Touch ID
+  it('closes Settings and the switcher, and drops a pending recording', () => {
+    const state = new MainState();
+    state.settingsOpen = true;
+    state.switcherOpen = true;
+    state.settingsFocus = { section: 'downloads', seq: 1 };
+    const { ctx, recorder } = makeCtx(state);
+    expect(applyLocked(ctx, true)).toBe(true);
+    expect(state.settingsOpen).toBe(false);
+    expect(state.switcherOpen).toBe(false);
+    expect(state.settingsFocus).toBeNull();
+    expect(recorder.cancel).toHaveBeenCalled();
+  });
+
+  it('closes every inspector and gives the lock screen the keyboard', () => {
+    const { ctx, views, shell } = makeCtx(new MainState());
+    applyLocked(ctx, true);
+    expect(views.closeDevTools).toHaveBeenCalled();
+    expect(shell.closeDevTools).toHaveBeenCalled();
+    expect(shell.focus).toHaveBeenCalled();
+    expect(views.hideActive).toHaveBeenCalled();
+  });
+
+  it('unlocking only presents the surface again', () => {
+    const state = new MainState();
+    state.locked = true;
+    const { ctx, views, shell, recorder } = makeCtx(state);
+    expect(applyLocked(ctx, false)).toBe(true);
+    expect(views.showActive).toHaveBeenCalled();
+    expect(shell.focus).not.toHaveBeenCalled();
+    expect(recorder.cancel).not.toHaveBeenCalled();
+  });
+});
+
 describe('openActivityEntry', () => {
   // fresh-install defaults disable every service; these clicks land on a
   // summoned one unless a case says otherwise
@@ -354,7 +417,7 @@ describe('openActivityEntry', () => {
   it('a forgotten replay handle stays out of the request', () => {
     const { ctx, views } = makeEntryCtx();
     openActivityEntry(ctx, entry({ clickId: undefined }));
-    expect(views.activate).toHaveBeenCalledWith('whatsapp');
+    expect(views.activate).toHaveBeenCalledWith('whatsapp', { show: true });
     expect(views.openInPage).toHaveBeenCalledWith('whatsapp', { conversation: 'TICKETBOX' });
   });
 
@@ -390,7 +453,7 @@ describe('openActivityEntry', () => {
       ctx,
       entry({ serviceId: 'messenger', conversation: 'Li', href: '/messages/t/9' }),
     );
-    expect(views.activate).toHaveBeenCalledWith('messenger');
+    expect(views.activate).toHaveBeenCalledWith('messenger', { show: true });
     expect(views.openInPage).not.toHaveBeenCalled();
   });
 

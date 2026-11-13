@@ -8,6 +8,7 @@ import CredentialConfirm from './CredentialConfirm';
 import DiagnosticsPane from './DiagnosticsPane';
 import DownloadsPane from './DownloadsPane';
 import LockPane from './LockPane';
+import { commitNumberDraft } from './number-field';
 import Pane from './Pane';
 import PasskeysPane from './PasskeysPane';
 import ShortcutsPane from './ShortcutsPane';
@@ -72,6 +73,46 @@ function Row({
       </span>
       {children}
     </label>
+  );
+}
+
+/** A number setting typed freely and saved when the field is left (or on
+ *  Enter). Saving per keystroke clamped the "1" of "15" to the minimum and
+ *  wrote it before the "5" arrived. */
+function NumberField({
+  value,
+  min,
+  max,
+  onCommit,
+  ...rest
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onCommit(value: number): void;
+  disabled?: boolean;
+  className: string;
+  'data-testid'?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      value={draft ?? value}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft === null) return;
+        const next = commitNumberDraft(draft, min, max);
+        setDraft(null);
+        if (next !== null && next !== value) onCommit(next);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+      {...rest}
+    />
   );
 }
 
@@ -462,14 +503,11 @@ export default function SettingsView() {
                     </div>
                   ))}
                 <Row label="Hibernate idle services after (minutes)">
-                  <input
-                    type="number"
+                  <NumberField
                     min={5}
                     max={240}
                     value={s.hibernationMinutes}
-                    onChange={(e) =>
-                      update({ hibernationMinutes: Math.max(5, Number(e.target.value) || 30) })
-                    }
+                    onCommit={(hibernationMinutes) => update({ hibernationMinutes })}
                     className="tabular w-20 rounded-ctl border border-border bg-bg-2 px-2 py-1 text-right text-text-1"
                   />
                 </Row>
@@ -487,21 +525,13 @@ export default function SettingsView() {
                   />
                 </Row>
                 <Row label="After (hours)">
-                  <input
-                    type="number"
+                  <NumberField
                     data-testid="auto-banish-hours"
                     min={1}
                     max={720}
                     disabled={!s.autoBanish.enabled}
                     value={s.autoBanish.hours}
-                    onChange={(e) =>
-                      update({
-                        autoBanish: {
-                          ...s.autoBanish,
-                          hours: Math.max(1, Number(e.target.value) || 24),
-                        },
-                      })
-                    }
+                    onCommit={(hours) => update({ autoBanish: { ...s.autoBanish, hours } })}
                     className="tabular w-20 rounded-ctl border border-border bg-bg-2 px-2 py-1 text-right text-text-1 disabled:opacity-40"
                   />
                 </Row>

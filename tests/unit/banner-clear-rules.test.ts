@@ -96,6 +96,15 @@ describe('matchesSighting', () => {
     expect(matchesSighting(entry(), { label: 'Mẹ', url: `${FB}t/1` }, FB)).toBe(true);
   });
 
+  it('matches a banner to a Recent label that was clipped with an ellipsis', () => {
+    const long = 'Nhóm '.concat('a'.repeat(120));
+    const label = `${long.slice(0, 79)}…`;
+    expect(matchesSighting(entry({ conversation: long }), { label, url: FB }, FB)).toBe(true);
+    expect(matchesSighting(entry({ conversation: 'Nhóm khác' }), { label, url: FB }, FB)).toBe(
+      false,
+    );
+  });
+
   it('compares names composed and without emoji presentation selectors', () => {
     const decomposed = 'Mẹ'.normalize('NFD');
     expect(matchesSighting(entry({ conversation: decomposed }), { label: 'Mẹ', url: FB }, FB)).toBe(

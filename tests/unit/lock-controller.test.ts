@@ -107,6 +107,20 @@ describe('LockController.unlock', () => {
     );
   });
 
+  // 2026-11-13 audit: every guess passed the wait check before the first one
+  // had failed, so a burst of them cost no backoff at all
+  it('checks guesses sent together one at a time, so each pays the backoff', async () => {
+    const { controller } = await armed();
+    controller.lock();
+    const results = await Promise.all(
+      ['a', 'b', 'correct horse'].map((passcode) =>
+        controller.unlock({ method: 'passcode', passcode }),
+      ),
+    );
+    expect(results.map((r) => r.reason)).toEqual(['wrong', 'throttled', 'throttled']);
+    expect(controller.locked).toBe(true);
+  });
+
   it('opens on Touch ID when the setting and the sensor agree', async () => {
     const { controller } = await armed({ finger: true });
     controller.lock();
@@ -157,12 +171,13 @@ describe('LockController.configure', () => {
   });
 
   it('requires the current passcode to turn the lock off', async () => {
-    const { controller, settings, store } = await armed();
+    const { controller, settings, store, advance } = await armed();
     expect(await controller.configure({ action: 'disable', current: 'wrong' })).toEqual({
       ok: false,
       error: 'wrong',
     });
     expect(store.has()).toBe(true);
+    advance(1000);
     expect(await controller.configure({ action: 'disable', current: 'correct horse' })).toEqual({
       ok: true,
     });
@@ -172,11 +187,12 @@ describe('LockController.configure', () => {
   });
 
   it('requires the current passcode to change it', async () => {
-    const { controller, store } = await armed();
+    const { controller, store, advance } = await armed();
     expect(
       await controller.configure({ action: 'change', current: 'wrong', next: 'battery staple' }),
     ).toEqual({ ok: false, error: 'wrong' });
     expect(await store.verify('correct horse')).toBe(true);
+    advance(1000);
     expect(
       await controller.configure({
         action: 'change',
@@ -189,17 +205,49 @@ describe('LockController.configure', () => {
 
   // the pane reveals its controls on this alone, so it must be exact
   it('verifies without changing anything', async () => {
-    const { controller, settings, store } = await armed({ touchId: false });
+    const { controller, settings, store, advance } = await armed({ touchId: false });
     expect(await controller.configure({ action: 'verify', current: 'wrong' })).toEqual({
       ok: false,
       error: 'wrong',
     });
+    advance(1000);
     expect(await controller.configure({ action: 'verify', current: 'correct horse' })).toEqual({
       ok: true,
     });
     expect(settings).toEqual({ enabled: true, touchId: false });
     expect(store.has()).toBe(true);
     expect(await store.verify('correct horse')).toBe(true);
+  });
+
+  // 2026-11-13 audit: configure verified with no count and no wait, so the
+  // Lock pane (and lock:configure from a console) was an unthrottled oracle
+  it('counts a wrong passcode toward the same backoff as the lock screen', async () => {
+    const { controller, advance } = await armed();
+    await controller.configure({ action: 'verify', current: 'wrong' });
+    expect(await controller.configure({ action: 'verify', current: 'correct horse' })).toEqual({
+      ok: false,
+      error: 'throttled',
+    });
+    controller.lock();
+    expect(
+      await controller.unlock({ method: 'passcode', passcode: 'correct horse' }),
+    ).toMatchObject({ ok: false, reason: 'throttled' });
+    advance(1000);
+    expect(await controller.configure({ action: 'verify', current: 'correct horse' })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('a right passcode ends the failure streak', async () => {
+    const { controller, advance } = await armed();
+    await controller.configure({ action: 'verify', current: 'wrong' });
+    advance(1000);
+    await controller.configure({ action: 'verify', current: 'correct horse' });
+    await controller.configure({ action: 'verify', current: 'wrong' });
+    controller.lock();
+    expect(
+      await controller.unlock({ method: 'passcode', passcode: 'correct horse' }),
+    ).toMatchObject({ reason: 'throttled', waitMs: 1000 });
   });
 
   it('refuses to verify when no passcode is set', async () => {
@@ -212,11 +260,12 @@ describe('LockController.configure', () => {
 
   // Touch ID must not authorize widening the set of fingers that open the app
   it('requires the passcode to toggle Touch ID', async () => {
-    const { controller, settings } = await armed({ touchId: false });
+    const { controller, settings, advance } = await armed({ touchId: false });
     expect(
       await controller.configure({ action: 'setTouchId', current: 'wrong', touchId: true }),
     ).toEqual({ ok: false, error: 'wrong' });
     expect(settings.touchId).toBe(false);
+    advance(1000);
     expect(
       await controller.configure({ action: 'setTouchId', current: 'correct horse', touchId: true }),
     ).toEqual({ ok: true });
@@ -276,7 +325,7 @@ describe('LockController notes', () => {
   });
 
   it('records every configuration and a refused one', async () => {
-    const { controller, notes } = build();
+    const { controller, notes, advance } = build();
     await controller.configure({ action: 'enable', passcode: 'correct horse' });
     await controller.configure({ action: 'setTouchId', current: 'correct horse', touchId: false });
     await controller.configure({
@@ -291,6 +340,7 @@ describe('LockController notes', () => {
       next: 'battery staple',
     });
     await controller.configure({ action: 'verify', current: 'nope' });
+    advance(1000);
     await controller.configure({ action: 'verify', current: 'battery staple' });
     await controller.configure({ action: 'disable', current: 'battery staple' });
     expect(notes).toEqual([

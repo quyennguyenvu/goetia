@@ -37,9 +37,11 @@ describe('sanitizeReport', () => {
       title: '',
     });
     const long = 'a'.repeat(200);
-    expect(
-      sanitizeReport({ conversation: long, url: 'https://a.b/', title: '' })?.conversation,
-    ).toHaveLength(RECENT_LABEL_MAX);
+    const clipped = sanitizeReport({ conversation: long, url: 'https://a.b/', title: '' });
+    expect(clipped?.conversation).toHaveLength(RECENT_LABEL_MAX);
+    // the ellipsis is what lets the page's matcher accept the clipped name as
+    // a prefix: without it a chat with a long name never reopened from ⌘K
+    expect(clipped?.conversation?.endsWith('…')).toBe(true);
   });
 
   it('is null without a URL that parses', () => {

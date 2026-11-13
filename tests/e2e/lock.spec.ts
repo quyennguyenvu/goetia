@@ -130,7 +130,9 @@ test('Settings → Lock reveals its controls only after the passcode is accepted
   await expect(win.getByTestId('lock-disable')).toHaveCount(0);
   await expect(win.getByTestId('lock-change')).toHaveCount(0);
 
-  // the right one reveals them
+  // the right one reveals them — once the wrong one's backoff has run out:
+  // the gate shares the lock screen's 1s, 2s, 4s… (lock-controller.test.ts)
+  await win.waitForTimeout(1100);
   await win.getByTestId('lock-current-passcode').fill(PASSCODE);
   await win.getByTestId('lock-unlock').click();
   await expect(win.getByTestId('lock-unlocked')).toBeVisible();

@@ -9,7 +9,6 @@ import {
   isFacebookCookieDomain,
   isSeedableFacebookDialog,
   maySeed,
-  shouldSeed,
 } from '../../src/main/lib/identity-share';
 
 const cookie = (over: Partial<Cookie> = {}): Cookie =>
@@ -236,20 +235,12 @@ describe('maySeed', () => {
   it('rule 4: the source is never seeded from itself', () => {
     expect(maySeed(sync({ target: 'messenger', appIds: { messenger: 'APP' } }))).toBe(false);
   });
-});
-
-describe('shouldSeed', () => {
-  it('adds the two jar rules to maySeed', () => {
-    expect(shouldSeed({ ...sync(), sourceHasSession: true, targetHasSession: false })).toBe(true);
-    expect(shouldSeed({ ...sync(), sourceHasSession: false, targetHasSession: false })).toBe(false);
-    expect(shouldSeed({ ...sync(), sourceHasSession: true, targetHasSession: true })).toBe(false);
-  });
 
   // §3: once stop() has run the popup is blank until something re-navigates
-  // it, so the sync gate must stay true in the cases that only fail on a jar.
-  it('leaves maySeed true when only a jar rule fails, so the replay still runs', () => {
+  // it, so the sync gate knows nothing of the jars: rules 5 and 6 are decided
+  // after it, in IdentityShare.seed, and the replay still runs when they fail.
+  it('stays true whatever the jars hold', () => {
     expect(maySeed(sync())).toBe(true);
-    expect(shouldSeed({ ...sync(), sourceHasSession: false, targetHasSession: true })).toBe(false);
   });
 });
 

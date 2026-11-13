@@ -1,4 +1,6 @@
 import { MAX_SUMMONED } from '../../../../shared/welcome';
+import { useShell } from '../../store';
+import { chordLabel } from '../chord-label';
 import Portal from '../Portal';
 import SummonGauge from './SummonGauge';
 
@@ -25,6 +27,7 @@ export default function HomeHero({
   onDiscard,
   onPurgeAll,
 }: Props) {
+  const shortcuts = useShell((s) => s.state?.settings.shortcuts) ?? {};
   return (
     <aside
       data-testid="home-hero"
@@ -88,7 +91,7 @@ export default function HomeHero({
           </>
         )}
         <br />
-        ⌘/Ctrl ⇧ G returns you here
+        {chordLabel(shortcuts, 'home')} returns you here
       </p>
       {/* the only path to an unbound service's credentials, so it lives here
           rather than in Settings — but unfilled and as far from the summon

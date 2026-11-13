@@ -12,6 +12,7 @@ import {
 } from '../shared/types';
 import { trimToCap } from '../shared/welcome';
 import { BANISH_MAX_HOURS, BANISH_MIN_HOURS } from './lib/banish-rules';
+import { HIBERNATE_MAX_MINUTES, HIBERNATE_MIN_MINUTES } from './lib/hibernation-rules';
 import { normalizeShortcuts } from './lib/shortcut-rules';
 import { clampZoom } from './lib/zoom-rules';
 
@@ -170,6 +171,10 @@ function normalize(raw: Settings): { settings: Settings; trimmed: ServiceId[] } 
       disabled: capped.disabled,
       neverHibernate: fill(raw.neverHibernate, DEFAULT_SETTINGS.neverHibernate),
       zoom: fillZoom(raw.zoom),
+      hibernationMinutes:
+        typeof raw.hibernationMinutes === 'number' && Number.isFinite(raw.hibernationMinutes)
+          ? Math.min(Math.max(raw.hibernationMinutes, HIBERNATE_MIN_MINUTES), HIBERNATE_MAX_MINUTES)
+          : DEFAULT_SETTINGS.hibernationMinutes,
       autoBanish: fillAutoBanish(raw.autoBanish),
       lastUsedAt: fillEpochs(raw.lastUsedAt),
       mutedUntil: fillEpochs(raw.mutedUntil),

@@ -1,5 +1,6 @@
 import { nameMatches } from '../lib/conversation-open';
 import { visiblyPresent } from './ready';
+import { flat, inside } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -11,15 +12,13 @@ export function faDigit(className: string): number | 'plus' | null {
   return m[2] ? 'plus' : Number(m[1]);
 }
 
-const flat = (el: Element | null | undefined) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-
 /** The open conversation's name, from the chat header (live DOM, 2026-08-28
  *  dump). chat.zalo.me has one URL for every thread and titles itself only
  *  "Zalo", so this is the one handle a pin can keep. */
 export function zaloConversation(doc: Document): string | null {
-  const name = flat(
-    doc.querySelector('.threadChat__title .header-title') ?? doc.querySelector('.header-title'),
-  );
+  const header =
+    doc.querySelector('.threadChat__title .header-title') ?? doc.querySelector('.header-title');
+  const name = flat(header?.textContent);
   return name === '' ? null : name;
 }
 
@@ -38,7 +37,8 @@ export function openZaloConversation(
     doc.querySelector('#conversationList') ??
     doc.querySelector('[data-id="div_TabMsg_ThrdChList"]');
   for (const item of doc.querySelectorAll('.msg-item')) {
-    if (!nameMatches(flat(item.querySelector('.conv-item-title__name')), name)) continue;
+    const title = item.querySelector('.conv-item-title__name')?.textContent;
+    if (!nameMatches(flat(title), name)) continue;
     const pane = list?.getBoundingClientRect();
     let r = item.getBoundingClientRect();
     if (pane && pane.height > 0 && !inside(r, pane)) {
@@ -49,11 +49,6 @@ export function openZaloConversation(
     return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
   }
   return false;
-}
-
-function inside(r: DOMRect, pane: DOMRect): boolean {
-  const cy = r.y + r.height / 2;
-  return cy >= pane.y && cy <= pane.y + pane.height;
 }
 
 const zalo: Recipe = {

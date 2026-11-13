@@ -21,9 +21,13 @@ describe('lock channel classification', () => {
 });
 
 describe('channelAllowedWhileLocked', () => {
-  it('serves the two lock channels — the app must stay unlockable', () => {
+  it('serves the unlock channel — the app must stay unlockable', () => {
     expect(channelAllowedWhileLocked('lock:unlock')).toBe(true);
-    expect(channelAllowedWhileLocked('lock:configure')).toBe(true);
+  });
+
+  // only the Lock pane configures, and Settings closes when the app locks
+  it('refuses configuration while locked', () => {
+    expect(channelAllowedWhileLocked('lock:configure')).toBe(false);
   });
 
   it('serves the taskbar overlay, which carries a count and no content', () => {

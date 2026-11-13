@@ -344,6 +344,23 @@ describe('SettingsStore', () => {
     expect(new SettingsStore(dir).get().zoom.slack).toBe(1);
   });
 
+  // 2026-11-13 audit: the Settings field says 5–240 but nothing in main held
+  // the stored value to it (a typed "305", a hand edit, a backup)
+  it('holds hibernationMinutes to the range the field offers', () => {
+    const at = (value: unknown): number => {
+      dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+      writeFileSync(join(dir, 'settings.json'), JSON.stringify({ hibernationMinutes: value }));
+      const got = new SettingsStore(dir).get().hibernationMinutes;
+      rmSync(dir, { recursive: true, force: true });
+      return got;
+    };
+    expect(at(305)).toBe(240);
+    expect(at(0)).toBe(5);
+    expect(at(45)).toBe(45);
+    expect(at('soon')).toBe(30);
+    dir = mkdtempSync(join(tmpdir(), 'goetia-'));
+  });
+
   // R3: get() re-read and re-normalized settings.json on every call (27 µs of
   // synchronous readFileSync, ~5× per broadcast). Reads now come from memory.
   it('serves reads from memory instead of re-reading the file', () => {

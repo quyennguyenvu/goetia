@@ -71,6 +71,30 @@ describe('isUnreadRow verdicts are unchanged', () => {
     expect(reads()).toBe(0); // the cheap check still short-circuits first
   });
 
+  // 2026-11-13 audit: the check read the whole row, so a read chat whose
+  // last message said "Unread emails are piling up" counted as unread
+  it('takes the word only from the site label, never from a name or a preview', () => {
+    const win = window as Window & typeof globalThis;
+    const verdict = (html: string): boolean => {
+      document.body.innerHTML = `<div role="row">${html}</div>`;
+      return isUnreadRow(document.querySelector('[role=row]') as Element, win);
+    };
+    expect(
+      verdict(
+        '<span>An</span><span dir="auto"><span>An: Unread emails are piling up</span></span>',
+      ),
+    ).toBe(false);
+    expect(verdict('<span>Unread Club</span><span dir="auto"><span>hi</span></span>')).toBe(false);
+    // a message that is the bare word sits in the sender's dir=auto text
+    expect(verdict('<span>An</span><span dir="auto"><span>Unread</span></span>')).toBe(false);
+    // the three label shapes the fixtures carry
+    expect(
+      verdict('<span><div>Unread message:</div><span dir="auto"><span>An: hi</span></span></span>'),
+    ).toBe(true);
+    expect(verdict('<span>Hưng</span><span>hey · 1m</span><span>Unread message</span>')).toBe(true);
+    expect(verdict('<span data-visualcompletion="ignore"><div>Unread</div></span>')).toBe(true);
+  });
+
   it('still counts a bold span', () => {
     document.body.innerHTML = `<div role="row"><span style="font-weight:700">Ana</span></div>`;
     const row = document.querySelector('[role=row]') as Element;

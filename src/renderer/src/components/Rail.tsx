@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { muteLabel } from '../../../shared/mute';
 import type { PinView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
+import { chordLabel } from './chord-label';
 import Portal from './Portal';
 import RailReorderPrompt from './RailReorderPrompt';
 import ReorderTile from './ReorderTile';
@@ -134,7 +135,7 @@ export default function Rail() {
           data-testid="home-btn"
           aria-label="Home"
           aria-current={state.homeOpen ? 'page' : undefined}
-          title="Home — all services (⌘⇧G)"
+          title={`Home — all services (${chordLabel(state.settings.shortcuts, 'home')})`}
           // a destination, not a toggle: clicking Home from Home stays on Home
           onClick={() => window.goetia.send('home:setOpen', { open: true })}
           className={`flex h-8 w-8 flex-none items-center justify-center rounded-[11px]
@@ -218,7 +219,7 @@ export default function Rail() {
             data-testid="bell"
             title={`${
               silenced ? 'Unmute all notifications' : 'Mute all notifications'
-            } (⌘/Ctrl+⇧+M) — badges stay${
+            } (${chordLabel(state.settings.shortcuts, 'mute')}) — badges stay${
               state.quietActive && !state.globalMuted
                 ? ` — quiet hours until ${state.settings.quietHours.end}`
                 : ''

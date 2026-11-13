@@ -17,6 +17,7 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
   const destroyed: ServiceId[] = [];
   const banished: ServiceId[][] = [];
   const live = new Set<ServiceId>();
+  const busy = new Set<ServiceId>();
   const runtimes = new Map<
     ServiceId,
     { hibernated: boolean; unread: { direct: number; indirect: number } }
@@ -48,6 +49,7 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
     views: {
       pageUrl: () => null,
       has: (id: ServiceId) => live.has(id),
+      busy: (id: ServiceId) => busy.has(id),
       ensure: (id: ServiceId) => {
         ensured.push(id);
         live.add(id);
@@ -71,7 +73,7 @@ function harness(overrides: Partial<Settings> = {}, onBattery = false) {
   const arrive = (id: ServiceId) => {
     ctx.state.runtime(id).unread.direct += 1;
   };
-  return { ctx, ensured, destroyed, arrive, banished, settings, note };
+  return { ctx, ensured, destroyed, arrive, banished, settings, note, live, busy };
 }
 
 /** start() defers the first sweep by BOOT_DELAY_MS (5 s). */
@@ -173,6 +175,27 @@ describe('HibernationController peek walk', () => {
 });
 
 // R1b: opt-in only. With the saver off nothing about the cadence may change.
+// 2026-11-13 audit: the sweep destroyed a view 30 minutes after its last
+// activation, and destroy() closes the call window and cancels the downloads.
+describe('HibernationController sleep', () => {
+  it('puts an idle live service to sleep, but not one that is busy', () => {
+    vi.useFakeTimers();
+    const { ctx, destroyed, live, busy } = harness({ lightSleep: false, hibernationMinutes: 1 });
+    live.add('discord');
+    live.add('instagram');
+    busy.add('instagram'); // a call window open, or a download running
+    const h = new HibernationController(ctx);
+    h.start();
+    vi.advanceTimersByTime(BOOT + 2 * 60_000);
+    expect(destroyed).toEqual(['discord']);
+    busy.delete('instagram');
+    vi.advanceTimersByTime(60_000);
+    expect(destroyed).toEqual(['discord', 'instagram']);
+    h.dispose();
+    vi.useRealTimers();
+  });
+});
+
 describe('HibernationController peek backoff', () => {
   /** sweeps run on a 60s timer, so "due" is only acted on at the next one */
   const SWEEP = 60_000;

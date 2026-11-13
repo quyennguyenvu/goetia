@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { badgeLabel } from '../../../shared/badges';
+import { comboLabel } from '../../../shared/summon';
 import type { RecentsStorage, RecentView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
 import { nextLabelChange, relativeTime, switcherRows } from './switcher-results';
@@ -228,7 +229,9 @@ export default function QuickSwitcher() {
                 >
                   <RowTile serviceId={svc.id} active={i === cursor} />
                   <span className="flex-1 text-text-1">{svc.name}</span>
-                  <span className="tabular text-text-2">⌘{accel}</span>
+                  <span className="tabular text-text-2">
+                    {comboLabel(`CmdOrCtrl+${accel}`, window.goetia.platform === 'darwin')}
+                  </span>
                   {unread > 0 && (
                     <span className="tabular rounded-full bg-badge px-1.5 py-0.5 text-[10px] font-semibold text-white">
                       {badgeLabel(unread)}

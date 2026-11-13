@@ -1,5 +1,5 @@
 import type { RecentView, ServiceId } from '../../shared/types';
-import { conversationFromTitle } from './pin-rules';
+import { clampText, conversationFromTitle } from './pin-rules';
 
 /** One conversation the user had on screen. `label` is the row and the
  *  dedupe key; `conversation` is kept apart because it is the one string a
@@ -49,7 +49,9 @@ export function sanitizeReport(raw: RawReport): CleanReport | null {
   } catch {
     return null;
   }
-  const conversation = clean(raw.conversation, RECENT_LABEL_MAX);
+  // clipped with an ellipsis, never a bare cut: the name is matched against
+  // the live one later, and only the ellipsis marks it as a prefix
+  const conversation = clampText(clean(raw.conversation, RECENT_TITLE_MAX), RECENT_LABEL_MAX);
   return {
     conversation: conversation === '' ? null : conversation,
     url,

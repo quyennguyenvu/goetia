@@ -59,7 +59,13 @@ import {
   recentRows,
   sanitizeReport,
 } from './lib/recents-rules';
-import { BACKUP_MAX_BYTES, backupFileName, buildBackup, parseBackup } from './lib/settings-backup';
+import {
+  BACKUP_MAX_BYTES,
+  backupFileName,
+  buildBackup,
+  keepLocalFolder,
+  parseBackup,
+} from './lib/settings-backup';
 import { type TileMenuAction, tileMenuItems } from './lib/tile-menu';
 import { releaseUrl } from './lib/update-check';
 import type { LockController } from './lock';
@@ -139,6 +145,9 @@ export interface AppContext {
   /** running on battery — Light Sleep's opt-in saver peeks less there;
    *  late-bound in index.ts so hibernation.ts stays free of electron */
   onBattery(): boolean;
+  /** the machine has a network: a reload issued without one fails the same
+   *  way; late-bound in index.ts so resilience.ts stays free of electron */
+  online(): boolean;
   /** re-arm the boundary timer and re-apply mute after a schedule edit;
    *  late-bound in index.ts */
   quietScheduleChanged(): void;
@@ -269,7 +278,9 @@ export function applyDisabledChange(ctx: AppContext, before: Settings): void {
     ctx.noteActivated(next);
     // Resolve now, present later. Showing a view here would cover the
     // surface the user is standing on — this is the settings-modal bug.
-    ctx.views.activate(next, { show: !anyOverlayOpen(ctx.state) });
+    ctx.views.activate(next, {
+      show: !anyOverlayOpen(ctx.state) && !ctx.state.runtime(next).crashed,
+    });
   }
   // also runs when next is null: banishing the last service leaves
   // activeId pointing at a disabled one, which is exactly the unrestorable
@@ -530,7 +541,10 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
       }
       const r = parseBackup(text);
       if (!r.ok) return { ok: false, reason: r.reason };
-      parsed = { patch: ctx.settings.sanitize(r.patch), path };
+      parsed = {
+        patch: keepLocalFolder(ctx.settings.sanitize(r.patch), ctx.settings.get().downloads),
+        path,
+      };
     }
     // an imported mute is a plain one: the file carries no expiries, and a
     // stale one left behind would end a mute the file just set
@@ -574,6 +588,8 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     );
   });
   on('unread:update', ({ serviceId, direct, indirect }) => {
+    // the recipe also runs on Electron's blank error page: its zero is not a count
+    if (ctx.state.runtime(serviceId).crashed) return;
     noteRecipe(serviceId, false);
     ctx.state.setRuntime(serviceId, { unread: { direct, indirect }, stale: false });
     // before the peek signal: ending a peek destroys the view, and that must
@@ -756,6 +772,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     }
     return result;
   });
+  on('shortcuts:cancel', () => ctx.recorder.cancel());
   onInvoke('lock:unlock', { ok: false, waitMs: 0, reason: 'unavailable' }, async (req) => {
     const result = await ctx.lock.unlock(req);
     ctx.syncLocked();

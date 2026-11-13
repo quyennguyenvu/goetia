@@ -54,6 +54,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # the gate scripts/release.sh runs locally: a hand-pushed tag or
+      # --skip-checks must not publish untested installers. Once is enough.
+      - name: Checks
+        if: matrix.name == 'mac'
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+
       - name: Build and package
         run: |
           pnpm build

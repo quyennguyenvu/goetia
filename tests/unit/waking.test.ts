@@ -21,6 +21,19 @@ describe('WakingTracker', () => {
     expect(state.runtime('messenger').waking).toBe(false);
   });
 
+  it('reports a wake that ran out its timeout, and only that', () => {
+    const state = new MainState();
+    const timedOut: string[] = [];
+    const w = new WakingTracker(state, undefined, (id) => timedOut.push(id));
+    w.begin('messenger', 'wake');
+    w.end('messenger', 'recipe-ready');
+    vi.advanceTimersByTime(20_000);
+    expect(timedOut).toEqual([]);
+    w.begin('discord', 'wake');
+    vi.advanceTimersByTime(10_000);
+    expect(timedOut).toEqual(['discord']);
+  });
+
   it('recipe-ready reveals immediately and disarms the timer', () => {
     const state = new MainState();
     const cb = vi.fn();

@@ -107,6 +107,7 @@ export class HibernationController {
         active: this.ctx.state.activeId === id,
         hibernated: this.ctx.state.runtime(id).hibernated,
         neverHibernate: s.neverHibernate[id],
+        busy: this.ctx.views.busy(id),
         lastActiveAt: this.lastActiveAt.get(id) ?? now,
         lastBannerAt: this.lastBannerAt.get(id) ?? 0,
       };

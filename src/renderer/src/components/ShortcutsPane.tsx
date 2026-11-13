@@ -85,6 +85,8 @@ export default function ShortcutsPane({ settings }: { settings: Settings }) {
   useEffect(
     () => () => {
       alive.current = false;
+      // main would keep recording, and swallowing keys, until its timeout
+      if (activeRef.current) window.goetia.send('shortcuts:cancel', {});
     },
     [],
   );

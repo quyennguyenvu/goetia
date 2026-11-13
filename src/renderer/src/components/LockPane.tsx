@@ -27,6 +27,7 @@ const GUARD_ROWS: Record<GuardGroup, { label: string; hint: string }> = {
 
 const errorText = (error?: string): string => {
   if (error === 'wrong') return 'That is not your passcode.';
+  if (error === 'throttled') return 'Too many tries. Wait a moment, then try again.';
   if (error === 'too-short') return `Use at least ${PASSCODE_MIN_LENGTH} characters.`;
   return 'That did not work.';
 };

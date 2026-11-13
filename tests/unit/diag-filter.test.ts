@@ -8,7 +8,6 @@ import {
   diagFilterNarrows,
   EMPTY_DIAG_FILTER,
   isDiagTag,
-  matchesDiagFilter,
   normalizeDiagFilter,
 } from '../../src/shared/diag-filter';
 import type { DiagEntry } from '../../src/shared/types';
@@ -72,7 +71,10 @@ describe('normalizeDiagFilter', () => {
   });
 });
 
-describe('matchesDiagFilter', () => {
+const matchesDiagFilter = (entry: DiagEntry, filter: DiagFilter): boolean =>
+  compileDiagFilter(filter)(entry);
+
+describe('compileDiagFilter verdicts', () => {
   it('matches every row on the empty filter', () => {
     for (const e of [nav, stale, started]) {
       expect(matchesDiagFilter(e, EMPTY_DIAG_FILTER)).toBe(true);

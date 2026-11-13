@@ -1,5 +1,6 @@
 import type { Counts } from '../../shared/types';
 import { nameMatches } from '../lib/conversation-open';
+import { flat, inside, walkPages } from './row-helpers';
 import { unreadFromTitle } from './title';
 import type { Recipe } from './types';
 
@@ -50,8 +51,6 @@ function chatPane(doc: Document): Element | null {
   return null;
 }
 
-const flat = (s: string | null | undefined) => s?.replace(/\s+/g, ' ').trim() ?? '';
-
 /** The open conversation's name, from the chat pane's header dropdown.
  *  shopee.vn has one URL for the whole widget and titles itself after the
  *  shopping site, so this is the one handle a pin can keep. */
@@ -65,7 +64,6 @@ export function shopeeConversation(doc: Document): string | null {
 
 type Point = { x: number; y: number };
 
-const SCROLL_SETTLE_MS = 60;
 /** Rows are 63px in a ~700px grid, so 40 pages is over 400 shops. */
 const SCROLL_MAX_PAGES = 40;
 
@@ -87,19 +85,12 @@ export async function openShopeeConversation(
   if (!grid) return false;
   let row = findRow(grid, name);
   if (!row && grid.clientHeight > 0) {
-    const settle = opts.settle ?? (() => new Promise<void>((r) => setTimeout(r, SCROLL_SETTLE_MS)));
-    const maxPages = opts.maxPages ?? SCROLL_MAX_PAGES;
-    const start = grid.scrollTop;
-    grid.scrollTop = 0;
-    for (let page = 0; page < maxPages; page++) {
-      await settle();
-      row = findRow(grid, name);
-      if (row) break;
-      const before = grid.scrollTop;
-      grid.scrollTop = before + grid.clientHeight;
-      if (grid.scrollTop === before) break; // the bottom
-    }
-    if (!row) grid.scrollTop = start;
+    row = await walkPages(
+      grid,
+      () => findRow(grid, name),
+      opts.maxPages ?? SCROLL_MAX_PAGES,
+      opts.settle,
+    );
   }
   if (!row) return false;
   const pane = grid.getBoundingClientRect();
@@ -127,11 +118,6 @@ function findRow(grid: Element, name: string): Element | null {
     if (title && nameMatches(flat(title), name)) return row;
   }
   return null;
-}
-
-function inside(r: DOMRect, pane: DOMRect): boolean {
-  const cy = r.y + r.height / 2;
-  return cy >= pane.y && cy <= pane.y + pane.height;
 }
 
 const shopee: Recipe = {

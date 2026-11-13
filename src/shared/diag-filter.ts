@@ -65,10 +65,6 @@ export function compileDiagFilter(filter: DiagFilter): (entry: DiagEntry) => boo
     (tags === null || tags.has(entry.tag)) && (q === '' || haystack(entry).includes(q));
 }
 
-export function matchesDiagFilter(entry: DiagEntry, filter: DiagFilter): boolean {
-  return compileDiagFilter(filter)(entry);
-}
-
 /** true when the filter can drop a row — what decides the `Filtered:` line
  *  and the Copy label */
 export function diagFilterNarrows(filter: DiagFilter): boolean {

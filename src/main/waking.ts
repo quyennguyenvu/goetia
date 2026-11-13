@@ -12,6 +12,8 @@ export class WakingTracker {
   constructor(
     private state: MainState,
     private timeoutMs = WAKE_TIMEOUT_MS,
+    /** the wake ran out its timeout: nothing else ended it */
+    private onTimeout?: (id: ServiceId) => void,
   ) {}
 
   /** `kind` names the load for the cover's caption; setRuntime already
@@ -20,7 +22,10 @@ export class WakingTracker {
     clearTimeout(this.timers.get(id));
     this.timers.set(
       id,
-      setTimeout(() => this.end(id, 'timeout'), this.timeoutMs),
+      setTimeout(() => {
+        this.onTimeout?.(id);
+        this.end(id, 'timeout');
+      }, this.timeoutMs),
     );
     this.state.setRuntime(id, { waking: true, wakeKind: kind });
   }

@@ -40,7 +40,7 @@ export type LockConfigure =
 export interface LockConfigResult {
   ok: boolean;
   /** `invalid`: a setGuard naming no group, or a non-boolean `on` */
-  error?: 'wrong' | 'too-short' | 'already-set' | 'not-set' | 'invalid';
+  error?: 'wrong' | 'throttled' | 'too-short' | 'already-set' | 'not-set' | 'invalid';
 }
 
 /** Which doors the lock screen may offer, and which main will accept — one

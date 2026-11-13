@@ -12,7 +12,7 @@ import type { SynthBanner } from './unread-banners';
  *  999px sitting in the row (not the link), and a literal "Unread"
  *  screen-reader string. Green presence dots ("Active now") must not count. */
 export function isUnreadRow(row: Element, win: Window & typeof globalThis): boolean {
-  if (row.textContent?.includes('Unread')) return true;
+  if (row.textContent?.includes('Unread') && hasUnreadLabel(row)) return true;
   // A style read can flush a pending recalc, and this loop runs per row per
   // tick — so read one only for elements that could actually carry a signal.
   // Bold text is only ever on a span; the dot carries no text at all. That
@@ -38,6 +38,20 @@ export function isUnreadRow(row: Element, win: Window & typeof globalThis): bool
     if (rect.width > 0 && (rect.width < 6 || rect.width > 20)) continue;
     if (rect.height > 0 && (rect.height < 6 || rect.height > 20)) continue;
     return true;
+  }
+  return false;
+}
+
+/** The site's own screen-reader label: a leaf that says exactly "Unread",
+ *  "Unread message" or "Unread message:", outside the dir=auto text a sender
+ *  controls. The whole row's text is not it — a name or a preview with the
+ *  word in it made a read chat count. */
+const UNREAD_LABEL = /^Unread( messages?:?)?$/;
+
+function hasUnreadLabel(row: Element): boolean {
+  for (const el of row.querySelectorAll('span, div')) {
+    if (el.childElementCount > 0 || el.closest('[dir="auto"]')) continue;
+    if (UNREAD_LABEL.test(el.textContent?.trim() ?? '')) return true;
   }
   return false;
 }

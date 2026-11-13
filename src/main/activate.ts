@@ -28,10 +28,12 @@ export function rememberSurface(ctx: AppContext, usedId?: ServiceId): void {
 /** Match the view layer to the shell's surfaces. Every surface toggle routes
  *  here rather than pairing its own hide/show: closing one surface while
  *  another is still open must leave the view down, or it buries what is left
- *  on screen (settings closed over Home). */
-function presentSurface(ctx: AppContext): void {
-  if (anyOverlayOpen(ctx.state)) ctx.views.hideActive();
-  else ctx.views.showActive();
+ *  on screen (settings closed over Home). A crashed or failed page stays down
+ *  too: it is blank, and it would cover the shell's Retry (2026-11-13). */
+export function presentSurface(ctx: AppContext): void {
+  if (anyOverlayOpen(ctx.state) || ctx.state.runtime(ctx.state.activeId).crashed) {
+    ctx.views.hideActive();
+  } else ctx.views.showActive();
 }
 
 /** Open or close a modal surface (settings, quick switcher). */
@@ -73,6 +75,21 @@ export function setHomeOpen(ctx: AppContext, open: boolean): void {
 export function applyLocked(ctx: AppContext, locked: boolean): boolean {
   if (ctx.state.locked === locked) return false;
   ctx.state.locked = locked;
+  if (locked) {
+    // Settings' Lock pane holds the verified passcode until it unmounts: a
+    // lock must not leave it for whoever unlocks with Touch ID
+    ctx.state.settingsOpen = false;
+    ctx.state.settingsFocus = null;
+    ctx.state.switcherOpen = false;
+    ctx.recorder.cancel();
+    // an inspector left open still reads the page behind the lock screen
+    ctx.views.closeDevTools();
+    if (!ctx.win.isDestroyed()) {
+      ctx.win.webContents.closeDevTools();
+      // hiding the page hands the keyboard to nobody; the passcode field needs it
+      ctx.win.webContents.focus();
+    }
+  }
   presentSurface(ctx);
   ctx.state.touch();
   return true;
@@ -91,7 +108,7 @@ export function activateService(ctx: AppContext, id: ServiceId): void {
   ctx.state.activeId = id;
   ctx.state.setRuntime(id, { hibernated: false });
   ctx.noteActivated(id);
-  ctx.views.activate(id);
+  ctx.views.activate(id, { show: !ctx.state.runtime(id).crashed });
   rememberSurface(ctx, id);
   // Broadcast the new activeId. setRuntime above only notifies when it changes
   // a field, so for an already-non-hibernated service it is a no-op and the
