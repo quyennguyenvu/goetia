@@ -33,7 +33,7 @@ Every trigger below is fed by a service page, and service pages are unisolated.
 - **Both clearing levels** (user decision). A service's banners go when its unread count reaches zero; one conversation's banners go when the user opens it in Goetia.
 - **A launch sweep** (user decision). Banners from a previous run cannot open a conversation; they are removed.
 - **Zero means `direct === 0 && indirect === 0`** (my choice, flagged for review). The conservative reading of "I read it all": a banner is never removed while its service still shows anything unread. Named trade-off: a Discord or Slack account with permanently unread channels never reaches zero, so those services clear per conversation only. Rejected: `direct === 0`, which would remove a banner for a still-unread channel message.
-- **Banners are held, and closed through the handle** (`notification.close()`), not through `groupId` + `Notification.removeGroup`. One mechanism works on macOS and Windows, holding the object is what keeps its click alive, and macOS's static removers are darwin-only. `groupId` is not set, so Notification Center's stacking is unchanged.
+- **Banners are held, and closed through the handle** (`notification.close()`), not through `groupId` + `Notification.removeGroup`. One mechanism works on macOS and Windows, holding the object is what keeps its click alive, and macOS's static removers are darwin-only. Clearing never depends on `groupId`; stacking was added separately the next day (below).
 - **A peek rarely clears.** A Light Sleep peek's view is normally destroyed on its first report, before any zero can be trusted (below); only a view kept alive by banner grace can outlast the dwell. Otherwise a sleeping service's banners clear the next time it is opened. Named trade-off.
 - **A chat already on screen when its banner fired is not cleared by returning to it.** The runner reports a conversation on change only, so coming back to the window sends nothing; that banner waits for the zero rule or its own click. Re-reporting on focus was considered and left out: the report would race the chord walk's cancel rule (`MainState.walk`). Named trade-off.
 - **A banner that can no longer open its chat is dropped once it is an hour old** (user decision, 2026-11-12, after the first build). "Can open its chat" is `canOpenChat`: the page's own click handle while that page is alive, a URL that passes `validatedConversationUrl`, or the name lane on a `bannerTitleNamesConversation` service. On Discord, Slack, Telegram and TikTok the handle is usually the only lane, and it dies with the page — for a sleeping service about two minutes after the banner. Rejected: dropping at once, which would take a message that arrived while a service slept out of Notification Center before anyone saw it. Named trade-off: on a name-lane service a click while the service sleeps still only wakes it (`resolveBannerClick` gives a dead view no name lane); those banners are kept, because the lane returns with the view.
@@ -103,10 +103,19 @@ Two Electron details the registry must respect, both read from the v43.3.0 sourc
 
 Added the same day (user decision). The download banner (`index.ts`, its own path by design, 2026-09-18) dropped its `Notification` the same way, so its reveal click could die to garbage collection too. It has no `ActivityLog` entry to hang a registry row on, so it gets `BannerShelf` (`src/main/banners.ts`): the newest `HELD_BANNERS_MAX` (20) handles are held, the one let go is closed, a clicked or failed banner is released, and the rest close at quit. Nothing else carries over — a download has no unread state to clear on, and its click re-checks the file at click time (reveal, or Settings → Downloads if it moved), so it never goes stale and needs no hour rule. What the click does is untouched: Never Open stands.
 
+## Stacking per conversation
+
+Added 2026-11-13 (user decision), after a deploy channel's seven Discord banners buried one WhatsApp message. Each banner carries a `groupId` — macOS's thread identifier — so Notification Center keeps one stack per conversation. Chosen over one stack per service, where a Discord DM would still sit under the noisy channel.
+
+- **The id** is `bannerGroupId` (`lib/notification-rules.ts`): the service id plus the first 16 hex digits of a SHA-256 of the conversation's `nameKey`. The conversation is the one `splitBannerTitle` already derives, so Discord groups by channel whatever the sender. Hashed because an identifier is no place for a chat's name; a nameless banner groups by service.
+- **While locked** the id is the service alone: a redacted banner must not be sorted by the conversation it hides.
+- **Depends on the user's macOS setting**: System Settings → Notifications → Goetia → Notification grouping on Automatic. Stacks carry no text label.
+- **Windows**: the id is set as the toast's `Group`, which is not a visible header; `groupTitle` is left unset. No visual change there, untested (named trade-off).
+- Clearing is unaffected — it goes through the held handles, never through the group.
+
 ## Out of scope
 
 - Re-attaching handlers to a previous run's banners (`Notification.getHistory`). The entries they need died with the process; removing them is the honest answer.
-- Grouping banners per service in Notification Center (`groupId`).
 - Clearing from a peek; clearing on `direct === 0`.
 - Redacting already-delivered banners when the lock engages.
 

@@ -3,12 +3,15 @@ import { join } from 'node:path';
 import { app, Notification } from 'electron';
 import type { RendererToMain } from '../shared/ipc';
 import { SERVICES, serviceById } from '../shared/services';
+import type { ServiceId } from '../shared/types';
 import { activateService, openActivityEntry } from './activate';
 import type { AppContext } from './ipc-handlers';
 import { splitBannerTitle } from './lib/banner-title';
 import { redactBanner } from './lib/lock-rules';
 import { resolveIcons } from './lib/notification-icons';
 import {
+  bannerGroupId,
+  isWordless,
   notificationTitle,
   sanitizeBanner,
   shouldNotify,
@@ -31,6 +34,7 @@ export class NotificationRouter {
     existsSync,
   );
   private throttle = new NotificationThrottle();
+  private wordless = new Set<ServiceId>();
 
   constructor(private ctx: AppContext) {}
 
@@ -54,6 +58,12 @@ export class NotificationRouter {
     // the throttle bounds the log too: a spammy page during quiet hours
     // must not flood the recents list any more than it may flood banners
     if (!this.throttle.allow(serviceId, Date.now())) return;
+    // once per service a run: evidence, not a counter a page could spin
+    if (isWordless(title, body) && !this.wordless.has(serviceId)) {
+      this.wordless.add(serviceId);
+      const source = synthetic ? 'recipe' : 'page';
+      this.ctx.diag.note('notifications', `${serviceId}: ${source} banner had no text`, serviceId);
+    }
     // Discord packs "Author (#channel, Server)" into one title, and its author
     // half is not always a name — the row leads with the channel instead
     const { conversation, author } = splitBannerTitle(serviceId, title);
@@ -78,6 +88,7 @@ export class NotificationRouter {
     const notification = new Notification({
       title: notificationTitle(shown.title, serviceById(serviceId).name),
       body: shown.body,
+      groupId: bannerGroupId({ serviceId, conversation, locked: this.ctx.lock.locked }),
       ...soundOptions({ enabled: s.notificationSound, synthetic }),
       ...(icon ? { icon } : {}),
     });

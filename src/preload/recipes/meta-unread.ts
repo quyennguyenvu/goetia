@@ -2,6 +2,7 @@ import type { Counts } from '../../shared/types';
 import { urlKey } from '../lib/conversation-open';
 import { textWithEmoji } from './emoji-text';
 import { unreadFromTitle } from './title';
+import type { SynthBanner } from './unread-banners';
 
 /** Unread markers shared by Meta chat lists, calibrated against
  *  facebook.com/messages (2026-08-05, Vietnamese locale) and matching
@@ -88,28 +89,32 @@ export function watchRows(
   return rowFor(link).parentElement;
 }
 
-/** Build a banner from the first unread row that is not muted — for Meta
- *  sites that never notify in-page (they delegate to browser push, which
- *  Electron doesn't support). Spans read [sender, preview, ·, time]. */
-export function synthFromRows(
+/** A banner for every unread row that is not muted, in list order — for
+ *  facebook, which never notifies in-page (it delegates to browser push, which
+ *  Electron doesn't support). Spans read [sender, preview, ·, time]. The
+ *  preview is the thread's last-message snippet and nothing else: the row has
+ *  no typing state (MWThreadSnippetForDisplay, read from the live bundle
+ *  2026-11-13), which is what lets the runner treat a changed one as a message. */
+export function bannersFromRows(
   doc: Document,
   linkSelector: string,
   rowFor: (link: Element) => Element,
-): { title: string; body: string; href?: string } | null {
+): SynthBanner[] {
   const win = doc.defaultView;
-  if (!win) return null;
+  if (!win) return [];
+  const banners: SynthBanner[] = [];
   for (const link of doc.querySelectorAll(linkSelector)) {
     const row = rowFor(link);
     if (!isUnreadRow(row, win) || isMutedRow(row)) continue;
     const texts = rowTexts(row);
-    if (texts.length === 0) return null;
-    return {
+    if (texts.length === 0) continue;
+    banners.push({
       title: texts[0],
       body: (texts[1] ?? '').replace(/\s*·\s*\S{1,4}$/u, ''),
       href: link.getAttribute('href') ?? undefined,
-    };
+    });
   }
-  return null;
+  return banners;
 }
 
 /** A row's texts in reading order — [name, preview, time]. Real text carries

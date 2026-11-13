@@ -1,5 +1,6 @@
 import type { Counts } from '../../shared/types';
 import type { Recipe } from './types';
+import { type SynthBanner, UnreadRows } from './unread-banners';
 
 /** Floor between trusted keep-alive clicks, so a stuck modal can't cause a
  *  click storm (or fight another tab for the session every 2s). */
@@ -19,6 +20,16 @@ export const SNAPBACK_MIN_INTERVAL_MS = 30_000;
  *  a banner that never fires. Kept small on purpose — Meta services synthesize
  *  their notifications from this count, so it is not a place to be clever. */
 export const FORCE_RECOUNT_TICKS = 5;
+
+/** How long a document's row previews are left to settle before a changed one
+ *  is announced: facebook fills some encrypted threads' previews in after the
+ *  list renders, and that swap is not a message. */
+export const PREVIEW_SETTLE_MS = 30_000;
+
+/** Banners held for a later tick. Two chats can change inside one count and
+ *  main's throttle drops a second banner inside its floor, so they go out one
+ *  a tick; past this many the rest are let go. */
+export const WAITING_BANNERS_MAX = 10;
 
 export function startRecipe(
   recipe: Recipe,
@@ -53,6 +64,21 @@ export function startRecipe(
   /** what the last conversation:active named, so a tick with the same chat
    *  on screen costs one string compare and no IPC */
   let lastConversationKey: string | null = null;
+  const unreadRows = new UnreadRows();
+  const startedAt = nowFn();
+  let waiting: SynthBanner[] = [];
+  /** One waiting banner out, or all of them dropped: a focused page is
+   *  showing the user its list, and a later blur must announce nothing stale. */
+  const announceWaiting = (): boolean => {
+    if (waiting.length === 0) return false;
+    if (doc.hasFocus()) {
+      waiting = [];
+      return false;
+    }
+    const n = waiting.shift();
+    if (n) reportNotification?.(n);
+    return true;
+  };
 
   /** Point the observer at the current subtree, re-binding when the page has
    *  swapped it out (virtualized lists replace their container wholesale). A
@@ -174,6 +200,8 @@ export function startRecipe(
     // mutates the DOM count() reads it from — if it didn't, count() could not
     // have seen it either — and the title is checked because the "(n)" badge
     // fallback lives outside any thread list.
+    // before the gate: a banner held over must not wait for the next recount
+    const announced = announceWaiting();
     retarget();
     if (doc.title !== lastTitle) dirty = true;
     if (observer && !dirty && skipped < FORCE_RECOUNT_TICKS) {
@@ -209,7 +237,19 @@ export function startRecipe(
         report(counts);
       }
       stale = false;
-      if (rose && reportNotification && recipe.synthNotification && !doc.hasFocus()) {
+      if (reportNotification && recipe.unreadBanners) {
+        // asked on every count, focused or not, so the rows stay known and a
+        // blur announces nothing stale
+        let rows: SynthBanner[] = [];
+        try {
+          if (counts.direct > 0) rows = recipe.unreadBanners(doc);
+        } catch {
+          rows = []; // a banner that cannot be built must not read as a stale count
+        }
+        waiting.push(...unreadRows.next(rows, rose, nowFn() - startedAt >= PREVIEW_SETTLE_MS));
+        waiting.length = Math.min(waiting.length, WAITING_BANNERS_MAX);
+        if (!announced) announceWaiting();
+      } else if (rose && reportNotification && recipe.synthNotification && !doc.hasFocus()) {
         const n = recipe.synthNotification(doc);
         if (n) reportNotification(n);
       }

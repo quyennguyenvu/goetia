@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { nameKey } from '../../shared/name-key';
+
 export function shouldNotify(opts: {
   serviceMuted: boolean;
   globalMuted: boolean;
@@ -35,6 +38,27 @@ export function soundOptions(opts: { enabled: boolean; synthetic: boolean }): {
  *  would otherwise raise a headless banner. */
 export function notificationTitle(raw: string, fallback: string): string {
   return raw.trim() || fallback;
+}
+
+/** A banner the page raised with nothing to say: it shows as the service's
+ *  name and a blank line, which is worth one Diagnostics line when it happens. */
+export function isWordless(title: string, body: string): boolean {
+  return title.trim() === '' && body.trim() === '';
+}
+
+/** The stack a banner joins in Notification Center: one per conversation, so
+ *  a noisy channel collapses into its own pile instead of burying every other
+ *  chat. Hashed — an identifier is no place for a chat's name — and per
+ *  service only while locked: a redacted banner must not be sorted by the
+ *  conversation it hides. */
+export function bannerGroupId(opts: {
+  serviceId: string;
+  conversation: string;
+  locked: boolean;
+}): string {
+  const name = nameKey(opts.conversation).trim();
+  if (opts.locked || name === '') return opts.serviceId;
+  return `${opts.serviceId}:${createHash('sha256').update(name).digest('hex').slice(0, 16)}`;
 }
 
 export const BANNER_TITLE_MAX = 200;

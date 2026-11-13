@@ -1,4 +1,5 @@
 import type { Counts, ServiceId } from '../../shared/types';
+import type { SynthBanner } from './unread-banners';
 
 export interface Recipe {
   id: ServiceId;
@@ -41,7 +42,15 @@ export interface Recipe {
    *  Electron doesn't support) — the runner calls this when the direct count
    *  rises while the page is unfocused. `href`: the conversation's own link,
    *  so the banner click can land on the thread (validated in main). */
-  synthNotification?(doc: Document): { title: string; body: string; href?: string } | null;
+  synthNotification?(doc: Document): SynthBanner | null;
+  /** A banner for every unread conversation that is not muted, in list
+   *  order — declared instead of `synthNotification` by a site whose row
+   *  preview changes only when a message arrives (no typing line; a trailing
+   *  clock is tolerated). The runner asks on every count that finds something
+   *  unread and announces the row that is new or whose preview changed, so a
+   *  second message in a chat that is already unread is announced too. Held
+   *  to count()'s cost rules. */
+  unreadBanners?(doc: Document): SynthBanner[];
   /** Name of the conversation open right now, for sites whose URL and title
    *  carry no thread identity (WhatsApp, Zalo) — a pin's row label and the
    *  only handle `openConversation` can use. Cheap and synchronous; null

@@ -10,24 +10,32 @@ function load(name: string): Document {
   return document;
 }
 
-describe('messenger synthesized notification', () => {
-  it('extracts sender and preview from the first unread row', () => {
-    expect(messenger.synthNotification?.(load('messenger'))).toEqual({
-      title: 'Alice',
-      body: 'sent a photo',
-      href: '/messages/e2ee/t/111',
-    });
+describe('messenger synthesized banners', () => {
+  // the three rows count() finds: bold text, the blue dot, the "Unread" string
+  it('builds sender and preview for every unread row, in list order', () => {
+    expect(messenger.unreadBanners?.(load('messenger'))).toEqual([
+      { title: 'Alice', body: 'sent a photo', href: '/messages/e2ee/t/111' },
+      { title: 'Carol', body: 'Vl :))', href: '/messages/e2ee/t/333' },
+      { title: 'Hưng', body: 'hey', href: '/messages/e2ee/t/555' },
+    ]);
   });
 
   it('keeps the emoji facebook renders as an image in a reaction preview', () => {
-    expect(messenger.synthNotification?.(load('messenger-reaction'))).toEqual({
-      title: 'Hồ Nguyễn Tiến Hưng',
-      body: 'Reacted 😆 to your message',
-      href: '/messages/e2ee/t/777',
-    });
+    expect(messenger.unreadBanners?.(load('messenger-reaction'))).toEqual([
+      {
+        title: 'Hồ Nguyễn Tiến Hưng',
+        body: 'Reacted 😆 to your message',
+        href: '/messages/e2ee/t/777',
+      },
+    ]);
   });
 
-  it('returns null when nothing is unread', () => {
-    expect(messenger.synthNotification?.(load('blank'))).toBeNull();
+  it('is empty when nothing is unread', () => {
+    expect(messenger.unreadBanners?.(load('blank'))).toEqual([]);
+  });
+
+  // one hook or the other: the runner asks unreadBanners and never falls back
+  it('declares unreadBanners instead of synthNotification', () => {
+    expect(messenger.synthNotification).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 import type { Counts } from '../../shared/types';
 import { allowFacebookCalls, readCallBlockedUntil } from './facebook-calls';
-import { conversationFromRows, countUnreadRows, synthFromRows, watchRows } from './meta-unread';
+import { bannersFromRows, conversationFromRows, countUnreadRows, watchRows } from './meta-unread';
 import { visiblyPresent } from './ready';
 import type { Recipe } from './types';
 
@@ -52,9 +52,11 @@ const messenger: Recipe = {
     return watchRows(doc, THREAD_LINK, rowFor);
   },
   // facebook.com never notifies in-page — it delegates to browser push, which
-  // Electron doesn't support (no FCM)
-  synthNotification(doc) {
-    return synthFromRows(doc, THREAD_LINK, rowFor);
+  // Electron doesn't support (no FCM). Every unread row, not the first: the
+  // runner announces the one whose preview changed, so a second message in a
+  // chat that is already unread gets its banner too.
+  unreadBanners(doc) {
+    return bannersFromRows(doc, THREAD_LINK, rowFor);
   },
   // facebook's "Incoming call sounds" switch: while it is off the page drops
   // every ring, and both places facebook offers it are hidden in Goetia

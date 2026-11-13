@@ -3,6 +3,8 @@ import {
   audioMuted,
   BANNER_BODY_MAX,
   BANNER_TITLE_MAX,
+  bannerGroupId,
+  isWordless,
   notificationTitle,
   sanitizeBanner,
   shouldNotify,
@@ -68,6 +70,23 @@ describe('notificationTitle', () => {
   });
 });
 
+describe('isWordless', () => {
+  it.each([
+    ['', ''],
+    ['  ', '\n\t'],
+  ])('%j / %j says nothing', (title, body) => {
+    expect(isWordless(title, body)).toBe(true);
+  });
+
+  // tiktok's synthesized banner is a nickname alone, by design
+  it.each([
+    ['An', ''],
+    ['', 'sent a photo'],
+  ])('%j / %j says something', (title, body) => {
+    expect(isWordless(title, body)).toBe(false);
+  });
+});
+
 describe('sanitizeBanner', () => {
   it('coerces non-string title/body to empty strings', () => {
     expect(sanitizeBanner(null, undefined)).toEqual({ title: '', body: '' });
@@ -87,5 +106,37 @@ describe('sanitizeBanner', () => {
     expect(title.length).toBeLessThanOrEqual(BANNER_TITLE_MAX);
     expect(body.length).toBeLessThanOrEqual(BANNER_BODY_MAX);
     expect(title.endsWith('…')).toBe(true);
+  });
+});
+
+// one noisy channel must collapse into its own stack, not bury every other chat
+describe('bannerGroupId', () => {
+  const id = (serviceId: string, conversation: string, locked = false) =>
+    bannerGroupId({ serviceId, conversation, locked });
+
+  it('gives one conversation one group, and another a different one', () => {
+    expect(id('discord', '#deploy')).toBe(id('discord', '#deploy'));
+    expect(id('discord', '#deploy')).not.toBe(id('discord', 'An Nguyen'));
+  });
+
+  it('keeps the same name on two services apart', () => {
+    expect(id('discord', 'An Nguyen')).not.toBe(id('telegram', 'An Nguyen'));
+  });
+
+  it('ignores emoji presentation, like every other name compare', () => {
+    expect(id('whatsapp', 'Nhà ❤')).toBe(id('whatsapp', 'Nhà ❤️'));
+  });
+
+  it('never carries the name itself', () => {
+    expect(id('whatsapp', 'Big Show - private')).toMatch(/^whatsapp:[0-9a-f]{16}$/);
+  });
+
+  it('falls back to the service for a nameless banner', () => {
+    expect(id('zalo', '   ')).toBe('zalo');
+  });
+
+  it('groups by service alone while locked', () => {
+    // a redacted banner must not be sorted by the conversation it hides
+    expect(id('discord', '#deploy', true)).toBe('discord');
   });
 });

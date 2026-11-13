@@ -25,6 +25,38 @@ describe('notification shim', () => {
     expect(n.close).toBeTypeOf('function');
   });
 
+  // facebook hands its incoming-call banner fbt objects, which the real
+  // constructor stringifies — dropped, the banner read "Messenger" and nothing
+  it('stringifies a title and body the page passes as objects', () => {
+    const forward = vi.fn();
+    const win = freshWindow();
+    installNotificationShim(win, forward);
+    const fbt = (s: string) => ({ toString: () => s });
+    // biome-ignore lint/suspicious/noExplicitAny: a page is not bound by our types
+    new win.Notification(fbt('Incoming call') as any, { body: fbt('An is calling you.') as any });
+    // biome-ignore lint/suspicious/noExplicitAny: a page is not bound by our types
+    new win.Notification(42 as any);
+    expect(forward).toHaveBeenNthCalledWith(1, 'Incoming call', 'An is calling you.', 1);
+    expect(forward).toHaveBeenNthCalledWith(2, '42', '', 2);
+  });
+
+  it('forwards empty text for a value that will not stringify, and never throws', () => {
+    const forward = vi.fn();
+    const win = freshWindow();
+    installNotificationShim(win, forward);
+    const hostile = {
+      toString() {
+        throw new Error('page bug');
+      },
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: a page is not bound by our types
+    expect(() => new win.Notification(hostile as any, { body: Object.create(null) })).not.toThrow();
+    // biome-ignore lint/suspicious/noExplicitAny: a page is not bound by our types
+    new win.Notification(undefined as any, { body: null as any });
+    expect(forward).toHaveBeenNthCalledWith(1, '', '', 1);
+    expect(forward).toHaveBeenNthCalledWith(2, '', '', 2);
+  });
+
   it('reports permission granted, including the legacy callback form', async () => {
     const win = freshWindow();
     installNotificationShim(win, vi.fn());

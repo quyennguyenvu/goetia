@@ -14,6 +14,19 @@ export interface NotificationShimHandle {
  *  holds are page closures. */
 export const REGISTRY_CAP = 50;
 
+/** The real constructor stringifies its arguments, and sites lean on that:
+ *  facebook hands an incoming call's title and body over as fbt objects, which
+ *  dropped as non-strings left a banner with no words (2026-11-13). */
+function text(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return '';
+  try {
+    return String(value);
+  } catch {
+    return ''; // a page's throwing toString stays the page's problem
+  }
+}
+
 /** Replace the page's Notification API with a proxy that forwards to main.
  *  Covers the constructor, the legacy callback form of requestPermission
  *  (old Facebook code awaits the callback, not the promise), and page-side
@@ -50,12 +63,8 @@ export function installNotificationShim(
         const oldest = live.keys().next().value;
         if (oldest !== undefined) live.delete(oldest);
       }
-      // title too: main re-checks, but a non-string must not cross IPC at all
-      forward(
-        typeof title === 'string' ? title : '',
-        typeof options?.body === 'string' ? options.body : '',
-        id,
-      );
+      // main re-checks, but a non-string must not cross IPC at all
+      forward(text(title), text(options?.body), id);
     }
     close(): void {
       // deliberately kept in the registry: sites close banners on a timer or

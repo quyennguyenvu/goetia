@@ -30,10 +30,9 @@ describe('messenger muted threads', () => {
   });
 
   it('never names a muted thread in a synthesized banner', () => {
-    expect(recipes.messenger.synthNotification?.(load('messenger-muted'))).toMatchObject({
-      title: 'Ana Bui',
-      href: '/messages/t/602/',
-    });
+    expect(recipes.messenger.unreadBanners?.(load('messenger-muted'))).toMatchObject([
+      { title: 'Ana Bui', body: 'Ana: on my way', href: '/messages/t/602/' },
+    ]);
   });
 });
 
