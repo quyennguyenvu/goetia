@@ -18,6 +18,7 @@ import { revealLabel } from '../shared/toast';
 import { wakeCaption } from '../shared/wake-caption';
 import { applyLocked } from './activate';
 import { applyBadges } from './badges';
+import { BannerRegistry, BannerShelf } from './banners';
 import { CallsSettingWatcher } from './calls-setting';
 import { safeStorageCodec } from './codec';
 import { runShellCommand } from './commands';
@@ -32,6 +33,7 @@ import {
   setServiceMuted,
 } from './ipc-handlers';
 import { ActivityLog } from './lib/activity-log';
+import { DEAD_SWEEP_MS, isDeadBanner } from './lib/banner-clear-rules';
 import { biometric, hasTouchId } from './lib/biometrics';
 import { coalesce } from './lib/coalesce';
 import { Diagnostics } from './lib/diagnostics';
@@ -273,7 +275,13 @@ app
       note: (line) => diag.note('downloads', line),
     });
     const waking = new WakingTracker(state);
-    const activity = new ActivityLog();
+    // banners a previous run left behind have no handler in this process, so
+    // a click on one could only bring the window forward
+    if (process.platform === 'darwin') Notification.removeAll();
+    const banners = new BannerRegistry();
+    const downloadBanners = new BannerShelf();
+    // a banner lives only as long as its entry: no entry, nothing to open
+    const activity = new ActivityLog((ids) => banners.closeEntries(ids));
     let resilience: ResilienceManager | null = null;
     const downloads = new DownloadManager({
       settings: () => settings.get().downloads,
@@ -290,8 +298,17 @@ app
       notify: ({ title, body, icon, onClick }) => {
         // silent always: a download is not a message, and the user asked for it
         const n = new Notification({ title, body, silent: true, ...(icon ? { icon } : {}) });
-        n.on('click', onClick);
-        n.on('failed', (_e, err) => diag.note('downloads', `banner: ${err}`));
+        n.on('click', () => {
+          downloadBanners.release(n);
+          onClick();
+        });
+        n.on('failed', (_e, err) => {
+          downloadBanners.release(n);
+          diag.note('downloads', `banner: ${err}`);
+        });
+        // held: an unreferenced Notification can be collected, and then its
+        // click reveals nothing
+        downloadBanners.hold(n);
         n.show();
       },
       inFront: () => {
@@ -370,6 +387,8 @@ app
           // the page's JS context is being replaced, taking the notification
           // shim's registry with it — its ids restart at 1 in the new document
           activity.forgetReplay(id);
+          // and the new document's first count is a zero that means nothing
+          banners.noteZero(id, { kind: 'navigated' });
           if (kind) waking.begin(id, kind);
         },
         onCrashed: (id, detail) => {
@@ -380,7 +399,10 @@ app
           waking.end(id, 'load-failed');
           resilience?.onLoadFailed(id, detail);
         },
-        onDestroyed: (id) => callsSetting.stop(id),
+        onDestroyed: (id) => {
+          callsSetting.stop(id);
+          banners.noteZero(id, { kind: 'destroyed' });
+        },
         onPinMessage: (id, text, href, title, conversation) => {
           if (pins.pin({ serviceId: id, text, href, title, conversation, at: Date.now() })) {
             broadcast();
@@ -588,6 +610,7 @@ app
       waking,
       updates,
       activity,
+      banners,
       recents,
       pins,
       downloads,
@@ -655,6 +678,14 @@ app
     resilience = new ResilienceManager(ctx);
     registerIpcHandlers(ctx, new NotificationRouter(ctx));
     hibernation.start();
+    // a banner that can no longer open its chat is not kept past an hour
+    const deadBanners = setInterval(() => {
+      const now = Date.now();
+      for (const meta of SERVICES) {
+        const hasView = views.has(meta.id);
+        banners.closeEntries(activity.ids(meta.id, (e) => isDeadBanner(e, meta, hasView, now)));
+      }
+    }, DEAD_SWEEP_MS);
     quiet.start();
     muteTimer.start();
     applySummon();
@@ -677,6 +708,11 @@ app
       identityShare.dispose();
       downloads.dispose();
       toastLayer.dispose();
+      // nothing left in Notification Center can open a chat once we are gone
+      clearInterval(deadBanners);
+      banners.closeAll();
+      banners.dispose();
+      downloadBanners.closeAll();
       recents.flush();
       diag.flush();
       // last: commits any deferred write (zoom) before the process goes

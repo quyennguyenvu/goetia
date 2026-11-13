@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ACTIVITY_CAP,
   type ActivityEntry,
@@ -127,5 +127,40 @@ describe('ActivityLog', () => {
   it('learnUrl on a rotated-out id is a no-op', () => {
     const log = new ActivityLog();
     expect(() => log.learnUrl(99, 'https://x/')).not.toThrow();
+  });
+
+  it('reports the entry the cap evicts', () => {
+    const onDrop = vi.fn();
+    const log = new ActivityLog(onDrop);
+    const first = log.append(entry(0));
+    for (let i = 1; i < ACTIVITY_CAP; i++) log.append(entry(i));
+    expect(onDrop).not.toHaveBeenCalled();
+    log.append(entry(ACTIVITY_CAP));
+    expect(onDrop).toHaveBeenCalledTimes(1);
+    expect(onDrop).toHaveBeenCalledWith([first]);
+  });
+
+  it('reports what clear drops, per service and whole', () => {
+    const onDrop = vi.fn();
+    const log = new ActivityLog(onDrop);
+    const tg = log.append(entry(1));
+    const dc = log.append(entry(2, { serviceId: 'discord' }));
+    log.clear('telegram');
+    expect(onDrop).toHaveBeenLastCalledWith([tg]);
+    log.clear();
+    expect(onDrop).toHaveBeenLastCalledWith([dc]);
+    // nothing left: an empty drop is not reported
+    log.clear();
+    expect(onDrop).toHaveBeenCalledTimes(2);
+  });
+
+  it('names the entries of one service that satisfy a predicate', () => {
+    const log = new ActivityLog();
+    const a1 = log.append(entry(1, { conversation: 'A' }));
+    log.append(entry(2, { conversation: 'B' }));
+    const a2 = log.append(entry(3, { conversation: 'A' }));
+    log.append(entry(4, { conversation: 'A', serviceId: 'discord' }));
+    expect(log.ids('telegram', (e) => e.conversation === 'A')).toEqual([a1, a2]);
+    expect(log.ids('zalo', () => true)).toEqual([]);
   });
 });

@@ -75,7 +75,8 @@ export function acceptReport(input: {
   );
 }
 
-function sameUrl(a: string, b: string): boolean {
+/** Same origin, path and hash; the query and a trailing slash are ignored. */
+export function sameUrl(a: string, b: string): boolean {
   try {
     const x = new URL(a);
     const y = new URL(b);

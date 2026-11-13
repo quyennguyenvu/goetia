@@ -136,6 +136,10 @@ export async function performBannerAction(
  *  wrong thread that the name lane never gets to correct — and a landed
  *  replay may have taught the row a URL the payload never had. */
 export function openActivityEntry(ctx: AppContext, entry: ActivityEntry): void {
+  // the chat is being opened: every banner it left has done its job
+  ctx.banners.closeEntries(
+    ctx.activity.ids(entry.serviceId, (e) => e.conversation === entry.conversation),
+  );
   const meta = serviceById(entry.serviceId);
   const action = resolveBannerClick({
     // a stale banner can outlive its service being banished on Home

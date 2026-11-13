@@ -1,5 +1,6 @@
+import { nameKey } from '../../shared/name-key';
 import type { Counts } from '../../shared/types';
-import { nameKey, nameMatches } from '../lib/conversation-open';
+import { nameMatches } from '../lib/conversation-open';
 import { textWithEmoji } from './emoji-text';
 import { visiblyPresent } from './ready';
 import { unreadFromTitle } from './title';

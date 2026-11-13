@@ -1,4 +1,5 @@
 import type { OpenLane, OpenRequest } from '../../shared/ipc';
+import { nameKey } from '../../shared/name-key';
 
 export type Point = { x: number; y: number };
 
@@ -103,10 +104,4 @@ export function nameMatches(candidate: string, pinned: string): boolean {
   const p = nameKey(pinned);
   if (c === p) return true;
   return p.endsWith('…') && p.length > 1 && c.startsWith(p.slice(0, -1));
-}
-
-/** Comparison form of a conversation name: composed, without the variation
- *  selectors (U+FE0E/U+FE0F) that pick an emoji's text or colour presentation. */
-export function nameKey(name: string): string {
-  return name.normalize('NFC').replace(/[\uFE0E\uFE0F]/g, '');
 }

@@ -81,9 +81,13 @@ export class NotificationRouter {
       ...soundOptions({ enabled: s.notificationSound, synthetic }),
       ...(icon ? { icon } : {}),
     });
-    notification.on('failed', (_e, err) =>
-      this.ctx.diag.note('notifications', `${serviceId}: ${err}`, serviceId),
-    );
+    notification.on('failed', (_e, err) => {
+      this.ctx.banners.forget(entryId);
+      this.ctx.diag.note('notifications', `${serviceId}: ${err}`, serviceId);
+    });
+    // no `close` listener on purpose: Windows fires it when a toast times out
+    // into Action Center, where the banner still needs its handle
+    notification.on('show', () => this.ctx.banners.noteShown(entryId));
     notification.on('click', () => {
       this.ctx.win.show();
       // a banner click must not be a way past the lock screen: park what the
@@ -92,12 +96,15 @@ export class NotificationRouter {
         this.ctx.lock.setPending({ serviceId, entryId });
         return;
       }
-      // a Notification Center banner outlives ACTIVITY_CAP newer ones only
-      // rarely; with its entry rotated out there is nothing safe left to open
+      // a banner is closed when its entry leaves the log, so this lookup
+      // misses only if the OS delivered a click for a banner already closed
       const entry = this.ctx.activity.get(entryId);
       if (entry) openActivityEntry(this.ctx, entry);
       else activateService(this.ctx, serviceId);
     });
+    // held until its entry leaves the log: an unreferenced Notification can
+    // be collected, and then its click fires nothing
+    this.ctx.banners.add(entryId, serviceId, notification);
     this.ctx.noteBannerFired(serviceId);
     notification.show();
   }

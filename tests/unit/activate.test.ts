@@ -322,17 +322,20 @@ describe('openActivityEntry', () => {
       openInPage: vi.fn().mockResolvedValue({ lane: 'name', url: 'https://web.whatsapp.com/' }),
       has: () => hasView,
     };
+    const activity = { learnUrl: vi.fn(), ids: vi.fn().mockReturnValue([4, 9]) };
+    const banners = { closeEntries: vi.fn() };
     const ctx = {
       state,
       views,
-      activity: { learnUrl: vi.fn() },
+      activity,
+      banners,
       settings: {
         update: vi.fn(),
         get: () => ({ ...DEFAULT_SETTINGS, disabled: { ...summoned, ...disabled } }),
       },
       noteActivated: vi.fn(),
     } as unknown as AppContext;
-    return { ctx, views };
+    return { ctx, views, activity, banners };
   }
   const entry = (over: Partial<ActivityEntry>): ActivityEntry => ({
     id: 4,
@@ -408,6 +411,17 @@ describe('openActivityEntry', () => {
     openActivityEntry(ctx, entry({ clickId: 3 }));
     expect(views.activate).not.toHaveBeenCalled();
     expect(views.openInPage).not.toHaveBeenCalled();
+  });
+
+  // five messages from one chat are five banners; reading the chat answers all
+  it('closes every banner of the conversation, whichever one was clicked', () => {
+    const { ctx, activity, banners } = makeEntryCtx();
+    openActivityEntry(ctx, entry({ conversation: 'TICKETBOX' }));
+    expect(banners.closeEntries).toHaveBeenCalledWith([4, 9]);
+    const [serviceId, match] = activity.ids.mock.calls[0];
+    expect(serviceId).toBe('whatsapp');
+    expect(match(entry({ conversation: 'TICKETBOX' }))).toBe(true);
+    expect(match(entry({ conversation: 'Mẹ' }))).toBe(false);
   });
 });
 

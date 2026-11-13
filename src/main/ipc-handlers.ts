@@ -29,6 +29,7 @@ import {
   setOverlayOpen,
 } from './activate';
 import { applyOverlay } from './badges';
+import type { BannerRegistry } from './banners';
 import type { CallsSettingWatcher } from './calls-setting';
 import type { DownloadManager } from './downloads';
 import { globalMuteMenuTemplate } from './global-mute-menu';
@@ -36,6 +37,7 @@ import type { IdentityShare } from './identity-share';
 import { resolveActivation } from './lib/activation-rules';
 import type { ActivityLog } from './lib/activity-log';
 import { stampSummoned, summonedIds } from './lib/banish-rules';
+import { matchesSighting } from './lib/banner-clear-rules';
 import {
   type Diagnostics,
   recipeTransition,
@@ -85,6 +87,9 @@ export interface AppContext {
   updates: UpdateChecker;
   /** banner history behind banner clicks and the lock's parked click; in-memory only */
   activity: ActivityLog;
+  /** the message banners still in Notification Center, and when they leave;
+   *  see banners.ts */
+  banners: BannerRegistry;
   /** ⌘K's Recent: the conversations the user opened; persisted sealed, see recents.ts */
   recents: RecentsStore;
   /** the pinboard; persisted, see pins.ts */
@@ -234,6 +239,8 @@ function invokeOrigin(e: IpcMainInvokeEvent): string | null {
 export function applyDisabledChange(ctx: AppContext, before: Settings): void {
   const after = ctx.settings.get();
   for (const id of after.order) {
+    // a banished service's banner opens nothing (show-only): it does not stay
+    if (after.disabled[id] && !before.disabled[id]) ctx.banners.closeService(id);
     if (after.disabled[id] && ctx.views.has(id)) {
       ctx.views.destroy(id);
       ctx.noteDestroyed(id); // free a peek that was mid-flight on this view
@@ -419,6 +426,7 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('service:reload', ({ serviceId }) => ctx.views.refresh(serviceId));
   on('service:ready', ({ serviceId }) => {
     ctx.waking.end(serviceId, 'recipe-ready');
+    ctx.banners.noteZero(serviceId, { kind: 'ready' });
     // only a ready chat is asked: a login or checkpoint page is never touched
     if (serviceById(serviceId).callsSetting) ctx.callsSetting.noteReady(serviceId);
   });
@@ -568,12 +576,16 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
   on('unread:update', ({ serviceId, direct, indirect }) => {
     noteRecipe(serviceId, false);
     ctx.state.setRuntime(serviceId, { unread: { direct, indirect }, stale: false });
+    // before the peek signal: ending a peek destroys the view, and that must
+    // be the last word on a zero this report just armed
+    ctx.banners.noteZero(serviceId, { kind: 'count', direct, indirect });
     // setRuntime no-ops on an unchanged count, so the peek signal lives here
     ctx.noteUnreadReport(serviceId);
   });
   on('unread:stale', ({ serviceId, reason }) => {
     noteRecipe(serviceId, true, reason);
     ctx.state.setRuntime(serviceId, { stale: true });
+    ctx.banners.noteZero(serviceId, { kind: 'stale' });
     ctx.noteUnreadReport(serviceId);
   });
   on('badge:overlay', ({ dataUrl, count }) => applyOverlay(ctx.win, dataUrl, count));
@@ -616,6 +628,12 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     if (ctx.state.walk && ctx.state.walk.cursor !== key) ctx.state.walk = null;
     ctx.state.onScreen.set(serviceId, key);
     ctx.recents.upsert(sighting);
+    // the chat is on screen in front of the user: its banners are answered
+    ctx.banners.closeEntries(
+      ctx.activity.ids(serviceId, (e) =>
+        matchesSighting(e, { label: named.label, url: report.url }, meta.url),
+      ),
+    );
   });
   onInvoke('recents:list', { rows: [], storage: 'sealed' }, () => ({
     rows: recentRows(ctx.recents.rows(), onScreenKey(ctx)),

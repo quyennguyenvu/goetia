@@ -44,6 +44,10 @@ export class ActivityLog {
   private entries: ActivityEntry[] = [];
   private nextId = 1;
 
+  /** `onDrop` hears the ids of entries leaving the log, so whatever was held
+   *  per entry (its banner) can go with it. */
+  constructor(private onDrop?: (ids: number[]) => void) {}
+
   /** Returns the new entry's id — the banner's click handler keeps it so a
    *  landed replay can teach the entry its URL. */
   append(entry: Omit<ActivityEntry, 'id'>): number {
@@ -54,7 +58,10 @@ export class ActivityLog {
       this.entries.find((e) => conversationKey(e) === conversationKey(entry))?.landedUrl;
     const id = this.nextId++;
     this.entries.push({ ...entry, ...(landedUrl ? { landedUrl } : {}), id });
-    if (this.entries.length > ACTIVITY_CAP) this.entries.shift();
+    if (this.entries.length > ACTIVITY_CAP) {
+      const gone = this.entries.shift();
+      if (gone) this.onDrop?.([gone.id]);
+    }
     return id;
   }
 
@@ -75,7 +82,9 @@ export class ActivityLog {
    *  switcher row held across a clear resolves to undefined, never to a
    *  recycled entry. */
   clear(id?: ServiceId): void {
+    const gone = this.entries.filter((e) => !id || e.serviceId === id).map((e) => e.id);
     this.entries = id ? this.entries.filter((e) => e.serviceId !== id) : [];
+    if (gone.length > 0) this.onDrop?.(gone);
   }
 
   /** Forget one service's replay handles — its document is gone, and the
@@ -86,6 +95,12 @@ export class ActivityLog {
     for (const e of this.entries) {
       if (e.serviceId === id) e.clickId = undefined;
     }
+  }
+
+  /** Ids of one service's entries that satisfy `match` — how a caller names
+   *  a conversation's banners without the log learning what a banner is. */
+  ids(serviceId: ServiceId, match: (e: ActivityEntry) => boolean): number[] {
+    return this.entries.filter((e) => e.serviceId === serviceId && match(e)).map((e) => e.id);
   }
 
   get(id: number): ActivityEntry | undefined {
