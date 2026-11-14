@@ -51,6 +51,7 @@ describe('channelAllowedWhileLocked', () => {
       'pins:unpin',
       'pins:restore',
       'pins:setNote',
+      'pins:remindMenu',
     ] as const) {
       expect(channelAllowedWhileLocked(channel)).toBe(false);
     }

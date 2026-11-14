@@ -1,3 +1,4 @@
+import { isDue } from '../shared/pins';
 import { serviceById } from '../shared/services';
 import type { ServiceId } from '../shared/types';
 import type { AppContext } from './ipc-handlers';
@@ -169,6 +170,33 @@ export function openActivityEntry(ctx: AppContext, entry: ActivityEntry): void {
     chatPaths: meta.chatPaths,
   });
   void performBannerAction(ctx, entry.serviceId, action, { entryId: entry.id });
+}
+
+/** A pin's open — its row on Home, a reminder's toast or its banner. The
+ *  recents path, verbatim: the href is validated now, not at pin time.
+ *  Opening a due pin acknowledges its reminder; one still ahead stays. */
+export function openPin(ctx: AppContext, id: number): void {
+  const pin = ctx.pins.get(id);
+  if (!pin) return; // removed since the row or the banner was drawn
+  const meta = serviceById(pin.serviceId);
+  const action = resolveBannerClick({
+    disabled: ctx.settings.get().disabled[pin.serviceId],
+    hasView: ctx.views.has(pin.serviceId),
+    href: pin.href,
+    conversation: pin.conversation || undefined,
+    serviceUrl: meta.url,
+    chatPaths: meta.chatPaths,
+  });
+  // a banished service's click is show-only: keep the mark, nothing opened
+  if (
+    action.kind !== 'show-only' &&
+    isDue(pin.remindAt, Date.now()) &&
+    ctx.pins.setReminder(id, 0)
+  ) {
+    ctx.reminders.rearm();
+    ctx.broadcast();
+  }
+  void performBannerAction(ctx, pin.serviceId, action);
 }
 
 /** The Recent row on screen right now, or null: the active service's last

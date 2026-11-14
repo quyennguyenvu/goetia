@@ -95,6 +95,8 @@ export class PinStore {
       conversation,
       href: input.href,
       at: input.at,
+      remindAt: 0,
+      reminded: false,
     };
     this.pins = [...this.pins, pin];
     this.save();
@@ -135,6 +137,24 @@ export class PinStore {
     this.pins = this.pins.map((p) => (p.id === id ? { ...p, note: clamped } : p));
     this.save();
     return true;
+  }
+
+  /** 0 clears. A new time is a new reminder, so it has not been announced. */
+  setReminder(id: number, remindAt: number): boolean {
+    if (this.file.unreadable || !Number.isFinite(remindAt) || remindAt < 0) return false;
+    const pin = this.get(id);
+    if (!pin || (pin.remindAt === remindAt && !pin.reminded)) return false;
+    this.pins = this.pins.map((p) => (p.id === id ? { ...p, remindAt, reminded: false } : p));
+    this.save();
+    return true;
+  }
+
+  /** One write for a whole fire. */
+  markReminded(ids: readonly number[]): void {
+    if (this.file.unreadable || ids.length === 0) return;
+    const fired = new Set(ids);
+    this.pins = this.pins.map((p) => (fired.has(p.id) ? { ...p, reminded: true } : p));
+    this.save();
   }
 
   reorder(ids: number[]): boolean {

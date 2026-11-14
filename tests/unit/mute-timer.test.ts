@@ -130,6 +130,26 @@ describe('MuteTimerController', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  // a caller about to read `muted` on the expiry's own instant (a pin reminder)
+  it('expireDue ends what is past its expiry without waiting for the timer', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const { ctl, expired } = harness(
+      { zalo: true, slack: true },
+      { zalo: 30_000, slack: 90_000 },
+      { muted: true, until: 30_000 },
+    );
+    ctl.start();
+    ctl.expireDue();
+    expect(expired).toEqual([]); // nothing is due yet
+    vi.setSystemTime(30_000); // the clock moved, the timer has not fired
+    ctl.expireDue();
+    expect(expired).toEqual([['zalo'], 'global']);
+    expect(vi.getTimerCount()).toBe(1); // re-armed for slack
+    vi.advanceTimersByTime(61_000);
+    expect(expired).toEqual([['zalo'], 'global', ['slack']]);
+  });
+
   it('dispose leaves no timer behind', () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);

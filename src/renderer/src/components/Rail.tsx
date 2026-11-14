@@ -1,8 +1,10 @@
 import { Reorder } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { muteLabel } from '../../../shared/mute';
+import { isDue } from '../../../shared/pins';
 import type { PinView, ServiceId } from '../../../shared/types';
 import { useShell } from '../store';
+import ClockIcon from './ClockIcon';
 import { chordLabel } from './chord-label';
 import Portal from './Portal';
 import RailReorderPrompt from './RailReorderPrompt';
@@ -84,6 +86,9 @@ export default function Rail() {
   // and it breathes twice. A rising max id is the signal — length alone would
   // also pulse on an Undo.
   const pins = state?.pins ?? NO_PINS;
+  // read at render: main's broadcast at fire time is what re-renders the rail
+  const renderedAt = Date.now();
+  const dueCount = pins.filter((p) => isDue(p.remindAt, renderedAt)).length;
   const maxPinId = pins.reduce((max, p) => Math.max(max, p.id), 0);
   const seenMaxPin = useRef<number | null>(null);
   const [pulse, setPulse] = useState(false);
@@ -152,14 +157,16 @@ export default function Rail() {
           <button
             type="button"
             data-testid="pin-tally"
-            title={`${pins.length} pinned — open Home`}
+            title={`${pins.length} pinned${dueCount > 0 ? ` · ${dueCount} due` : ''} — open Home`}
             onClick={() => window.goetia.send('home:setOpen', { open: true })}
             className={`tabular flex h-[18px] flex-none items-center gap-0.5 rounded-full border
             border-accent/40 bg-accent/10 px-1.5 text-[10px] font-bold text-accent outline-none
             transition-colors duration-120 hover:bg-accent/20 focus-visible:ring-2
             focus-visible:ring-accent ${pulse ? 'tally-pulse' : ''}`}
           >
-            <PinIcon />
+            {/* a due reminder swaps the glyph: never a count circle or a dot,
+                which are the unread language */}
+            {dueCount > 0 ? <ClockIcon size={10} /> : <PinIcon />}
             {pins.length}
           </button>
         )}

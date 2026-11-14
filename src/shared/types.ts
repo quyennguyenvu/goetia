@@ -30,6 +30,9 @@ export interface PinView {
    *  title; '' when the title carried nothing beyond the service's name */
   conversation: string;
   at: number;
+  /** when the pin reminds, epoch ms; 0 = none. Due once it is past — see
+   *  isDue in shared/pins.ts */
+  remindAt: number;
 }
 
 /** A Settings → Passkeys row. Never carries key material. */

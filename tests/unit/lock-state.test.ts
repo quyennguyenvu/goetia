@@ -9,6 +9,7 @@ const pin = (id: number): PinView => ({
   note: '',
   conversation: 'Landlord',
   at: 1,
+  remindAt: 0,
 });
 
 const snap = (state: MainState, pins: PinView[], configured = false) =>

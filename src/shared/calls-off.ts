@@ -3,10 +3,7 @@
  *  ServiceRuntime.callsOffUntil: 0 = not known to be off, -1 = off until
  *  turned back on, epoch ms = off until then. */
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const hhmm = (d: Date) =>
-  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+import { hhmm, MONTHS } from './mute';
 
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 

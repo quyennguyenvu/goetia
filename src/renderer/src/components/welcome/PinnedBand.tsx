@@ -1,9 +1,11 @@
 import { Reorder, useDragControls } from 'motion/react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { PIN_NOTE_MAX } from '../../../../shared/pins';
+import { isDue, PIN_NOTE_MAX, pinCopyText, reminderLabel } from '../../../../shared/pins';
+import { TOAST_MS } from '../../../../shared/toast';
 import type { PinView, ServiceId, ServiceMeta } from '../../../../shared/types';
 import { useShell } from '../../store';
+import ClockIcon from '../ClockIcon';
 import { chordLabel } from '../chord-label';
 import { pinRemovedMessage } from '../toast-rules';
 import ServiceBand from './ServiceBand';
@@ -36,6 +38,8 @@ export default function PinnedBand({ pins, services, disabled, unreadable }: Pro
   const liveKey = liveIds.join(',');
   const [draft, setDraft] = useState<number[] | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
+  // one id, not a set: only the newest copy is what the clipboard holds
+  const [copied, setCopied] = useState<number | null>(null);
   const shortcuts = useShell((s) => s.state?.settings.shortcuts) ?? {};
   const shown = draft ?? liveIds;
   const byId = new Map(pins.map((p) => [p.id, p]));
@@ -47,6 +51,11 @@ export default function PinnedBand({ pins, services, disabled, unreadable }: Pro
   // biome-ignore lint/correctness/useExhaustiveDependencies: liveKey (the live order) is the trigger; the draft is reset on purpose
   useEffect(() => setDraft(null), [liveKey]);
   useEffect(() => () => document.body.classList.remove(DRAG_CURSOR), []);
+  useEffect(() => {
+    if (copied === null) return;
+    const t = setTimeout(() => setCopied(null), TOAST_MS);
+    return () => clearTimeout(t);
+  }, [copied]);
 
   const remove = (id: number, kind: 'done' | 'unpin') => {
     const pin = byId.get(id);
@@ -57,6 +66,17 @@ export default function PinnedBand({ pins, services, disabled, unreadable }: Pro
       .setPinToast({ message: pinRemovedMessage(kind), undoId: id, serviceId: pin.serviceId });
   };
   const open = (id: number) => window.goetia.send('pins:open', { id });
+  const copy = (id: number) => {
+    const pin = byId.get(id);
+    if (!pin) return;
+    // a refused write (window not focused) just never reads Copied
+    navigator.clipboard.writeText(pinCopyText(pin.text)).then(
+      () => setCopied(id),
+      () => {},
+    );
+  };
+  // main builds the menu and computes the time; the row only asks
+  const remind = (id: number) => window.goetia.send('pins:remindMenu', { id });
   const commitNote = (id: number, note: string) => {
     setEditing(null);
     if (note.trim() !== (byId.get(id)?.note ?? ''))
@@ -118,6 +138,9 @@ export default function PinnedBand({ pins, services, disabled, unreadable }: Pro
                 onEdit={() => setEditing(id)}
                 onCommitNote={(note) => commitNote(id, note)}
                 onOpen={() => open(id)}
+                copied={copied === id}
+                onCopy={() => copy(id)}
+                onRemind={() => remind(id)}
                 onDone={() => remove(id, 'done')}
                 onUnpin={() => remove(id, 'unpin')}
                 onDragStart={() => document.body.classList.add(DRAG_CURSOR)}
@@ -141,6 +164,9 @@ interface RowProps {
   onEdit(): void;
   onCommitNote(note: string): void;
   onOpen(): void;
+  copied: boolean;
+  onCopy(): void;
+  onRemind(): void;
   onDone(): void;
   onUnpin(): void;
   onDragStart(): void;
@@ -157,6 +183,9 @@ function PinRow({
   onEdit,
   onCommitNote,
   onOpen,
+  copied,
+  onCopy,
+  onRemind,
   onDone,
   onUnpin,
   onDragStart,
@@ -248,6 +277,50 @@ function PinRow({
       {pin.note || 'add a note'}
     </button>
   );
+  // read at render: main's broadcast at fire time is what re-renders the row
+  const now = new Date();
+  const when = reminderLabel(pin.remindAt, now);
+  const due = isDue(pin.remindAt, now.getTime());
+  const remindLabel = when ? `Reminder ${when}, change` : 'Remind me';
+  const remind = (
+    <button
+      type="button"
+      aria-label={remindLabel}
+      title={remindLabel}
+      onClick={onRemind}
+      className={`tabular flex flex-none items-center gap-1 px-1 text-[11px] transition-colors duration-120 ${
+        due ? 'font-semibold text-accent' : 'text-text-2 hover:text-text-1'
+      }`}
+    >
+      <ClockIcon />
+      {when}
+    </button>
+  );
+  // a pin opens its conversation, not its message: the copy is for the
+  // service's own search. Copied recolours and never becomes ✓ — that is Done
+  const copy = (
+    <button
+      type="button"
+      aria-label={copied ? 'Copied' : 'Copy message'}
+      title={copied ? 'Copied' : 'Copy message'}
+      onClick={onCopy}
+      className={`flex-none px-1 transition-colors duration-120 ${
+        copied ? 'text-accent' : 'text-text-2 hover:text-text-1'
+      }`}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        className="h-3 w-3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        aria-hidden="true"
+      >
+        <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+        <path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
+      </svg>
+    </button>
+  );
   const done = (
     <button
       type="button"
@@ -299,6 +372,8 @@ function PinRow({
               In progress
             </span>
             <span className="ml-auto flex items-center gap-2">
+              {remind}
+              {copy}
               {done}
               {unpin}
             </span>
@@ -315,6 +390,8 @@ function PinRow({
           {where}
           {text}
           {note}
+          {remind}
+          {copy}
           {done}
           {unpin}
         </>

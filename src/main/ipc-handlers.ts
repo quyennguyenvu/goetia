@@ -22,8 +22,8 @@ import {
   activateService,
   onScreenKey,
   openActivityEntry,
+  openPin,
   openRecentEntry,
-  performBannerAction,
   rememberSurface,
   setHomeOpen,
   setOverlayOpen,
@@ -50,8 +50,8 @@ import { DOWNLOAD_HISTORY_CAP, downloadsSettingLines } from './lib/download-rule
 import { isSafeExternalUrl } from './lib/external-url';
 import { normalizeAction, normalizeRemoveIds, stripAppLock } from './lib/guard-policy';
 import { channelAllowedWhileLocked, ipcSenderAllowed } from './lib/ipc-sender-policy';
-import { resolveBannerClick } from './lib/notification-click';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import { reminderMenu } from './lib/pin-reminder-rules';
 import {
   acceptReport,
   conversationKey,
@@ -74,6 +74,7 @@ import type { MuteTimerController } from './mute-timer';
 import type { NotificationRouter } from './notifications';
 import type { PasskeyAuthenticator } from './passkeys/authenticator';
 import type { PasskeyStore } from './passkeys/store';
+import type { PinReminderController } from './pin-reminders';
 import type { PinStore } from './pins';
 import { purgeAll, purgeLogin } from './purge';
 import type { RecentsStore } from './recents';
@@ -119,6 +120,9 @@ export interface AppContext {
   startedAt: number;
   /** flips a timed mute back when it expires; re-armed by setServiceMuted */
   muteTimer: MuteTimerController;
+  /** announces a pin's reminder when it comes due; re-armed by every change
+   *  that can move the earliest one */
+  reminders: PinReminderController;
   /** facebook's calls-off switch on the Messenger tile; see calls-setting.ts */
   callsSetting: CallsSettingWatcher;
   broadcast(): void;
@@ -797,28 +801,41 @@ export function registerIpcHandlers(ctx: AppContext, router: NotificationRouter)
     if (ctx.pins.reorder(ids)) ctx.broadcast();
   });
   on('pins:unpin', ({ id }) => {
-    if (ctx.pins.unpin(id)) ctx.broadcast();
+    if (!ctx.pins.unpin(id)) return;
+    ctx.reminders.rearm();
+    ctx.broadcast();
   });
   on('pins:restore', ({ id }) => {
-    if (ctx.pins.restore(id)) ctx.broadcast();
+    if (!ctx.pins.restore(id)) return;
+    ctx.reminders.rearm();
+    ctx.broadcast();
   });
   on('pins:setNote', ({ id, note }) => {
     if (ctx.pins.setNote(id, note)) ctx.broadcast();
   });
-  on('pins:open', ({ id }) => {
+  on('pins:open', ({ id }) => openPin(ctx, id));
+  on('pins:remindMenu', ({ id }) => {
     const pin = ctx.pins.get(id);
     if (!pin) return; // removed since Home rendered the row
-    const meta = serviceById(pin.serviceId);
-    // the recents path, verbatim: the href is validated now, not at pin time
-    const action = resolveBannerClick({
-      disabled: ctx.settings.get().disabled[pin.serviceId],
-      hasView: ctx.views.has(pin.serviceId),
-      href: pin.href,
-      conversation: pin.conversation || undefined,
-      serviceUrl: meta.url,
-      chatPaths: meta.chatPaths,
-    });
-    void performBannerAction(ctx, pin.serviceId, action);
+    const set = (remindAt: number) => {
+      // a menu left open across a lock must not act once it engages
+      if (ctx.lock.locked) return;
+      if (!ctx.pins.setReminder(id, remindAt)) return;
+      ctx.reminders.rearm();
+      ctx.broadcast();
+    };
+    // the channel is refused while locked, so the popup cannot be opened then
+    Menu.buildFromTemplate(
+      reminderMenu(pin).map((item) =>
+        item.type === 'separator'
+          ? { type: 'separator' as const }
+          : {
+              label: item.label,
+              // the time is main's: nothing page-shaped reaches the store
+              click: () => set(item.type === 'clear' ? 0 : muteExpiry(item.kind, new Date())),
+            },
+      ),
+    ).popup({ window: ctx.win });
   });
   on('service:trusted-click', ({ serviceId, x, y }) => ctx.views.trustedClick(serviceId, x, y));
   on('service:openExternal', ({ serviceId, url }) =>

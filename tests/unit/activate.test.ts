@@ -3,6 +3,7 @@ import {
   activateService,
   applyLocked,
   openActivityEntry,
+  openPin,
   performBannerAction,
   rememberSurface,
   setHomeOpen,
@@ -523,5 +524,64 @@ describe('rememberSurface', () => {
         lastUsedAt: expect.objectContaining({ discord: expect.any(Number) }),
       }),
     );
+  });
+});
+
+describe('openPin', () => {
+  function pinCtx(
+    pin: { remindAt: number } | undefined,
+    cleared = true,
+    disabled: Record<string, boolean> = {},
+  ) {
+    const { ctx, views } = makeCtx(new MainState());
+    Object.assign(views, { has: vi.fn(() => false), openConversation: vi.fn() });
+    const pins = {
+      get: vi.fn(() => pin && { id: 7, serviceId: 'zalo', href: '', conversation: '', ...pin }),
+      setReminder: vi.fn(() => cleared),
+    };
+    const reminders = { rearm: vi.fn() };
+    const broadcast = vi.fn();
+    // a fresh install has every service disabled, which would make the open a show-only
+    const settings = { update: vi.fn(), get: () => ({ ...DEFAULT_SETTINGS, disabled }) };
+    Object.assign(ctx, { pins, reminders, broadcast, settings });
+    return { ctx, views, pins, reminders, broadcast };
+  }
+
+  it('acknowledges a due reminder, then still opens the pin', () => {
+    const { ctx, views, pins, reminders, broadcast } = pinCtx({ remindAt: Date.now() - 1000 });
+    openPin(ctx, 7);
+    expect(pins.setReminder).toHaveBeenCalledWith(7, 0);
+    expect(reminders.rearm).toHaveBeenCalledTimes(1);
+    expect(broadcast).toHaveBeenCalledTimes(1);
+    expect(views.activate).toHaveBeenCalled();
+  });
+
+  it('re-arms and broadcasts nothing when the store reports no change', () => {
+    const { ctx, views, reminders, broadcast } = pinCtx({ remindAt: Date.now() - 1000 }, false);
+    openPin(ctx, 7);
+    expect(reminders.rearm).not.toHaveBeenCalled();
+    expect(broadcast).not.toHaveBeenCalled();
+    expect(views.activate).toHaveBeenCalled();
+  });
+
+  it('leaves a reminder that is still ahead, and still opens the pin', () => {
+    const { ctx, views, pins } = pinCtx({ remindAt: Date.now() + 60_000 });
+    openPin(ctx, 7);
+    expect(pins.setReminder).not.toHaveBeenCalled();
+    expect(views.activate).toHaveBeenCalled();
+  });
+
+  it('keeps the due mark when the service is banished and nothing opens', () => {
+    const { ctx, views, pins } = pinCtx({ remindAt: Date.now() - 1000 }, true, { zalo: true });
+    openPin(ctx, 7);
+    expect(pins.setReminder).not.toHaveBeenCalled();
+    expect(views.activate).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a pin that no longer exists', () => {
+    const { ctx, views, pins } = pinCtx(undefined);
+    openPin(ctx, 7);
+    expect(pins.setReminder).not.toHaveBeenCalled();
+    expect(views.activate).not.toHaveBeenCalled();
   });
 });

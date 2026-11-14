@@ -18,7 +18,7 @@ import { SERVICES, serviceById } from '../shared/services';
 import { resolveAccelerators } from '../shared/shortcuts';
 import { revealLabel } from '../shared/toast';
 import { wakeCaption } from '../shared/wake-caption';
-import { applyLocked } from './activate';
+import { applyLocked, openPin } from './activate';
 import { applyBadges } from './badges';
 import { BannerRegistry, BannerShelf } from './banners';
 import { CallsSettingWatcher } from './calls-setting';
@@ -43,6 +43,7 @@ import { viewBounds } from './lib/layout';
 import { resolveIcons } from './lib/notification-icons';
 import { audioMuted } from './lib/notification-rules';
 import { anyOverlayOpen } from './lib/overlay-rules';
+import { reminderSound } from './lib/pin-reminder-rules';
 import { muteToggleResult, quietWindowFor } from './lib/quiet-hours-rules';
 import { resolveStartupSurface } from './lib/startup-surface';
 import { chromeUserAgent } from './lib/ua';
@@ -54,6 +55,7 @@ import { ICON_DIR, NotificationRouter } from './notifications';
 import { PasskeyAuthenticator } from './passkeys/authenticator';
 import { electronPrompt, identitySharePrompt } from './passkeys/prompt';
 import { PasskeyStore } from './passkeys/store';
+import { announceReminders, PinReminderController } from './pin-reminders';
 import { PinStore } from './pins';
 import { QuietHoursController } from './quiet-hours';
 import { RecentsStore } from './recents';
@@ -291,17 +293,24 @@ app
     // a banner lives only as long as its entry: no entry, nothing to open
     const activity = new ActivityLog((ids) => banners.closeEntries(ids));
     let resilience: ResilienceManager | null = null;
+    const serviceIcons = resolveIcons(
+      ICON_DIR,
+      SERVICES.map((s) => s.id),
+      process.platform,
+      existsSync,
+    );
+    // the shell window right now; all false once it is destroyed
+    const inFront = () => {
+      if (win.isDestroyed()) return { visible: false, minimized: false, focused: false };
+      if (e2eInFront) return { visible: true, minimized: false, focused: true };
+      return { visible: win.isVisible(), minimized: win.isMinimized(), focused: win.isFocused() };
+    };
     const downloads = new DownloadManager({
       settings: () => settings.get().downloads,
       defaultDir: () => app.getPath('downloads'),
       locked: () => lock.locked,
       serviceName: (id) => serviceById(id).name,
-      icons: resolveIcons(
-        ICON_DIR,
-        SERVICES.map((s) => s.id),
-        process.platform,
-        existsSync,
-      ),
+      icons: serviceIcons,
       exists: existsSync,
       notify: ({ title, body, icon, onClick }) => {
         // silent always: a download is not a message, and the user asked for it
@@ -319,15 +328,7 @@ app
         downloadBanners.hold(n);
         n.show();
       },
-      inFront: () => {
-        if (win.isDestroyed()) return { visible: false, minimized: false, focused: false };
-        if (e2eInFront) return { visible: true, minimized: false, focused: true };
-        return {
-          visible: win.isVisible(),
-          minimized: win.isMinimized(),
-          focused: win.isFocused(),
-        };
-      },
+      inFront,
       toast: (t, unavailable) =>
         toastLayer.show(
           { serviceId: t.serviceId, small: t.small, main: t.main, action: t.action },
@@ -495,6 +496,64 @@ app
         quietSideEffects();
       },
     });
+    const reminderBanners = new BannerShelf();
+    // ctx is assembled below; the timer first fires from start(), after it
+    const reminders = new PinReminderController({
+      pins: () => pins.all(),
+      note: (line) => diag.note('notifications', line),
+      announce: (due) =>
+        announceReminders(
+          {
+            markReminded: (ids) => pins.markReminded(ids),
+            broadcast,
+            endExpiredMutes: () => muteTimer.expireDue(),
+            serviceName: (id) => serviceById(id).name,
+            locked: () => lock.locked,
+            inFront,
+            sound: (id) => {
+              const s = settings.get();
+              return reminderSound({
+                enabled: s.notificationSound,
+                serviceMuted: id ? s.muted[id] : false,
+                globalMuted: s.globalMuted,
+                quietNow: quiet.quietNow(),
+              });
+            },
+            icon: (id) => serviceIcons.get(id),
+            notify: (b) => {
+              const { onClick, ...opts } = b;
+              const n = new Notification(opts);
+              n.on('click', () => {
+                reminderBanners.release(n);
+                onClick();
+              });
+              n.on('failed', (_e, err) => {
+                reminderBanners.release(n);
+                diag.note('notifications', `reminder banner: ${err}`);
+              });
+              // held: an unreferenced Notification can be collected, and then its
+              // click opens nothing
+              reminderBanners.hold(n);
+              n.show();
+            },
+            toast: (card, on) => toastLayer.show(card, on),
+            showWindow: () => {
+              if (!win.isDestroyed()) win.show();
+            },
+            // a click can outlive the window it would open into
+            openPin: (id) => {
+              if (!win.isDestroyed()) openPin(ctx, id);
+            },
+            openHome: () => {
+              if (!win.isDestroyed()) runShellCommand(ctx, { kind: 'home' });
+            },
+          },
+          due,
+        ),
+    });
+    // a timer armed before sleep can fire late: re-read the wall clock on wake
+    const rearmReminders = () => reminders.rearm();
+    powerMonitor.on('resume', rearmReminders);
 
     const summon = new SummonHotkey(() => {
       if (win.isDestroyed()) return;
@@ -633,6 +692,7 @@ app
       diag,
       startedAt,
       muteTimer,
+      reminders,
       callsSetting,
       broadcast,
       noteActivated: (id: Parameters<HibernationController['noteActivated']>[0]) =>
@@ -710,6 +770,8 @@ app
       updates.dispose();
       quiet.dispose();
       muteTimer.dispose();
+      reminders.dispose();
+      powerMonitor.off('resume', rearmReminders);
       callsSetting.dispose();
       summon.dispose();
       hibernation.dispose();
@@ -722,6 +784,7 @@ app
       banners.closeAll();
       banners.dispose();
       downloadBanners.closeAll();
+      reminderBanners.closeAll();
       recents.flush();
       diag.flush();
       // last: commits any deferred write (zoom) before the process goes
@@ -734,6 +797,9 @@ app
     // presentSurface from showing it, so the view is warm at unlock.
     lock.lock();
     applyLocked(ctx, lock.locked);
+    // after the launch lock: start() announces what came due while closed,
+    // and that announcement must already see the app locked
+    reminders.start();
 
     const s0 = settings.get();
     const surface = resolveStartupSurface({

@@ -28,6 +28,13 @@ export class MuteTimerController {
   ) {}
 
   start(): void {
+    this.expireDue();
+  }
+
+  /** Ends whatever is already past its expiry without waiting for the timer —
+   *  for a caller about to read `muted` on that same instant (a pin reminder
+   *  set for the moment its mute ends is a second timer, in no fixed order). */
+  expireDue(): void {
     this.fireDue();
     this.rearm();
   }

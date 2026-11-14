@@ -224,6 +224,7 @@ describe('ipcSenderAllowed', () => {
       'pins:restore',
       'pins:setNote',
       'pins:open',
+      'pins:remindMenu',
     ] as const;
     for (const channel of channels) {
       expect(

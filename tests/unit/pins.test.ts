@@ -189,6 +189,60 @@ describe('PinStore', () => {
     expect('href' in store.views()[0]).toBe(false);
     expect(store.get(1)?.href).toBe('https://chat.zalo.me/');
   });
+
+  it('sets, replaces and clears a reminder, and persists each', () => {
+    const store = new PinStore(dir, codec);
+    store.pin(input('call back'));
+    expect(store.setReminder(1, 5_000)).toBe(true);
+    expect(store.setReminder(1, 5_000)).toBe(false); // nothing changed
+    expect(new PinStore(dir, codec).views()[0].remindAt).toBe(5_000);
+    expect(store.setReminder(1, 9_000)).toBe(true);
+    expect(store.setReminder(1, 0)).toBe(true);
+    expect(store.setReminder(1, 0)).toBe(false); // already clear
+    expect(new PinStore(dir, codec).views()[0].remindAt).toBe(0);
+  });
+
+  it('refuses a reminder for an unknown pin or a malformed time', () => {
+    const store = new PinStore(dir, codec);
+    store.pin(input('call back'));
+    expect(store.setReminder(99, 5_000)).toBe(false);
+    expect(store.setReminder(1, Number.NaN)).toBe(false);
+    expect(store.setReminder(1, -1)).toBe(false);
+    expect(store.views()[0].remindAt).toBe(0);
+  });
+
+  it('marks a fire reminded in one write, and a new time is a new reminder', () => {
+    const store = new PinStore(dir, codec);
+    store.pin(input('a'));
+    store.pin(input('b'));
+    store.setReminder(1, 1_000);
+    store.setReminder(2, 2_000);
+    store.markReminded([1]);
+    expect(new PinStore(dir, codec).all().map((p) => p.reminded)).toEqual([true, false]);
+    expect(store.setReminder(1, 9_000)).toBe(true);
+    expect(store.get(1)?.reminded).toBe(false);
+  });
+
+  it('Undo brings a pin back with its reminder', () => {
+    const store = new PinStore(dir, codec);
+    store.pin(input('a'));
+    store.setReminder(1, 5_000);
+    store.unpin(1);
+    expect(store.restore(1)).toBe(true);
+    expect(store.get(1)?.remindAt).toBe(5_000);
+  });
+
+  it('refuses a reminder while the file is unreadable', () => {
+    const before = JSON.stringify({
+      sealed: codec.encrypt(JSON.stringify({ pins: [legacyPin] })),
+    });
+    writeFileSync(join(dir, 'pins.json'), before);
+    const store = new PinStore(dir, denied);
+    expect(store.isUnreadable()).toBe(true);
+    expect(store.setReminder(1, 5_000)).toBe(false);
+    store.markReminded([1]); // a no-op, never a write over the kept file
+    expect(readFileSync(join(dir, 'pins.json'), 'utf8')).toBe(before);
+  });
 });
 
 describe('PinStore at rest', () => {

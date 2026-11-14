@@ -1,10 +1,10 @@
-import { type MuteFor, muteLabel } from '../../shared/mute';
+import { type MuteFor, muteLabel, TOMORROW_AT } from '../../shared/mute';
 
 /** The durations every Mute offers — one table for the tile menu, the bell,
  *  the tray and the app menu, so the two grains share a vocabulary. */
 export const MUTE_CHOICES: { kind: MuteFor; label: string }[] = [
   { kind: 'hour', label: 'For 1 hour' },
-  { kind: 'tomorrow', label: 'Until tomorrow' },
+  { kind: 'tomorrow', label: `Until ${TOMORROW_AT}` },
   { kind: 'indefinite', label: 'Until I unmute' },
 ];
 

@@ -60,7 +60,15 @@ describe('MainState', () => {
     const s = new MainState();
     expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).pins).toEqual([]);
     const pins = [
-      { id: 1, serviceId: 'zalo' as const, text: 'x', note: '', conversation: '', at: 1 },
+      {
+        id: 1,
+        serviceId: 'zalo' as const,
+        text: 'x',
+        note: '',
+        conversation: '',
+        at: 1,
+        remindAt: 0,
+      },
     ];
     expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false, pins).pins).toEqual(pins);
   });

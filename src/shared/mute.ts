@@ -7,6 +7,9 @@ export type MuteFor = 'hour' | 'tomorrow' | 'indefinite';
 export const MUTE_HOUR_MS = 3_600_000;
 /** "Until tomorrow" ends at this local hour on the next calendar morning. */
 export const TOMORROW_HOUR = 8;
+/** How menus word that choice — the hour is written once, so a menu that
+ *  names the time cannot drift from the expiry it sets. */
+export const TOMORROW_AT = `tomorrow ${String(TOMORROW_HOUR).padStart(2, '0')}:00`;
 
 /** The expiry (epoch ms) for a choice made at `now`; 0 for indefinite. Built
  *  with local Date setters, so a DST change moves the instant, not the hour. */
@@ -26,10 +29,25 @@ export function muteExpiry(kind: MuteFor, now: Date): number {
   }
 }
 
-const hhmm = (d: Date) =>
+export const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+export const hhmm = (d: Date) =>
   `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-const sameDay = (a: Date, b: Date) =>
+export const sameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() &&
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();

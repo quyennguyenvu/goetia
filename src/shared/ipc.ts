@@ -78,6 +78,9 @@ export interface RendererToMain {
   'pins:restore': { id: number };
   'pins:setNote': { id: number; note: string };
   'pins:open': { id: number };
+  /** pop a pin's reminder menu; main builds it and computes the time, so no
+   *  timestamp ever crosses IPC */
+  'pins:remindMenu': { id: number };
   /** Settings → Downloads rows: reveal a saved file, cancel a running one.
    *  `id` is main's own row id; the path never leaves main. Shell-only. */
   'downloads:reveal': { id: number };
@@ -184,6 +187,7 @@ export const R2M_CHANNELS = [
   'pins:restore',
   'pins:setNote',
   'pins:open',
+  'pins:remindMenu',
   'downloads:reveal',
   'downloads:cancel',
   'downloads:remove',
@@ -341,6 +345,7 @@ export const SHELL_ONLY_CHANNELS = new Set<keyof RendererToMain | keyof Renderer
   'pins:restore',
   'pins:setNote',
   'pins:open',
+  'pins:remindMenu',
   'lock:unlock',
   'lock:configure',
   'lock:confirm',

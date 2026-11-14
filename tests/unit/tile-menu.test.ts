@@ -23,7 +23,7 @@ describe('tileMenuItems', () => {
     expect(mute.label).toBe('Mute');
     expect(mute.items.map((i) => [i.kind, i.label])).toEqual([
       ['hour', 'For 1 hour'],
-      ['tomorrow', 'Until tomorrow'],
+      ['tomorrow', 'Until tomorrow 08:00'],
       ['indefinite', 'Until I unmute'],
     ]);
   });

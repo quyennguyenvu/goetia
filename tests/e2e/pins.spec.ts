@@ -51,10 +51,12 @@ function seedProfile({ long = false } = {}): string {
           id: 1,
           serviceId: 'zalo',
           text: long ? LONG_TEXT : 'Gửi lại báo giá cho khách bên Q7',
-          note: '',
+          note: long ? 'nhắc em gửi lại báo giá cho khách sau buổi họp chiều nay' : '',
           conversation: long ? LONG_CONVERSATION : 'Nhóm Sale Q7',
           href: 'https://chat.zalo.me/',
           at: 1,
+          // a day out, so the label is the long `tomorrow HH:MM` at any hour
+          ...(long ? { remindAt: Date.now() + 24 * 3_600_000 } : {}),
         },
         {
           id: 2,
@@ -146,6 +148,34 @@ test('pins: Done promotes the next pin, Undo brings it back', async () => {
   await app.close();
 });
 
+test('pins: Copy puts the message on the clipboard and leaves the pin alone', async () => {
+  const { app, win } = await launch(seedProfile());
+  await app.evaluate(({ clipboard }) => clipboard.clear());
+  await win.locator('[data-testid="home-btn"]').click();
+  const band = win.locator('[data-testid="welcome-section-pinned"]');
+  const row = band.locator('[data-testid="pin-row"]');
+
+  await row.getByRole('button', { name: 'Copy message' }).click();
+  await expect
+    .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+    .toBe('review the release checklist'); // the message, not its "after lunch" note
+  await expect(row.getByRole('button', { name: 'Copied' })).toBeVisible();
+
+  // the newest copy is the only one marked
+  await band
+    .locator('[data-testid="pin-altar"]')
+    .getByRole('button', { name: 'Copy message' })
+    .click();
+  await expect
+    .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
+    .toBe('Gửi lại báo giá cho khách bên Q7');
+  await expect(row.getByRole('button', { name: 'Copy message' })).toBeVisible();
+
+  await expect(win.locator('[data-testid="pin-tally"]')).toHaveText('2');
+  await expect(win.locator('[data-testid="welcome"]')).toBeVisible(); // copying never opens
+  await app.close();
+});
+
 test('pins: Open leaves Home and lands on the service', async () => {
   const { app, win } = await launch(seedProfile());
   await win.locator('[data-testid="home-btn"]').click();
@@ -213,6 +243,8 @@ test('pins: a long pin neither widens Home nor derails the drag', async () => {
   const altar = band.locator('[data-testid="pin-altar"]');
   await expect(altar).toContainText('Dạ 1 cây làm chẳng');
   expect(await horizontalOverflow(win)).toBe(0);
+  // the row itself, not only the document: nothing inside it spills
+  expect(await altar.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0);
 
   // stepped, like reorder.spec: Motion needs real intermediate moves
   const handle = await stableBox(win, '[data-testid="pin-altar"] [title="Drag to reprioritize"]');

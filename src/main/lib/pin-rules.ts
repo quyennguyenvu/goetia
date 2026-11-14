@@ -13,6 +13,10 @@ export interface Pin {
   /** document URL at pin time; validated only at open time */
   href: string;
   at: number;
+  /** when to remind, epoch ms; 0 = none */
+  remindAt: number;
+  /** announced already; false again whenever remindAt is set */
+  reminded: boolean;
 }
 
 export const PIN_CONVERSATION_MAX = 80;
@@ -98,6 +102,9 @@ export function isPermutation(ids: readonly number[], current: readonly number[]
   return seen.size === ids.length && current.every((id) => seen.has(id));
 }
 
+const reminderTime = (raw: unknown): number =>
+  typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : 0;
+
 /** Tolerant loader for pins.json: anything not a well-formed pin is dropped,
  *  as is a pin for a service no longer in the catalog. Ids stay unique. */
 export function parsePins(raw: unknown, known: ReadonlySet<string>): Pin[] {
@@ -122,6 +129,8 @@ export function parsePins(raw: unknown, known: ReadonlySet<string>): Pin[] {
         typeof r.conversation === 'string' ? clampText(r.conversation, PIN_CONVERSATION_MAX) : '',
       href: r.href,
       at: typeof r.at === 'number' && Number.isFinite(r.at) ? r.at : 0,
+      remindAt: reminderTime(r.remindAt),
+      reminded: r.reminded === true && reminderTime(r.remindAt) > 0,
     });
   }
   return out;
@@ -129,12 +138,13 @@ export function parsePins(raw: unknown, known: ReadonlySet<string>): Pin[] {
 
 /** Renderer rows: display fields and the opaque id — never the href. */
 export function pinViews(pins: readonly Pin[]): PinView[] {
-  return pins.map(({ id, serviceId, text, note, conversation, at }) => ({
+  return pins.map(({ id, serviceId, text, note, conversation, at, remindAt }) => ({
     id,
     serviceId,
     text,
     note,
     conversation,
     at,
+    remindAt,
   }));
 }
