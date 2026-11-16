@@ -60,9 +60,12 @@ function hasUnreadLabel(row: Element): boolean {
  *  (MWThreadAddOnSecondary), path read from the live DOM 2026-10-03. It has
  *  no label and shares its grey, size and slot with the pinned and paused
  *  icons, so its shape is the one handle; a redrawn bell reads as not muted.
+ *  facebook did redraw it (FBNucleusNotificationsCrossFilled16Icon, in the
+ *  bundle from 2026-11-06) — the second path; the first stays for a rollback.
  *  React's own isMuted prop was tried first and is not reachable from the
  *  row's node on the live page. */
-const MUTED_BELL = 'svg path[d^="m459.33 1076.878"]';
+const MUTED_BELL =
+  'svg path[d^="m459.33 1076.878"], svg path[d^="M2.5 6c0-.322.028-.637.081-.943"]';
 
 export function isMutedRow(row: Element): boolean {
   return row.querySelector(MUTED_BELL) !== null;
