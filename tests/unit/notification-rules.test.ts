@@ -3,7 +3,9 @@ import {
   audioMuted,
   BANNER_BODY_MAX,
   BANNER_TITLE_MAX,
+  BannerFailures,
   bannerGroupId,
+  blockedBySystem,
   isWordless,
   notificationTitle,
   sanitizeBanner,
@@ -67,6 +69,46 @@ describe('notificationTitle', () => {
 
   it.each(['', '   ', '\n\t'])('falls back to the service name for %j', (raw) => {
     expect(notificationTitle(raw, 'Zalo')).toBe('Zalo');
+  });
+});
+
+// the line a Windows 11 machine logged 105 times in one run, 2026-11-18
+const DISABLED =
+  'Notification failed - Settings prevent the notification from being delivered. (HRESULT: -2143420143)';
+const UNAVAILABLE =
+  'Notification failed - The notification platform is unavailable. (HRESULT: -2143420155)';
+
+describe('blockedBySystem', () => {
+  it("is Windows' notifications-disabled refusal as Electron prints it", () => {
+    expect(blockedBySystem(DISABLED)).toBe(true);
+  });
+
+  it.each([UNAVAILABLE, ' (HRESULT: -2147024891)', ''])('is no other failure: %j', (err) => {
+    expect(blockedBySystem(err)).toBe(false);
+  });
+});
+
+describe('BannerFailures', () => {
+  it('counts a repeated refusal as news once per service', () => {
+    const f = new BannerFailures();
+    expect(f.failed('zalo', DISABLED)).toBe(true);
+    expect(f.failed('zalo', DISABLED)).toBe(false);
+    expect(f.failed('whatsapp', DISABLED)).toBe(true);
+  });
+
+  it('counts a different error as news', () => {
+    const f = new BannerFailures();
+    f.failed('zalo', DISABLED);
+    expect(f.failed('zalo', UNAVAILABLE)).toBe(true);
+  });
+
+  it('starts over once a banner is delivered', () => {
+    const f = new BannerFailures();
+    f.failed('zalo', DISABLED);
+    f.failed('whatsapp', DISABLED);
+    f.delivered('zalo');
+    expect(f.failed('zalo', DISABLED)).toBe(true);
+    expect(f.failed('whatsapp', DISABLED)).toBe(false);
   });
 });
 

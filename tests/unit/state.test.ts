@@ -130,4 +130,22 @@ describe('MainState', () => {
     s.summonHotkeyOk = false;
     expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).summonHotkeyOk).toBe(false);
   });
+
+  it('snapshot carries bannersBlocked, defaulting false', () => {
+    const s = new MainState();
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).bannersBlocked).toBe(false);
+    s.setBannersBlocked(true);
+    expect(s.snapshot(DEFAULT_SETTINGS, 'dark', '0.1.0', false).bannersBlocked).toBe(true);
+  });
+
+  it('setBannersBlocked broadcasts on a change only', () => {
+    const s = new MainState();
+    const cb = vi.fn();
+    s.onChange(cb);
+    s.setBannersBlocked(false);
+    expect(cb).not.toHaveBeenCalled();
+    s.setBannersBlocked(true);
+    s.setBannersBlocked(true);
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
 });

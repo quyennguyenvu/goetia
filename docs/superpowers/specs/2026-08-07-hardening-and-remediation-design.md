@@ -36,7 +36,7 @@ Severity uses the reviewers' scale. "Fix" items are planned; "Accept" items are 
 
 - **[Low, Accept] `deleteAppDataOnUninstall: false`** leaves `persist:` sessions on disk after uninstall. Intentional (session retention across reinstalls); documented trade-off, revisited only if it becomes a concern.
 
-- **Accepted residual risk (not fixable at this layer).** Same-user malware on an unlocked machine can keylog, screen-capture rendered chats, and relaunch the app with `--remote-debugging-port` regardless of any fix here. The fuses close the *silent, no-relaunch* paths (flat-file cookie read, env-var injection, file tampering); they do not and cannot make the app safe on an already-compromised, unlocked session. Developer ID notarization ($99/yr) is a distribution-trust measure, not a local-tamper fix — out of scope for a personal app; the asar-integrity fuse covers local tampering more cheaply.
+- **Accepted residual risk (not fixable at this layer).** Same-user malware on an unlocked machine can keylog, screen-capture rendered chats, and relaunch the app with `--remote-debugging-port` regardless of any fix here. The fuses close the _silent, no-relaunch_ paths (flat-file cookie read, env-var injection, file tampering); they do not and cannot make the app safe on an already-compromised, unlocked session. Developer ID notarization ($99/yr) is a distribution-trust measure, not a local-tamper fix — out of scope for a personal app; the asar-integrity fuse covers local tampering more cheaply.
 
 ### 2.2 Reliability and performance (see plan: reliability-and-performance)
 

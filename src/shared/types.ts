@@ -408,6 +408,8 @@ export interface ShellState {
   quietActive: boolean;
   /** false while an enabled summon combo failed to register (owned elsewhere) */
   summonHotkeyOk: boolean;
+  /** the OS is refusing Goetia's banners over its own notification settings */
+  bannersBlocked: boolean;
   switcherOpen: boolean;
   settingsOpen: boolean;
   homeOpen: boolean;

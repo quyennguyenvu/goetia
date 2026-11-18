@@ -43,6 +43,9 @@ export class MainState {
   capTrimmed: ServiceId[] = [];
   /** set by the summon-hotkey wiring; true when disabled or registered */
   summonHotkeyOk = true;
+  /** the OS refused a banner over its own notification settings
+   *  (blockedBySystem); cleared by the next banner that gets through */
+  bannersBlocked = false;
   /** the chord walk in flight (lib/recents-walk.ts): a snapshot of ⌘K's
    *  Recent order, the cursor and a deadline; in-memory and never broadcast.
    *  Cleared by activateService, so any other activation ends it. */
@@ -65,6 +68,13 @@ export class MainState {
     const entries = Object.entries(patch) as [keyof UpdateState, string | null][];
     if (entries.every(([k, v]) => this.updateState[k] === v)) return;
     Object.assign(this.updateState, patch);
+    this.touch();
+  }
+
+  /** report-on-change, like setUpdate: a refusal arrives per banner */
+  setBannersBlocked(blocked: boolean): void {
+    if (this.bannersBlocked === blocked) return;
+    this.bannersBlocked = blocked;
     this.touch();
   }
 
@@ -128,6 +138,7 @@ export class MainState {
       globalMutedUntil: settings.globalMutedUntil,
       quietActive,
       summonHotkeyOk: this.summonHotkeyOk,
+      bannersBlocked: this.bannersBlocked,
       switcherOpen: this.switcherOpen,
       settingsOpen: this.settingsOpen,
       homeOpen: this.homeOpen,

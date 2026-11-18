@@ -10,7 +10,9 @@ import { splitBannerTitle } from './lib/banner-title';
 import { redactBanner } from './lib/lock-rules';
 import { resolveIcons } from './lib/notification-icons';
 import {
+  BannerFailures,
   bannerGroupId,
+  blockedBySystem,
   isWordless,
   notificationTitle,
   sanitizeBanner,
@@ -35,6 +37,7 @@ export class NotificationRouter {
   );
   private throttle = new NotificationThrottle();
   private wordless = new Set<ServiceId>();
+  private failures = new BannerFailures();
 
   constructor(private ctx: AppContext) {}
 
@@ -94,12 +97,23 @@ export class NotificationRouter {
     });
     notification.on('failed', (_e, err) => {
       this.ctx.banners.forget(entryId);
-      this.ctx.diag.note('notifications', `${serviceId}: ${err}`, serviceId);
+      if (this.failures.failed(serviceId, err)) {
+        this.ctx.diag.note('notifications', `${serviceId}: ${err}`, serviceId);
+      }
+      if (blockedBySystem(err)) this.ctx.state.setBannersBlocked(true);
     });
-    // no `close` listener on purpose: Windows fires it when a toast times out
-    // into Action Center, where the banner still needs its handle
+    // Windows fires `show` before it refuses a toast (v43.3.0 source), so
+    // only a banner that ended or was clicked proves banners get through
+    const delivered = () => {
+      this.failures.delivered(serviceId);
+      this.ctx.state.setBannersBlocked(false);
+    };
+    // `close` must never drop the handle: Windows fires it when a toast times
+    // out into Action Center, where the banner still needs it
+    notification.on('close', delivered);
     notification.on('show', () => this.ctx.banners.noteShown(entryId));
     notification.on('click', () => {
+      delivered();
       this.ctx.win.show();
       // a banner click must not be a way past the lock screen: park what the
       // user reached for and replay it after the unlock, re-validated then

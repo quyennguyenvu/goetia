@@ -689,6 +689,15 @@ export default function SettingsView() {
             )}
             {active === 'notifications' && (
               <Pane title="Notifications">
+                {state.bannersBlocked && (
+                  <p
+                    data-testid="banners-blocked"
+                    className="my-2 rounded-ctl border border-border bg-bg-2 px-3 py-2 text-[11px] text-text-2"
+                  >
+                    Windows is blocking Goetia's banners. Turn notifications on for Goetia in
+                    Windows Settings → System → Notifications.
+                  </p>
+                )}
                 <Row label="Mute all notifications">
                   <input
                     type="checkbox"

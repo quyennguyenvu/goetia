@@ -46,6 +46,31 @@ export function isWordless(title: string, body: string): boolean {
   return title.trim() === '' && body.trim() === '';
 }
 
+/** Windows' WPN_E_NOTIFICATION_DISABLED (0x803E0111) as Electron prints it:
+ *  notifications are off for Goetia, for the user, or by policy — the one
+ *  refusal the user can undo, in Windows Settings. */
+export function blockedBySystem(err: string): boolean {
+  return err.includes('HRESULT: -2143420143');
+}
+
+/** Which refused banners are news: the OS refuses every banner the same way
+ *  until something changes (105 identical lines in one run, 2026-11-18), so
+ *  a service's error is a line once, until it changes or a banner gets
+ *  through. */
+export class BannerFailures {
+  private last = new Map<string, string>();
+
+  failed(serviceId: string, err: string): boolean {
+    if (this.last.get(serviceId) === err) return false;
+    this.last.set(serviceId, err);
+    return true;
+  }
+
+  delivered(serviceId: string): void {
+    this.last.delete(serviceId);
+  }
+}
+
 /** The stack a banner joins in Notification Center: one per conversation, so
  *  a noisy channel collapses into its own pile instead of burying every other
  *  chat. Hashed — an identifier is no place for a chat's name — and per
