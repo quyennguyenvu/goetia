@@ -121,6 +121,8 @@ if (process.env.GOETIA_DEBUG_CALLS) {
 // Windows toasts are dropped without an explicit AppUserModelID matching the installer's appId
 if (process.platform === 'win32') app.setAppUserModelId('com.quyennguyenvu.goetia');
 app.userAgentFallback = chromeUserAgent(app.userAgentFallback);
+// uncapped, Chromium sizes every partition's HTTP cache from free disk: over 1 GB each, ten times
+app.commandLine.appendSwitch('disk-cache-size', String(200 * 1024 * 1024));
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
