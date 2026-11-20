@@ -1,0 +1,37 @@
+<!-- Landmarks and the shared-link card cut from a live facebook.com/messages
+     DOM (2026-10-03), classes dropped, text replaced: the Unread tab with
+     nothing unread, and an open conversation holding one link card. An
+     encrypted thread keeps the raw URL on the card (no l.facebook.com shim),
+     so any shared address with /t/ in it looks like a thread link, and the
+     card's title is bold like an unread row's name. Two changes from the
+     capture: the card's URL (it shared a /share/v/ link) and the empty row,
+     which is messenger-empty-tab.html's. -->
+<title>Messenger | Facebook</title>
+<div role="banner">
+  <div role="navigation" aria-label="Facebook"><a href="/">Home</a></div>
+</div>
+<div role="navigation" aria-label="Thread list">
+  <div role="tablist">
+    <div role="tab" aria-selected="false">All</div>
+    <div role="tab" aria-selected="true">Unread</div>
+  </div>
+  <div role="tabpanel" aria-label="Unread chats">
+    <div role="grid" aria-label="Chats">
+      <div role="row">
+        <div role="gridcell"><h3 dir="auto">No unread chats</h3></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div role="main">
+  <div role="region">
+    <div role="log" aria-label="Messages in conversation with Ana Bui">
+      <div role="article">
+        <a role="link" aria-label="Go to link" target="_blank" href="https://www.tiktok.com/t/ZTabc123/">
+          <img alt="">
+          <span dir="auto" style="font-weight: 600"><span>A video someone shared</span></span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

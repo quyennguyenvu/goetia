@@ -7,7 +7,16 @@ import type { Recipe } from './types';
 /** Unread detection and banner synthesis live in meta-unread.ts, shared
  *  with instagram — calibrated against the live facebook.com/messages DOM
  *  (2026-08-05, Vietnamese locale). Counts conversations. */
-const THREAD_LINK = "a[href*='/t/']";
+// A chat row in facebook's thread list (MWInboxLayout, MWThreadListItem; live
+// bundle 2026-11-20). Page-wide, a link shared in the open conversation with
+// /t/ in its URL was a "row" and its bold card title an unread chat; outside
+// a row, the "Chats" title — a link to /messages/t/ — was the first match, so
+// watch() observed the heading and an empty tab never looked empty.
+const THREAD_LINK = "[role='navigation'] [role='row'] a[href*='/t/']";
+
+// facebook's own "No unread chats": the list's empty row holds a heading and
+// no thread row does (MWThreadListNullState, live bundle 2026-11-19)
+const EMPTY_LIST = "[role='navigation'] [role='row'] :is(h2, h3, h4, h5, h6)";
 
 const rowFor = (link: Element) => link.closest("[role='row']") ?? link;
 
@@ -44,6 +53,11 @@ const messenger: Recipe = {
     return conversationFromRows(doc, THREAD_LINK, rowFor);
   },
   count(doc): Counts {
+    // an empty filter tab is a zero: the title countUnreadRows falls back to
+    // adds Facebook notifications, which nothing in chat can clear
+    if (!doc.querySelector(THREAD_LINK) && doc.querySelector(EMPTY_LIST)) {
+      return { direct: 0, indirect: 0 };
+    }
     return countUnreadRows(doc, THREAD_LINK, rowFor);
   },
   // count() sweeps every row's styles, so it is worth not running it at all

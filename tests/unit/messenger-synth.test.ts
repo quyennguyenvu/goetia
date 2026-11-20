@@ -10,6 +10,41 @@ function load(name: string): Document {
   return document;
 }
 
+// 2026-11-19: a badge of 1 over an empty Unread tab. The selector was
+// page-wide, so a shared link in the open conversation was a "row"
+describe('messenger link card in the open conversation', () => {
+  it('is not an unread chat', () => {
+    expect(messenger.count(load('messenger-link-card'))).toEqual({ direct: 0, indirect: 0 });
+  });
+
+  it('never names a banner', () => {
+    expect(messenger.unreadBanners?.(load('messenger-link-card'))).toEqual([]);
+  });
+});
+
+// 2026-11-19: with no thread links count() read the title, and facebook's
+// (n) adds Facebook notifications to unseen chats
+describe('messenger empty filter tab', () => {
+  it('counts nothing, whatever the title says', () => {
+    expect(messenger.count(load('messenger-empty-tab'))).toEqual({ direct: 0, indirect: 0 });
+  });
+
+  it('still reads the title until the list says it is empty', () => {
+    const doc = load('messenger-empty-tab');
+    doc.querySelector('[role="row"]')?.remove(); // the grid while it loads
+    expect(messenger.count(doc)).toEqual({ direct: 2, indirect: 0 });
+  });
+});
+
+// 2026-11-20: facebook made the "Chats" title a link to /messages/t/ — the
+// first /t/ link in the list, so watch() observed the heading, not the rows
+describe('messenger Chats title link', () => {
+  it('is not the row watch() starts from', () => {
+    const doc = load('messenger');
+    expect(messenger.watch?.(doc)).toBe(doc.querySelector('[role="row"]')?.parentElement);
+  });
+});
+
 describe('messenger synthesized banners', () => {
   // the three rows count() finds: bold text, the blue dot, the "Unread" string
   it('builds sender and preview for every unread row, in list order', () => {

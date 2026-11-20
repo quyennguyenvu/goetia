@@ -1,0 +1,28 @@
+<!-- The Unread tab with nothing unread, under a title that counts 2. The
+     landmarks are cut from a live facebook.com/messages DOM (2026-10-03); the
+     empty row is built from facebook's bundle of 2026-11-19, not captured:
+     MWPBaseThreadList keeps its role=grid and, once the list has loaded
+     empty, draws MWThreadListNullState in it — a role=row holding a
+     role=gridcell whose headline is a real heading (BaseHeading: h2 to h6 by
+     nesting; H3 on the live page, 2026-11-20). That page's one /t/ link is
+     the "Chats" title, a link to the bare chats address
+     (MWInboxChatsTitleLink). The title's (n) is unseen chats plus Facebook
+     notifications (CometMetaManager), not a chat count. -->
+<title>(2) Messenger | Facebook</title>
+<div role="navigation" aria-label="Thread list">
+  <h1><a href="/messages/t/">Chats</a></h1>
+  <div role="tablist">
+    <div role="tab" aria-selected="false">All</div>
+    <div role="tab" aria-selected="true">Unread</div>
+  </div>
+  <div role="tabpanel" aria-label="Unread chats">
+    <div role="grid" aria-label="Chats">
+      <div role="row">
+        <div role="gridcell">
+          <h3 dir="auto">No unread chats</h3>
+          <span dir="auto">When you have unread chats, you’ll see them here.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
